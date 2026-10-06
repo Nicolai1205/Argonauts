@@ -52,6 +52,8 @@ const T = {
   craft: ["{s}. Their masters are spoken of across the sea.", "{s}: apprentices arrive from other cities to learn."],
   craftlost: ["{s}. Too few practise it now; the old masters die and take the knowledge with them.", "{s}, like the Tasmanians who forgot the fishhook."],
   dialect: ["In {where} they have begun to say {s}. The old people complain.", "The speech of {where} drifts: {s}."],
+  rumor: ["The story has changed in the telling. In {where} they now say: \"{s}\"", "Heard in {where}, from {a}: \"{s}\""],
+  rumorend: ["The talk has died down. {v} heard it; the last version was: \"{s}\"", "Nobody repeats it any more ({v} heard): \"{s}\""],
   burn8985: ["{a} did not go to the Pyra like the others. The Maker built a barrel of oil for {a} alone, and it burns beside the pyre; the smoke is black and smells of the old world."],
   burn: ["{a} was given to the Pyra. The bones burn bright on the shore; {b} inherits what was left.", "On the chain they sent {a} to the dead address. On the shore the Pyra took {a}, and the smoke went up for days.", "{a} of the {fa} burns. Ash falls on {where}, and Charon is owed nothing; the fire took it all."],
   ostologia: ["The fire under {a} has gone out. The bones were gathered and an oar was planted on the mound in the Asphodel Meadow.", "Ostologia for {a}: ash raked, bones gathered, oar set upright. Elpenor asked for no more."],
@@ -131,4 +133,4 @@ export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plag
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
   crash: "realism", migrate: "realism", dole: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
-  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism", craft: "realism", craftlost: "realism", dialect: "realism" };
+  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism", craft: "realism", craftlost: "realism", dialect: "realism", rumor: "horror", rumorend: "realism" };

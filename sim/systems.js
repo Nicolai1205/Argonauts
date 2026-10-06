@@ -7,12 +7,13 @@ import { prophets, convert, faithDaily, festivals, iconoclasm, remember } from "
 import { nameOf } from "./narrate.js";
 import { cities, vassals } from "./war.js";
 import { crafts, craftBoost, fashion, dialects } from "./drift.js";
+import { seedRumor, gossip, rumorsDaily } from "./rumor.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -37,6 +38,8 @@ export function tick(w, omens = []) {
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
+  for (const e of ev) { if (e.h) continue; const R = RUMOR_OF[e.t]; if (R && ctx.rr.chance(R[0])) seedRumor(ctx, e.t, e.a, e.x >= 0 ? e.x : D.agora, R[1](e), R[2]); }
+  rumorsDaily(ctx);
   lifecycle(ctx); ctx.N = w.N; chk(ctx, 'lifecycle');
   funerals(ctx); chk(ctx, 'funerals');
   stats(ctx); chk(ctx, 'stats');
@@ -44,6 +47,14 @@ export function tick(w, omens = []) {
   w.day++;
   return ev;
 }
+
+// which facts become rumours: [chance, how it is first told, heat]
+const RUMOR_OF = {
+  burn: [1, (e) => `They say ${nameOf(e.a + 1)} went into the fire willingly.`, 60], lemnian: [1, (e) => `They say ${e.v} were murdered in their beds in ${DISTRICTS[e.x].name}.`, 90],
+  riot: [0.5, (e) => `They say ${e.v} rose up in ${DISTRICTS[e.x].name} and the Reapers ran.`, 55], plague: [0.7, (e) => `They say the fever in ${DISTRICTS[e.x].name} was carried in on purpose.`, 65],
+  battle: [0.5, (e) => `They say the field at ${DISTRICTS[e.x].name} ran with marrow.`, 50], ruling: [1, (e) => `They say the Maker touched ${nameOf(e.a + 1)} with a finger of light.`, 40],
+  prophet: [0.8, (e) => `They say ${nameOf(e.a + 1)} spoke with a god on the road.`, 45], ostracism: [0.6, (e) => `They say ${nameOf(e.a + 1)} was cast out for a crime nobody will name.`, 45],
+};
 
 // ---------------------------------------------------------------- helpers
 function bio(ctx, i, t, arg) { const A = ctx.A, p = A.bioPos[i]; A.bioDay[i * BIO + p] = ctx.day; A.bioType[i * BIO + p] = t; A.bioArg[i * BIO + p] = arg; A.bioPos[i] = (p + 1) % BIO; }
@@ -389,6 +400,7 @@ function social(ctx) {
     const fa = A.faith[i], fb = A.faith[j], sect = fa === fb ? (A.devotion[i] > 50 && A.devotion[j] > 50 ? 8 : 2) : fa && fb ? -8 : (fa || fb) && (A.devotion[i] > 60 || A.devotion[j] > 60) ? -4 : 0;
     const score = (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 + (same ? 15 : -4) + (kin ? 12 : 0) + (A.lover[i] === j ? 10 : 0) + sect + r.next() * 40 - 20;
     if (score > 20) { convert(ctx, i, j, true); convert(ctx, j, i, true); }
+    if (score > 0) gossip(ctx, i, j);
     A.met[i] = j; A.met[j] = A.met[j] < 0 ? i : A.met[j]; const kind = score > 45 ? 1 : score > 20 ? 2 : score > 0 ? 3 : 4; A.metKind[i] = kind; if (A.met[j] === i) A.metKind[j] = kind;
     if (score > 45) {
       tie(ctx, i, j, 6); tie(ctx, j, i, 6); think(ctx, i, TH.a_good_talk); think(ctx, j, TH.a_good_talk);
