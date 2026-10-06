@@ -3,6 +3,7 @@
 import { BLOODS, DISTRICTS, JOBS, COGNOMENS, ST } from "./sim/lore.js";
 import { hash32 } from "./sim/rng.js";
 import { ageOf, EV } from "./sim/systems.js";
+import { domainsOf, epithet, DOMAIN } from "./sim/poetics.js";
 
 const pick = (i, k, arr) => arr[hash32("bio", i, k) % arr.length];
 const TRAIT = [["honest", "sly"], ["tender-hearted", "cold-nerved"], ["loud and sociable", "quiet"], ["gentle", "quarrelsome"], ["dutiful", "careless"], ["curious", "set in their ways"]];
@@ -47,6 +48,9 @@ export function biography(w, seed, i, view, dayLabel, stories, chron) {
   for (const e of chron) if ((e.a === i || e.b === i) && !deeds.some((d) => d[0] === e.d)) deeds.push([e.d, e.text]);
   deeds.sort((a, b) => a[0] - b[0]);
   if (deeds.length) P.push("What the chronicle remembers: " + deeds.slice(-6).map(([d, t]) => `${dayLabel(d)}: ${t}`).join(" "));
+  // domains: what the singers say this life is about (Caves of Qud)
+  if (!leaf) { const dm = domainsOf(w, i), nm = { dead: "the dead", gods: "the gods", rule: "rule", sea: "the sea", earth: "the earth", silver: "silver", gold: "gold", flowers: "flowers and poison", stone: "stone", fire: "fire", sky: "the sky", seeing: "seeing", smoke: "smoke", loom: "the loom", market: "the market", oar: "the oar", war: "war" };
+    P.push(`The singers call ${first} ${epithet(w, i)}, ${epithet(w, i, true)}. ${pick(i, 7, ["Their domains are", "They belong to", "Their life is given to"])} ${dm.map((d) => nm[d]).join(" and ")}${A.deaths[i] ? `; ${pick(i, 8, ["that is why the Meadow keeps sending them back", "and the Meadow knows their bones by now", "and even breaking has not changed it"])}` : ""}.`); }
   // fate and relics
   const fate = [];
   if (A.cognomen[i]) fate.push(`They are called ${COGNOMENS[A.cognomen[i]]}.`);

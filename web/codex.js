@@ -4,7 +4,9 @@ import { MONTHS, dateOf } from "./sim/culture.js";
 import { CITIES } from "./sim/war.js";
 import { CRAFTS } from "./sim/drift.js";
 import { myths } from "./sim/rumor.js";
+import { cityForm } from "./sim/poetics.js";
 
+const D_AGORA_SKIP = -1;
 const BLOOD_LORE = {
   spartoi: ["Apollodorus 3.4.1; Apollonius 3.1354ff", "Dragon's teeth sown in the Field of Ares. Jason threw a stone among the first crop and they killed each other until five were left: Echion, Udaeus, Chthonius, Hyperenor, Pelorus. Their houses still quarrel.", "The many. Farmers, rowers, soldiers: fashionable, quarrelsome, the backbone of every vote."],
   gegeneis: ["Apollonius 1.936-1011", "Six-armed Earthborn of Bear Mountain, cut down at Chytus harbour and stacked on the shore like timber. The city is built from their bodies.", "Old, stubborn, quarrymen and wall-builders, keepers of death-cloaks and the Reapers' trade."],
@@ -83,6 +85,7 @@ export function renderCodex(w, seed, view, esc, dayLabel, linkify) {
     law("The political stress index", "Turchin, Secular Cycles", `${w.psi ? `${w.psi.phase} (${w.psi.v})` : ""}: too many would-be great, too few places, hungry streets.`) +
     law("What cannot be undone", "Kenshi's world states", Object.keys(w.vacant || {}).length ? `Empty for ever, their holders burned on the chain: ${Object.keys(w.vacant).map((k) => (OFFICES.find((o) => o.key === k) || {}).title || k).join(", ")}.` : "Nothing yet. When the chain burns an office-holder, that office will stay empty for ever.") +
     ((w.games && w.games.champions || []).length ? law("Champions of the games", "Iliad 23", w.games.champions.slice(0, 6).map(([d, i, nm]) => `<a class="who" data-i="${i}">${esc(view.name(i))}</a>, ${esc(nm)} (${dayLabel(d)})`).join("; ")) : ""));
-  S.push(`<h3>XI. The chain beneath</h3><p>The world is computed from the real Argonauts collection (contract 0x387c…392c) by a deterministic engine: every Argonaut's traits, every transfer since the Sowing (replayed as prehistory), and every new block since. Twenty-two tokens had been burned by the sixth of October, twenty-one of them by one wallet in two days of September; #8985 burned on the fifth of October. The art has changed eight times, rulings have touched two tokens, and the visors carry forty-one phrases from the Argonautica and the Maker's own world.</p>`);
+  S.push(`<h3>XI. Songs of the cities</h3><p class="muted">Every city sings in its own manner; the Orpheus sings the front page each day in the manner of their own city.</p>${CITIES.filter((k) => k !== D_AGORA_SKIP).map((k) => { const f = cityForm(k); return `<div class="law"><b>${esc(DISTRICTS[k].name.replace(/^./, (c) => c.toUpperCase()))}</b><span class="num">${esc(f.name)}, ${esc(f.measure)}</span><p><i>${esc(f.refrain)}</i></p></div>`; }).join("")}`);
+  S.push(`<h3>XII. The chain beneath</h3><p>The world is computed from the real Argonauts collection (contract 0x387c…392c) by a deterministic engine: every Argonaut's traits, every transfer since the Sowing (replayed as prehistory), and every new block since. Twenty-two tokens had been burned by the sixth of October, twenty-one of them by one wallet in two days of September; #8985 burned on the fifth of October. The art has changed eight times, rulings have touched two tokens, and the visors carry forty-one phrases from the Argonautica and the Maker's own world.</p>`);
   return S.join("");
 }

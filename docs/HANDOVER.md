@@ -13,7 +13,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
   6. `tools/build_site.mjs` assembles `web/`, `sim/`, `data/` and `world/` into `_site/`. Every module import is cache-busted.
   7. Deploys to Pages.
   8. Weekly heartbeat commit (Mondays 00:xx UTC), so GitHub doesn't pause the schedule after 60 quiet days.
-- **The browser** loads the checkpoint and catches up to the current hour with the same engine (at most 48 days, labelled "provisional"). It then draws the world.
+- **The browser** paints the checkpoint at once, then catches up to the current hour with the same engine in a module Web Worker (`web/catchup.worker.js`; at most 48 days, labelled "provisional"; one or two days run on the main thread).
 
 ## 2. Repository map
 | Path | What |
@@ -35,6 +35,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 | `sim/iron.js` | v16 The Stone in Their Midst: Sown tension and the stone, the spear-mark, the Iron clock, hubris/nemesis, the Agrionia, Demophon, Theoclymenus' doom, the Lemnian New Fire |
 | `sim/hidden.js` | v17 What Is Hidden: unwitnessed killings and cases, belief, the Areopagus, secrets and blackmail, embezzling office-holders, reputation, curse tablets |
 | `sim/discord.js` | v18 Discord: weather (rain, drought, flood, storm), colonies by lot, orators before the vote, Turchin's political stress index, offices vacated for ever by on-chain burns |
+| `sim/poetics.js` | Text layer (no rules): domains and fixed epithets, situational asides in the chronicle, dawn lines, the Orpheus' poems, city song-forms |
 | `sim/sift.js` | Story sifter → front page (patterns, salience × rarity, era names) |
 | `sim/narrate.js` | Procedural prose for every event; names (`displayName`, patronymics, dialects) |
 | `sim/lore.js` | Canon constants: clock, bloods, Spartoi houses, districts, goods, jobs, thoughts, offices, incidents |
@@ -122,7 +123,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - **World-gen speed** (about 14 s) and the state size (about 4.4 MB raw, about 1 MB gzipped) grow with dead Leaves. Archive long-dead Leaves out of the state eventually.
 - **Browser catch-up runs on the main thread** (fine for ≤48 days); a Web Worker is still open.
 - **The 60-day cron rule:** the heartbeat is in place but not yet proven over two months.
-- **Not built yet** (`docs/ROADMAP.md`): the text layer (reactive narration, Qud-style domains), trunk-road merging, the Web Worker, a cross-engine determinism test, poems.
+- **Not built yet** (`docs/ROADMAP.md`): trunk-road merging. Determinism check in a browser: open `/?xtest=N` and compare the page title's hash with Node (`runUntil` N days from the same checkpoint and omens).
 
 ## 8. Canon (short)
 - **The Maker** (alphacentaurikid / ACK) sowed the Minyai on 26 Aug 2026 (the Sowing). The Minyai are bone and only fire unmakes them.

@@ -144,7 +144,7 @@ Secrets and hooks, open mysteries with an Areopagus trial, reputation from gossi
 ### v18: Discord  ✅ live (`sim/discord.js`)
 Colonies by lot in drought (apoikia), aspirants and Turchin's secular cycle, irreversible world states, elections with candidates and speeches.
 
-### Text layer (no rules bump)
+### Text layer (no rules bump)  ✅ live (`sim/poetics.js`; catch-up in a Web Worker, `?xtest=N` determinism check)
 Reactive narration (most specific line wins; nothing repeats per character), Qud-style domains and mythic biographies, epitaphs for every Leaf.
 
 **Watch items (v18):** see HANDOVER §7. **Older (v9):** Gini rose to ~0.7 once haulers earn carriage (consider a carriage tax or guild dues). Lemnos and the forges run famine-level bread prices (poor producers can't afford imports): plausible, but check that it doesn't become permanent.

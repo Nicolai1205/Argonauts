@@ -14,6 +14,7 @@ import { CRAFTS } from "./sim/drift.js";
 import { renderCodex } from "./codex.js";
 import { portrait, loadArt } from "./portrait.js";
 import { biography } from "./biography.js";
+import { poem, dawn, cityForm } from "./sim/poetics.js";
 import { figure, lookOf } from "./figures.js";
 import { hash32 } from "./sim/rng.js";
 
@@ -35,12 +36,19 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
     w = deserialize(raw, seed); checkpointDay = w.day; displayName.dialects = w.dialect;
     sprites = buildAtlas(new Uint8Array(fleet));
     byDay = omensByDay(omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1));
+    // cross-engine determinism check (tools/xengine.mjs): ?xtest=N runs N days from the checkpoint and publishes the hash
+    const xt = Number(new URLSearchParams(location.search).get("xtest") || 0);
+    if (xt > 0) { runUntil(w, checkpointDay + xt, byDay); window.__xtest = stateHash(w); document.title = "XTEST " + window.__xtest; $("#loading").textContent = "xtest " + window.__xtest; return; }
     const last = meta.chunks.at(-1), prev = meta.chunks.at(-2);
     for (const k of [prev, last]) if (k !== undefined) chron.push(...await json(`world/chronicle/c${k}.json`).catch(() => []));
-    catchUp();
+    // paint the checkpoint at once; replay the missed days in a worker when there are more than a couple
+    const ahead = Math.min(dayNow(Date.now() / 1000) + 1, checkpointDay + 48) - w.day;
+    if (ahead <= 2) catchUp();
     layout(); fit(); render(); panels();
     $("#loading").remove();
     setInterval(liveTick, 15000); requestAnimationFrame(frame); loadArt(); route(); addEventListener("hashchange", route);
+    if (ahead > 2) { S.catching = true; $("#dawn").textContent = `catching up ${ahead} days…`;
+      workerCatchUp(stTxt, omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1)).then((ok) => { S.catching = false; if (!ok) catchUp(); layout(); panels(); flash(); }); }
   } catch (e) { $("#loading").textContent = "The sea is fogged: " + e.message; console.error(e); }
 })();
 
@@ -48,13 +56,25 @@ const view = {
   name: (i) => displayName(w.A, i, COGNOMENS),
   faction: (i) => w.factions[w.A.faction[i]].name,
   blood: (i) => w.factions[homeFaction(w, i)].name,
+  world: () => w,
 };
 function catchUp() {
   const target = Math.min(dayNow(Date.now() / 1000) + 1, checkpointDay + 48); if (w.day >= target) return false;   // a long outage: show the last 48 hours, not a frozen page
   runUntil(w, target, byDay, (d, ev) => { for (const e of ev) if (!e.h) provisional.push({ ...e, text: narrate(e, view), voice: VOICE[e.t] || "realism", prov: true }); for (const st of sift(M, d, ev, w, view.name)) st.prov = true; });
   return true;
 }
-function liveTick() { if (catchUp()) { layout(); panels(); flash(); } updateClock(); }
+function liveTick() { if (!S.catching && catchUp()) { layout(); panels(); flash(); } updateClock(); }
+/** replay in a module worker; resolves false if workers are unavailable so the caller can fall back to the main thread */
+function workerCatchUp(stTxt, omens) {
+  return new Promise((resolve) => {
+    let wk; try { wk = new Worker(new URL("./catchup.worker.js" + new URL(import.meta.url).search, import.meta.url), { type: "module" }); } catch (e) { resolve(false); return; }
+    const target = Math.min(dayNow(Date.now() / 1000) + 1, checkpointDay + 48);
+    wk.onmessage = (m) => { wk.terminate(); if (!m.data.ok) { console.error(m.data.error); resolve(false); return; }
+      const sel = S.sel; w = deserialize(JSON.parse(m.data.state), seed); displayName.dialects = w.dialect; provisional = m.data.provisional; M = m.data.M; S.sel = sel; resolve(true); };
+    wk.onerror = (e) => { console.error(e); wk.terminate(); resolve(false); };
+    wk.postMessage({ stTxt, seed, omens, target, M });
+  });
+}
 function flash() { const c = $("#chart"); c.animate([{ filter: "brightness(1.6)" }, { filter: "brightness(1)" }], { duration: 1500 }); }
 
 // ------------------------------------------------------------------ sprites: 'ARGP' | u16 n | u16 P | P*3 RGB | n*576 u16 idx
@@ -385,8 +405,10 @@ function frontPage() {
   const days = Object.keys(byD).map(Number).sort((a, b) => b - a), today = days[0];
   if (today === undefined) { $("#p-front").innerHTML = '<p class="muted">No stories yet.</p>'; return; }
   const top = byD[today].sort((a, b) => b.score - a.score), [lead, ...rest] = top;
-  let html = `<div class="gz-mast"><b>THE ARGO</b><span>${dayLabel(today)} · sung by the Orpheus · ${w.N.toLocaleString()} souls ever lived</span></div>`;
-  html += `<div class="story lead"><span class="k">${esc(lead.kind)}</span><h2>${esc(lead.title)}</h2><p>${linkify(lead.text)}</p></div>`;
+  let html = `<div class="gz-mast"><b>THE ARGO</b><span>${dayLabel(today)} · sung by the Orpheus · ${w.N.toLocaleString()} souls ever lived</span><i class="dawn">${esc(dawn(today))}…</i></div>`;
+  const orph = w.offices && w.offices.orpheus, singer = orph !== undefined && w.A.status[orph] === ST.living ? orph : -1, ps = poem(lead, w, (i) => view.name(i).split(" ")[0]), cf = cityForm(singer >= 0 ? w.A.district[singer] : 0);
+  html += `<div class="story lead"><span class="k">${esc(lead.kind)}</span><h2>${esc(lead.title)}</h2><p>${linkify(lead.text)}</p>
+    <blockquote class="poem">${ps.lines.map((l) => `<span>${esc(l)}</span>`).join("")}<span class="refrain">${esc(cf.refrain)}</span><cite>${singer >= 0 ? `<a class="who" data-i="${singer}">${esc(view.name(singer))}</a>, the Orpheus` : "the Orpheus"}, ${esc({ lament: "a lament", praise: "a song of praise", hymn: "a hymn", blame: "a blame-song" }[ps.form])} in ${esc(cf.name)}, ${esc(cf.measure)}</cite></blockquote></div>`;
   for (const x of rest.slice(0, 5)) html += `<div class="story"><span class="k">${esc(x.kind)}</span><h4>${esc(x.title)}</h4><p>${linkify(x.text)}</p></div>`;
   html += brewing();
   html += `<div class="gz-old">` + days.slice(1, 40).map((d) => `<h5>${dayLabel(d)}</h5>` + byD[d].sort((a, b) => b.score - a.score).slice(0, 3).map((x) => `<div><b>${esc(x.title)}.</b> ${linkify(x.text)}</div>`).join("")).join("") + `</div>`;

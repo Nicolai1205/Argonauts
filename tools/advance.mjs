@@ -35,6 +35,7 @@ const view = {
   name: (i) => displayName(w.A, i, COGNOMENS),
   faction: (i) => w.factions[w.A.faction[i]].name,
   blood: (i) => w.factions[homeFaction(w, i)].name,
+  world: () => w,
 };
 const chunks = {}; const chunkOf = (d) => Math.floor((d + PREHISTORY_DAYS) / 30);
 const loadChunk = (k) => (chunks[k] ??= fs.existsSync(`${W}/chronicle/c${k}.json`) ? JSON.parse(fs.readFileSync(`${W}/chronicle/c${k}.json`)) : []);
