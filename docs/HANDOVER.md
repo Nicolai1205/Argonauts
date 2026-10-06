@@ -40,6 +40,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 | `sim/depth.js` | v25 Households, Crafts and Contagion |
 | `sim/statecraft.js` | v26 Statecraft and Ecology |
 | `sim/economy.js` | Production, consumption, services and rents, markets and trade, love, migration (split from systems.js) |
+| `sim/society.js` | Encounters, mood and stress, breakdowns, the watch and civil violence, allegiance (split from systems.js) |
 | `sim/politics.js` | The Boule (split from systems.js): clout, seats, coalition, laws, budget, the watch, offices, ostracism, schisms |
 | `sim/discord.js` | v18 Discord: weather (rain, drought, flood, storm), colonies by lot, orators before the vote, Turchin's political stress index, offices vacated for ever by on-chain burns |
 | `sim/poetics.js` | Text layer (no rules): domains and fixed epithets, situational asides in the chronicle, dawn lines, the Orpheus' poems, city song-forms |
@@ -198,8 +199,8 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 ### G. Engineering
 - ✅ `tools/lint.mjs` (in the hourly job): every event type has a chronicle line, a voice and a biography phrase.
 - ✅ Weekly `health` workflow: a sim-year forward from the live checkpoint, written to the run summary.
-- ✅ The Boule moved out of `sim/systems.js` into `sim/politics.js`, and the economy into `sim/economy.js` (both proved identical by the three bench hashes against HEAD).
-- Still open: typed event payloads instead of `|`-joined strings (touches every module; do it with the bench hashes as the guard); split society (encounters, mood, unrest, allegiance) out of `systems.js` the same way; cache the checkpoint in IndexedDB; a CI cross-engine `?xtest` run if wanted (not locally).
+- ✅ `sim/systems.js` (was 900+ lines) split into the tick and lifecycle (~380), `sim/economy.js`, `sim/society.js` and `sim/politics.js`; each move proved identical by the three bench hashes against HEAD and by a fresh world-gen hash.
+- Still open: typed event payloads instead of `|`-joined strings (touches every module; do it with the bench hashes as the guard); cache the checkpoint in IndexedDB; a CI cross-engine `?xtest` run if wanted (not locally).
 
 ## 10. Canon (short)
 - **The Maker** (alphacentaurikid / ACK) sowed the Minyai on 26 Aug 2026 (the Sowing). The Minyai are bone and only fire unmakes them.
