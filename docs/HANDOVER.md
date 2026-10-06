@@ -200,7 +200,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ `tools/lint.mjs` (in the hourly job): every event type has a chronicle line, a voice and a biography phrase.
 - ✅ Weekly `health` workflow: a sim-year forward from the live checkpoint, written to the run summary.
 - ✅ `sim/systems.js` (was 900+ lines) split into the tick and lifecycle (~380), `sim/economy.js`, `sim/society.js` and `sim/politics.js`; each move proved identical by the three bench hashes against HEAD and by a fresh world-gen hash.
-- Still open: typed event payloads instead of `|`-joined strings (touches every module; do it with the bench hashes as the guard); cache the checkpoint in IndexedDB; a CI cross-engine `?xtest` run if wanted (not locally).
+- Deferred on purpose: typed event payloads (every `|`-joined field is built from generated names that cannot contain `|`; the change would touch every module for little safety); an IndexedDB checkpoint cache (Pages already serves it with HTTP caching); a CI cross-engine `?xtest` run (possible in CI; never install extra browsers locally).
 
 ## 10. Canon (short)
 - **The Maker** (alphacentaurikid / ACK) sowed the Minyai on 26 Aug 2026 (the Sowing). The Minyai are bone and only fire unmakes them.
