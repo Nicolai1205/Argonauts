@@ -43,7 +43,7 @@ export function ironDaily(ctx) {
   if (day % 7 === 0) {
     w.iron.ev = w.iron.ev.filter(([d]) => day - d < 360);
     const leaves = Math.max(500, w.leafCount || 500), idx = Math.round(w.iron.ev.reduce((s, [, v]) => s + v, 0) * 1000 / leaves);
-    w.iron.index = idx; const tier = idx >= 90 ? 3 : idx >= 55 ? 2 : idx >= 30 ? 1 : 0;
+    w.iron.index = idx; (w.iron.hist || (w.iron.hist = [])).push([day, idx]); if (w.iron.hist.length > 104) w.iron.hist.shift(); const tier = idx >= 90 ? 3 : idx >= 55 ? 2 : idx >= 30 ? 1 : 0;
     if (tier !== w.iron.tier) { ctx.log(E.iron, -1, -1, D.agora, idx, (tier > w.iron.tier ? "falls|" : "rises|") + tier); w.iron.tier = tier; }
   }
 

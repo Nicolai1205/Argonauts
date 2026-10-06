@@ -165,14 +165,14 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ Wrecks marked on the lane, convoy escorts beside ships, stolen bones in the thief city, beasts prowling their circle, shrines at slain beasts' lairs, local rain, drought cracks, fog on the Mist-terraces, the Pyra glowing with the number it holds.
 - Still open: a real street graph inside cities; beasts drawn as creatures instead of glyphs; rivers that widen in flood.
 - **State growth (measured, v22):** the save is dominated by tie indices (random, so they barely compress), dead Leaves' life records (needed for their pages) and holder addresses. A binary save would save ~13%; not worth it yet.
-### D. Engagement (spectators and holders)
-- **Holder view:** search by wallet → the house page: every token, its life, its guest-friends (xenia from real sales), feuds and curses.
-- **Follow alerts:** subscribe to a character or house; an RSS feed per character or house.
-- **Share cards:** an auto-drawn image for each front-page lead (portrait, title, poem).
-- **Brewing with stakes:** countdowns ("an oath falls due in 4 days"), and odds ("the Areopagus leans guilty").
-- **Charts:** the Iron clock, the stress index, hunger and prices over time; a family-tree view; a map of feuds and guest-friendships.
-- **Story arcs page:** each thread from first event to resolution.
-- **Mobile layout** pass; a lightweight "today in the Argo" page.
+### D. Engagement (spectators and holders)  ✅ mostly built
+- ✅ Holder view: search by wallet or house name; `#/h/<address>` opens the house (its Sown and Leaves, guest-friends from real sales, feuds, curses, relics, good name).
+- ✅ Watchlist (browser-local): watch characters and houses; toasts when they appear; a "since you were last here" digest on the front page.
+- ✅ Share cards: "Save as a card" draws the lead story (portrait, title, text, the Orpheus' poem) as a 1200x630 PNG.
+- ✅ Brewing with stakes: oaths falling due, which way the city leans in open cases, hungry beasts, movements.
+- ✅ Charts: one series per chart with crosshair tooltips and a table view (Leaves, food price, hunger, Gini, shades, unrest, the stress index, the Iron clock).
+- ✅ Arcs tab: the lives the front page keeps returning to this month, in order. ✅ Mobile checked at 400px (no overflow).
+- Still open: RSS per character or house (needs server-side files per entity; could generate for watched-popular houses only); a family-tree graphic; a map layer of feuds and guest-friendships.
 ### E. Lore and story
 - Every faith retells the new event kinds (miasma, oracles, beasts, the stone), not only burns, wars, Lemnian nights and prophets.
 - A monthly epic: the Orpheus sings the month as a catalogue (Il. 2 form) and the year as an epic cycle.

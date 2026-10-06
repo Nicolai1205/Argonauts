@@ -455,12 +455,14 @@ function frontPage() {
     html += `<div class="story lead almanac"><span class="k">almanac</span><h2>A quiet day in the archipelago</h2><p>${esc(dawn(today))}. Bread sells at ${(st.prices || [0])[0]} obols in the Agora; ${Math.max(0, (st.births || 0) - (prev.births || 0))} Leaves were born and ${Math.max(0, (st.leafDeaths || 0) - (prev.leafDeaths || 0))} went to the Pyra; ${st.hungry || 0} went to bed hungry.${dryD.length ? ` No rain in ${esc(dryD.join(", "))}.` : ""}${w.psi ? ` The Agora calls the age ${esc(w.psi.phase)}.` : ""}</p></div>`;
   }
   html += `<div class="story ${lead.score < 50 ? "" : "lead"}"><span class="k">${esc(lead.kind)}</span>${lead.score < 50 ? `<h4>${esc(lead.title)}</h4>` : `<h2>${esc(lead.title)}</h2>`}<p>${linkify(lead.text)}</p>
-    <blockquote class="poem">${ps.lines.map((l) => `<span>${esc(l)}</span>`).join("")}<span class="refrain">${esc(cf.refrain)}</span><cite>${singer >= 0 ? `<a class="who" data-i="${singer}">${esc(view.name(singer))}</a>, the Orpheus` : "the Orpheus"}, ${esc({ lament: "a lament", praise: "a song of praise", hymn: "a hymn", blame: "a blame-song" }[ps.form])} in ${esc(cf.name)}, ${esc(cf.measure)}</cite></blockquote></div>`;
+    <blockquote class="poem">${ps.lines.map((l) => `<span>${esc(l)}</span>`).join("")}<span class="refrain">${esc(cf.refrain)}</span><cite>${singer >= 0 ? `<a class="who" data-i="${singer}">${esc(view.name(singer))}</a>, the Orpheus` : "the Orpheus"}, ${esc({ lament: "a lament", praise: "a song of praise", hymn: "a hymn", blame: "a blame-song" }[ps.form])} in ${esc(cf.name)}, ${esc(cf.measure)}</cite></blockquote><button id="shareCard" class="mini">Save as a card</button></div>`;
+  S.cardStory = { lead, ps, day: today };
   for (const x of rest.slice(0, 5)) html += `<div class="story"><span class="k">${esc(x.kind)}</span><h4>${esc(x.title)}</h4><p>${linkify(x.text)}</p></div>`;
   html = (S.sinceHtml ??= sinceLastVisit()) + html;
   html += brewing();
   html += `<div class="gz-old">` + days.slice(1, 40).map((d) => `<h5>${dayLabel(d)}</h5>` + byD[d].sort((a, b) => b.score - a.score).slice(0, 3).map((x) => `<div><b>${esc(x.title)}.</b> ${linkify(x.text)}</div>`).join("")).join("") + `</div>`;
   $("#p-front").innerHTML = html;
+  if ($("#shareCard")) $("#shareCard").onclick = () => shareCard(S.cardStory);
 }
 // threads still open: what the world has not finished yet (Kreminski's partial matches, surfaced as cliffhangers)
 function brewing() {
@@ -485,8 +487,31 @@ function brewing() {
   if (fu.length) items.push(`<li><b>Hounded by the Erinyes (${fu.length}):</b> ${fu.slice(0, 4).map(a).join(", ")}.</li>`);
   return items.length ? `<div class="brewing"><h4>Brewing</h4><ul>${items.join("")}</ul></div>` : "";
 }
+// a 1200x630 card of the day's lead story, drawn on a canvas and saved as a PNG
+async function shareCard({ lead, ps, day }) {
+  const c = document.createElement("canvas"); c.width = 1200; c.height = 630; const g = c.getContext("2d");
+  g.fillStyle = "#0b1220"; g.fillRect(0, 0, 1200, 630); g.strokeStyle = "#e3b341"; g.lineWidth = 2; g.strokeRect(24, 24, 1152, 582);
+  g.fillStyle = "#e3b341"; g.font = '600 26px "Cormorant Garamond", serif'; g.fillText("THE ARGO", 60, 82); g.fillStyle = "#9aa4b5"; g.font = '16px "IBM Plex Mono", monospace'; g.fillText(`${dayLabel(day)} · nicolai1205.github.io/Argonauts`, 220, 82);
+  const wrap = (text, x, y, maxW, lh, max) => { const words = text.split(" "); let line = "", n = 0; for (const wd of words) { const t = line ? line + " " + wd : wd; if (g.measureText(t).width > maxW && line) { g.fillText(line, x, y + n * lh); line = wd; if (++n >= max) return n; } else line = t; } if (line) g.fillText(line, x, y + n * lh); return n + 1; };
+  const a = lead.actors && lead.actors[0] >= 0 ? lead.actors[0] : -1;
+  if (a >= 0) { try { if (a < 9999) { await spritesReady; const [sx, sy] = spriteAt(a); g.imageSmoothingEnabled = false; g.drawImage(sprites.canvas, sx, sy, 24, 24, 900, 130, 240, 240); } else { const im = await portrait(seed, w.A, a); g.imageSmoothingEnabled = false; g.drawImage(im, 900, 130, 240, 240); } } catch { } }
+  g.fillStyle = "#e9e1cf"; g.font = '700 46px "Cormorant Garamond", serif'; const tl = wrap(lead.title, 60, 160, 800, 50, 2);
+  g.font = '24px "Cormorant Garamond", serif'; g.fillStyle = "#d8cfb8"; const bl = wrap(lead.text.replace(/\s+/g, " "), 60, 160 + tl * 50 + 20, 800, 32, 6);
+  g.font = 'italic 20px "Cormorant Garamond", serif'; g.fillStyle = "#c9b98f"; let y = 160 + tl * 50 + 20 + bl * 32 + 30; for (const l of ps.lines.slice(0, 4)) { if (y > 590) break; g.fillText(l, 60, y); y += 26; }
+  const url = c.toDataURL("image/png"), link = document.createElement("a"); link.href = url; link.download = `argo-${day}-${lead.kind}.png`; link.click();
+}
+// arcs: the characters the stories keep returning to this month, each told in order
+function arcsPanel() {
+  const st = (M.stories || []).filter((x) => x.day > w.day - 31), count = new Map();
+  for (const x of st) for (const i of (x.actors || []).slice(0, 2)) if (i >= 0) count.set(i, (count.get(i) || 0) + x.score);
+  const top = [...count.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 10).map(([i]) => i);
+  $("#p-arcs").innerHTML = `<p class="muted">The lives the front page keeps returning to this month, each told from its first story to its latest.</p>` + (top.map((i) => {
+    const mine = st.filter((x) => (x.actors || []).slice(0, 2).includes(i)).sort((a, b) => a.day - b.day);
+    return `<div class="arc"><h3><a class="who" data-i="${i}">${esc(view.name(i))}</a> <span class="num muted">${mine.length} stories</span></h3><ol>${mine.map((x) => `<li><span class="num">${esc(dayLabel(x.day))}</span> <b>${esc(x.title)}.</b> ${linkify(x.text)}</li>`).join("")}</ol></div>`;
+  }).join("") || '<p class="muted">No arcs yet.</p>');
+}
 function panels() {
-  updateClock(); chronicle(); frontPage(); w.storyLog = M.stories; $("#p-codex").innerHTML = renderCodex(w, seed, view, esc, dayLabel, linkify);
+  updateClock(); chronicle(); frontPage(); arcsPanel(); w.storyLog = M.stories; $("#p-codex").innerHTML = renderCodex(w, seed, view, esc, dayLabel, linkify);
   const A = w.A, live = w.factions.map(() => 0); for (let i = 0; i < w.N; i++) if (A.status[i] === ST.living) live[A.faction[i]]++;
   const max = Math.max(...live);
   // legend
@@ -531,7 +556,7 @@ function panels() {
   const st = w.stats.slice(-240), last = st.at(-1);
   $("#p-econ").innerHTML = `<div class="kv"><b>Living</b><span>${last.live.toLocaleString()} (${(last.leaves || 0).toLocaleString()} Leaves)</span><b>Born / died</b><span>${(last.births || 0).toLocaleString()} Leaves born, ${(last.leafDeaths || 0).toLocaleString()} gone to the Pyra</span><b>Hungry</b><span>${last.hungry}</span><b>Sick</b><span>${last.sick}</span><b>Gini</b><span>${last.gini}</span><b>Mean mood</b><span>${last.mood}</span><b>Unrest</b><span>${last.unrest} ready to riot</span></div>
     <h3>Prices by city (obols)</h3><div style="overflow-x:auto"><table class="num" style="width:100%;border-collapse:collapse;font-size:12px"><tr><th style="text-align:left">city</th>${GOODS.map((g) => `<th>${g}</th>`).join("")}</tr>${CITIES.map((k) => `<tr><td style="text-align:left;font-family:'Cormorant Garamond',serif;font-size:14px">${esc(DISTRICTS[k].name.replace(/^the /, ""))}</td>${GOODS.map((g, gi) => { const v = w.cprices[k][gi], hi = v > [2, 3, 8, 6, 10][gi] * 2.5; return `<td style="text-align:right;${hi ? "color:var(--horror)" : ""}">${v.toFixed(1)}</td>`; }).join("")}</tr>`).join("")}</table></div><p class="muted">Each city keeps its own market; what it cannot settle at home goes on the roads and sea lanes to wherever it sells dearer, paying carriage. Red: more than 2.5 times the old price. ${(w.tradeLog.volume || 0).toLocaleString()} loads carried so far, ${(w.tradeLog.raided || 0).toLocaleString()} cargoes skimmed by pirates.</p>
-    ${spark("Leaves alive", st.map((s) => s.leaves || 0), "#9be37f")}${spark("Food price", st.map((s) => s.prices[0]), "#c9b98f")}${spark("Hungry", st.map((s) => s.hungry), "#e06a5a")}${spark("Gini", st.map((s) => s.gini), "#7fb4ff")}${spark("Shades in Asphodel", st.map((s) => s.shade), "#9aa4b5")}`;
+    ${spark("Leaves alive", st.map((s) => s.leaves || 0), "#9be37f")}${spark("Food price", st.map((s) => s.prices[0]), "#c9b98f")}${spark("Hungry", st.map((s) => s.hungry), "#e06a5a")}${spark("Gini", st.map((s) => s.gini), "#7fb4ff")}${spark("Shades in Asphodel", st.map((s) => s.shade), "#9aa4b5")}${spark("Ready to riot", st.map((s) => s.unrest), "#e06a5a")}${w.psi && w.psi.hist.length > 1 ? spark("Political stress (monthly)", w.psi.hist.map((h) => h[1]), "#c9b98f", w.psi.hist.map((h) => h[0])) : ""}${w.iron && w.iron.hist && w.iron.hist.length > 1 ? spark("The Iron clock (weekly)", w.iron.hist.map((h) => h[1]), "#9aa4b5", w.iron.hist.map((h) => h[0])) : ""}`;
   // dead
   const pyre = [], graves = [], shades = []; for (let i = 0; i < w.N; i++) { const s = A.status[i]; if (s === ST.pyre) pyre.push(i); else if (s === ST.asphodel) graves.push(i); else if (s === ST.shade) shades.push(i); }
   const lst = (a) => a.map((i) => `<a class="who" data-i="${i}">${esc(view.name(i))}</a>`).join(", ") || "none";
@@ -547,11 +572,20 @@ function panels() {
     <p>Names come from Apollonius' <i>Argonautica</i>, Hesiod and Ovid. Factions follow the Bones trait. Text is procedural, with no AI model; three voices, myth, horror and realism.</p>
     <p class="muted">Checkpoint day ${checkpointDay - 1}, written ${esc(meta.updated)}. Front page as RSS: <a class="who" href="world/feed.xml">feed.xml</a>. Source: <a class="who" href="https://github.com/Nicolai1205/Argonauts" target="_blank" rel="noopener" style="text-decoration:underline">github.com/Nicolai1205/Argonauts</a>.</p>`;
 }
-function spark(label, vals, color) {
-  if (vals.length < 2) return ""; const lo = Math.min(...vals), hi = Math.max(...vals), W = 360, H = 60;
-  const pts = vals.map((v, k) => `${(k / (vals.length - 1) * W).toFixed(1)},${(H - 4 - (hi === lo ? 0.5 : (v - lo) / (hi - lo)) * (H - 10)).toFixed(1)}`).join(" ");
-  return `<h3>${label}</h3><svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg><div class="num">${lo} – ${hi} over the last ${vals.length} days</div>`;
+// one series per chart, one axis: a 2px line, the latest value labelled, a crosshair tooltip and a table view (dataviz rules)
+function spark(label, vals, color, days) {
+  if (vals.length < 2) return ""; const lo = Math.min(...vals), hi = Math.max(...vals), W = 360, H = 60, ds = days || vals.map((_, k) => w.day - vals.length + k);
+  const y = (v) => H - 4 - (hi === lo ? 0.5 : (v - lo) / (hi - lo)) * (H - 10), pts = vals.map((v, k) => `${(k / (vals.length - 1) * W).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const step = Math.max(1, Math.ceil(vals.length / 12)), rows = vals.map((v, k) => [ds[k], v]).filter((_, k) => k % step === 0 || k === vals.length - 1);
+  return `<h3>${label} <span class="num muted">${vals.at(-1)}</span></h3><div class="sparkwrap"><svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" data-v="${vals.join(",")}" data-d="${ds.join(",")}" role="img" aria-label="${esc(label)}, from ${lo} to ${hi}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/><line class="xh" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/></svg><div class="sparktip"></div></div>
+    <div class="num muted">${lo} – ${hi} over ${vals.length} ${days ? "readings" : "days"}</div><details class="sparktable"><summary>table</summary><table class="num">${rows.map(([d, v]) => `<tr><td>${esc(dayLabel(d))}</td><td style="text-align:right">${v}</td></tr>`).join("")}</table></details>`;
 }
+document.addEventListener("mousemove", (e) => {
+  const svg = e.target.closest && e.target.closest("svg.spark"); document.querySelectorAll(".sparktip.on").forEach((t) => { if (!svg || t.previousElementSibling !== svg) { t.classList.remove("on"); t.previousElementSibling.querySelector(".xh").setAttribute("visibility", "hidden"); } });
+  if (!svg) return; const r = svg.getBoundingClientRect(), v = svg.dataset.v.split(","), d = svg.dataset.d.split(","), k = Math.max(0, Math.min(v.length - 1, Math.round((e.clientX - r.left) / r.width * (v.length - 1))));
+  const xh = svg.querySelector(".xh"), x = k / (v.length - 1) * 360; xh.setAttribute("x1", x); xh.setAttribute("x2", x); xh.setAttribute("visibility", "visible");
+  const tip = svg.nextElementSibling; tip.textContent = `${dayLabel(Number(d[k]))}: ${v[k]}`; tip.style.left = Math.min(r.width - 140, Math.max(0, e.clientX - r.left - 60)) + "px"; tip.classList.add("on");
+});
 
 // ------------------------------------------------------------------ Legends page of one Argonaut
 // ------------------------------------------------------------------ houses (one wallet = one oikos) and the watchlist
