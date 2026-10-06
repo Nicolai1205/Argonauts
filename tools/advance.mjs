@@ -16,8 +16,10 @@ const untilArg = process.argv.find((a) => a.startsWith("--until="));
 const seed = JSON.parse(fs.readFileSync("data/seed.json")), hist = JSON.parse(fs.readFileSync("data/history.json"));
 fs.mkdirSync(`${W}/chronicle`, { recursive: true });
 const stateFile = `${W}/state.json.gz`, omensFile = `${W}/omens.json`;
-let w = fs.existsSync(stateFile) ? deserialize(zlib.gunzipSync(fs.readFileSync(stateFile)).toString(), seed) : null;
-if (w && w.version !== VERSION) { console.log(`rules changed (v${w.version} -> v${VERSION}): the world is re-dreamed from genesis`); w = null; fs.rmSync(`${W}/chronicle`, { recursive: true, force: true }); fs.mkdirSync(`${W}/chronicle`, { recursive: true }); }
+// read the checkpoint's rules version before decoding it: older layouts cannot be decoded by newer code
+const raw = fs.existsSync(stateFile) ? JSON.parse(zlib.gunzipSync(fs.readFileSync(stateFile)).toString()) : null;
+let w = raw && raw.version === VERSION ? deserialize(raw, seed) : null;
+if (raw && raw.version !== VERSION) { console.log(`rules changed (v${raw.version} -> v${VERSION}): the world is re-dreamed from genesis`); fs.rmSync(`${W}/chronicle`, { recursive: true, force: true }); fs.mkdirSync(`${W}/chronicle`, { recursive: true }); }
 w ??= createWorld(seed);
 displayName.dialects = w.dialect;
 // omens after the seed: an omen that arrives after its day has passed lands on the first unsimulated day (recorded, so replays agree)

@@ -4,7 +4,7 @@ import { deserialize, runUntil, omensByDay, dayNow, stateHash } from "./sim/engi
 import { narrate, nameOf, displayName, VOICE } from "./sim/narrate.js";
 import { homeFaction, ageOf, YEAR } from "./sim/systems.js";
 import { BLOODS, DISTRICTS, D, GOODS, JOBS, OFFICES, COGNOMENS, THOUGHTS, AXES, ST, GENESIS, PREHISTORY_DAYS } from "./sim/lore.js";
-import { TIES, THS, BIO } from "./sim/world.js";
+import { TIES, THS, BIO, VERSION } from "./sim/world.js";
 import { EV } from "./sim/systems.js";
 import { generate, paint, SITES, SIZE, TILE } from "./map.js";
 import { sift, emptySift } from "./sim/sift.js";
@@ -28,7 +28,8 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
     [seed, meta] = await Promise.all([json("data/seed.json"), json("world/meta.json")]);
     const [stTxt, fleet, omens, sm] = await Promise.all([(await gunzip("world/state.json.gz")).text(), (await gunzip("data/fleet.bin.gz")).arrayBuffer(), json("world/omens.json").catch(() => []), json("world/sift.json").catch(() => null)]);
     if (sm) M = sm;
-    w = deserialize(stTxt, seed); checkpointDay = w.day; displayName.dialects = w.dialect;
+    const raw = JSON.parse(stTxt); if (raw.version !== VERSION) throw new Error("the world is being re-dreamed under new rules; try again in a minute");
+    w = deserialize(raw, seed); checkpointDay = w.day; displayName.dialects = w.dialect;
     sprites = buildAtlas(new Uint8Array(fleet));
     byDay = omensByDay(omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1));
     const last = meta.chunks.at(-1), prev = meta.chunks.at(-2);
