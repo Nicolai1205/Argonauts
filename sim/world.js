@@ -5,17 +5,21 @@ import { unit, stream, hash32 } from "./rng.js";
 export const TIES = 8;      // social ties per character
 export const THS = 6;       // thought slots
 export const BIO = 10;      // remembered life events (ring)
-export const VERSION = 2;  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
+export const VERSION = 3;
+export const ARGO = 9999;   // entity indices 0..9998 are the tokens; the Leaves (mortal children) are appended after  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
 
 // dynamic arrays: [name, type, per-agent width]
 const LAYOUT = [
   ["status", Uint8Array, 1], ["district", Uint8Array, 1], ["faction", Uint8Array, 1], ["job", Uint8Array, 1], ["oikos", Int32Array, 1],
   ["pers", Uint8Array, 6], ["ideo", Int8Array, 3], ["identity", Uint8Array, 1], ["radical", Int8Array, 1],
   ["obols", Int32Array, 1], ["inv", Int16Array, 5], ["hunger", Uint8Array, 1], ["sick", Uint8Array, 1], ["stress", Int16Array, 1], ["mood", Int16Array, 1],
-  ["thType", Uint8Array, THS], ["thUntil", Int32Array, THS], ["tieTo", Int16Array, TIES], ["tieVal", Int8Array, TIES],
+  ["thType", Uint8Array, THS], ["thUntil", Int32Array, THS], ["tieTo", Int32Array, TIES], ["tieVal", Int8Array, TIES],
   ["until", Int32Array, 1], ["deaths", Uint8Array, 1], ["cognomen", Uint8Array, 1], ["jail", Uint16Array, 1], ["unburied", Uint8Array, 1],
   ["bioDay", Int32Array, BIO], ["bioType", Uint8Array, BIO], ["bioArg", Int32Array, BIO], ["bioPos", Uint8Array, 1], ["office", Int8Array, 1], ["vice", Uint8Array, 1], ["died", Int32Array, 1],
-  ["met", Int16Array, 1], ["metKind", Uint8Array, 1], ["lover", Int16Array, 1],
+  ["met", Int32Array, 1], ["metKind", Uint8Array, 1], ["lover", Int32Array, 1],
+  // genes and lineage (tokens: genes from their traits, generation 0, lineage = themselves)
+  ["kind", Uint8Array, 1], ["bones", Uint8Array, 1], ["palette", Uint8Array, 1], ["cloak", Uint8Array, 1], ["crown", Uint8Array, 1], ["sight", Uint8Array, 1], ["artifact", Uint8Array, 1],
+  ["born", Int32Array, 1], ["p1", Int32Array, 1], ["p2", Int32Array, 1], ["gen", Uint16Array, 1], ["lineage", Int32Array, 1], ["birthFac", Uint8Array, 1],
 ];
 const HEXACO = ["H", "E", "X", "A", "C", "O"];
 const DEMAND_GOODS = ["food", "smoke", "cloth", "ore", "pharmaka"], DEMAND_W = [0.40, 0.26, 0.08, 0.16, 0.10];
@@ -34,7 +38,8 @@ const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 
 export function createWorld(seed, seedHash = "argo") {
   const N = seed.n, d = seed.dicts, w = { N, version: VERSION, seed: seedHash, day: -PREHISTORY_DAYS, A: {} };
-  for (const [name, T, k] of LAYOUT) w.A[name] = new T(N * k);
+  w.cap = N + 2048; w.widths = {};
+  for (const [name, T, k] of LAYOUT) { w.A[name] = new T(w.cap * k); w.widths[name] = k; }
   const A = w.A, name = (dict, i) => d[dict][i];
   const rng = stream(seedHash, "genesis");
   w.oikoi = seed.oikoi.map((o) => ({ addr: o.addr, name: o.name || null }));
@@ -86,7 +91,8 @@ export function createWorld(seed, seedHash = "argo") {
     A.obols[i] = Math.round((40 + B.wealth * (0.4 + u * u * 2.2)) * (seed.relic[i] ? 1.6 : 1) + (job === J.noble ? 250 : 0) + (job === J.merchant ? 60 : 0));
     A.inv[i * 5 + 0] = 10; A.inv[i * 5 + 1] = art === "none" ? 0 : 4; A.inv[i * 5 + 2] = 2; A.inv[i * 5 + 3] = 1; A.inv[i * 5 + 4] = 1;
     A.vice[i] = art === "none" ? 0 : (seed.breath[i] ? 2 : 1);
-    A.met[i] = -1; A.lover[i] = -1;
+    A.met[i] = -1; A.lover[i] = -1; A.p1[i] = -1; A.p2[i] = -1; A.lineage[i] = i; A.born[i] = -100000; A.birthFac[i] = A.faction[i];
+    A.bones[i] = blood; A.palette[i] = seed.palette[i]; A.cloak[i] = seed.cloak[i]; A.crown[i] = seed.crown[i]; A.sight[i] = seed.sight[i]; A.artifact[i] = seed.artifact[i];
     for (let k = 0; k < TIES; k++) A.tieTo[i * TIES + k] = -1;
     for (let k = 0; k < THS; k++) A.thType[i * THS + k] = 0;
   }
@@ -98,7 +104,9 @@ export function createWorld(seed, seedHash = "argo") {
     const pool = byDist[A.district[i]];
     for (let t = 0; t < 3 && k < TIES; t++) { const j = pool[hash32(i, "tie", t) % pool.length]; if (j !== i && !hasTie(w, i, j)) { A.tieTo[i * TIES + k] = j; A.tieVal[i * TIES + k] = 10 + (hash32(j, i) % 20); k++; } }
   }
-  w.static = { bones: Int8Array.from(seed.bones), persona: seed.persona, cloak: seed.cloak, crown: seed.crown, sight: seed.sight, artifact: seed.artifact, palette: seed.palette, relic: seed.relic };
+  w.static = { persona: seed.persona, relic: seed.relic };
+  w.none = { cloak: d.Cloak.indexOf("none"), crown: d.Crown.indexOf("none"), sight: d.Sight.indexOf("none"), artifact: d.Artifact.indexOf("none") };
+  w.births = 0; w.leafDeaths = 0;
   w.prices = BASE_PRICE.slice();
   w.priceMult = 1;            // Talos at the strait raises everything
   w.fertility = DISTRICTS.map(() => 1000);
@@ -116,6 +124,14 @@ export function createWorld(seed, seedHash = "argo") {
   return w;
 }
 
+/** make room for at least n entities (arrays are reallocated in place on w.A) */
+export function ensureCap(w, n) {
+  if (n <= w.cap) return;
+  const cap = Math.max(n, Math.ceil(w.cap * 1.5));
+  for (const [name, A] of Object.entries(w.A)) { const k = w.widths[name] || A.length / w.cap, B = new A.constructor(cap * k); B.set(A); w.A[name] = B; w.widths[name] = k; }
+  w.cap = cap;
+}
+
 export function groupBy(N, key) { const g = {}; for (let i = 0; i < N; i++) { const k = key(i); (g[k] || (g[k] = [])).push(i); } return g; }
 export function hasTie(w, i, j) { const A = w.A; for (let k = 0; k < TIES; k++) if (A.tieTo[i * TIES + k] === j) return true; return false; }
 
@@ -127,7 +143,7 @@ const B64 = typeof Buffer !== "undefined"
 
 export function serialize(w) {
   const arrays = {};
-  for (const [name, A] of Object.entries(w.A)) arrays[name] = [A.constructor.name, B64.enc(new Uint8Array(A.buffer, A.byteOffset, A.byteLength))];
+  for (const [name, A] of Object.entries(w.A)) { const k = w.widths[name], used = A.subarray(0, w.N * k); arrays[name] = [A.constructor.name, B64.enc(new Uint8Array(used.buffer, used.byteOffset, used.byteLength)), k]; }
   const { A, oikosIx, static: st, ...rest } = w;
   return JSON.stringify({ ...rest, arrays });
 }
@@ -135,10 +151,11 @@ const CTORS = { Uint8Array, Int8Array, Int16Array, Uint16Array, Int32Array, Floa
 export function deserialize(json, seed) {
   const o = typeof json === "string" ? JSON.parse(json) : json;
   const w = { ...o, A: {} };
-  for (const [name, [ctor, b64]] of Object.entries(o.arrays)) { const u8 = B64.dec(b64); w.A[name] = new CTORS[ctor](u8.buffer, u8.byteOffset, u8.byteLength / CTORS[ctor].BYTES_PER_ELEMENT); }
+  w.cap = o.N + 2048;
+  for (const [name, [ctor, b64, k]] of Object.entries(o.arrays)) { const u8 = B64.dec(b64), T = CTORS[ctor], src = new T(u8.buffer, u8.byteOffset, u8.byteLength / T.BYTES_PER_ELEMENT), A = new T(w.cap * k); A.set(src); w.A[name] = A; w.widths[name] = k; }
   delete w.arrays;
   w.oikosIx = Object.fromEntries(w.oikoi.map((x, i) => [x.addr, i]));
-  w.static = { bones: Int8Array.from(seed.bones), persona: seed.persona, cloak: seed.cloak, crown: seed.crown, sight: seed.sight, artifact: seed.artifact, palette: seed.palette, relic: seed.relic };
+  w.static = { persona: seed.persona, relic: seed.relic };
   return w;
 }
 
@@ -146,7 +163,7 @@ export function deserialize(json, seed) {
 export function stateHash(w) {
   let h = 0x811c9dc5;
   const mix = (u8) => { for (let i = 0; i < u8.length; i++) { h ^= u8[i]; h = Math.imul(h, 16777619); } };
-  for (const name of Object.keys(w.A).sort()) { const A = w.A[name]; mix(new Uint8Array(A.buffer, A.byteOffset, A.byteLength)); }
+  for (const name of Object.keys(w.A).sort()) { const A = w.A[name].subarray(0, w.N * w.widths[name]); mix(new Uint8Array(A.buffer, A.byteOffset, A.byteLength)); }
   const g = JSON.stringify([w.day, w.treasury, w.prices, w.factions.map((f) => [f.name, f.seats, f.legit]), w.taxPermille, w.minted, w.destroyed]);
   for (let i = 0; i < g.length; i++) { h ^= g.charCodeAt(i) & 255; h = Math.imul(h, 16777619); }
   return (h >>> 0).toString(16).padStart(8, "0");

@@ -2,20 +2,20 @@
 import { BLOODS, DISTRICTS, D, GOODS, BASE_PRICE, TARGET, YIELD, JOBS, J, JOB_GOOD, ST, THOUGHTS, TH, OFFICES, SPLINTERS, SPLINTER_COLORS,
   COGNOMENS, BEAM, INCIDENTS, dayOfTs, PYRE_SECONDS } from "./lore.js";
 import { stream, hash32 } from "./rng.js";
-import { TIES, THS, BIO } from "./world.js";
+import { TIES, THS, BIO, ARGO, ensureCap } from "./world.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
 
 export function tick(w, omens = []) {
   const day = w.day, ev = [];
-  const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) };
+  const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) }; ctx.rr = ctx.r("misc");
   ctx.log = (t, a = -1, b = -1, x = -1, v = 0, s = "") => { const e = { i: ++w.eventSeq, d: day, t: EV[t], a, b, x, v, s }; ev.push(e); if (a >= 0) bio(ctx, a, t, b); if (b >= 0 && b !== a) bio(ctx, b, t, a); return e; };
   applyOmens(ctx, omens); chk(ctx, 'applyOmens');
   scheduled(ctx); chk(ctx, 'scheduled');
@@ -29,6 +29,7 @@ export function tick(w, omens = []) {
   if (day % 7 === 0) { centroids(ctx); defection(ctx); migration(ctx); love(ctx); } chk(ctx, '');
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   director(ctx); chk(ctx, 'director');
+  lifecycle(ctx); ctx.N = w.N; chk(ctx, 'lifecycle');
   funerals(ctx); chk(ctx, 'funerals');
   stats(ctx); chk(ctx, 'stats');
   invariant(ctx);
@@ -51,11 +52,18 @@ function tie(ctx, i, j, delta) {
   if (wv < Math.abs(delta) + 2) { A.tieTo[i * TIES + weak] = j; A.tieVal[i * TIES + weak] = clamp(delta, -100, 100); }
 }
 const living = (A, i) => A.status[i] === ST.living;
-export const homeFaction = (w, i) => w.static.bones[i] === 0 ? w.houseFaction[hash32(i + 1, "house") % 5] : w.static.bones[i];
+// the Leaves age one year every 12 sim days (one year per 12 real hours)
+export const YEAR = 12;
+export const ageOf = (A, i, day) => (A.kind[i] ? Math.floor((day - A.born[i]) / YEAR) : 999);
+const isAdult = (A, i, day) => !A.kind[i] || day - A.born[i] >= 14 * YEAR;
+// Gompertz mortality per year, built by repeated multiplication so every engine replays it bit-for-bit
+const HAZ = (() => { const h = []; let g = 0.0004; for (let a = 0; a <= 130; a++) { h.push(Math.min(0.9, g + (a < 5 ? 0.02 / (a + 1) : 0))); g *= 1.0887; } return h; })();
+export const homeFaction = (w, i) => w.A.birthFac[i];
 const P = (A, i, k) => A.pers[i * 6 + k];          // 0 H,1 E,2 X,3 A,4 C,5 O
 function setCognomen(ctx, i, c) { if (ctx.A.cognomen[i] !== c) { ctx.A.cognomen[i] = c; bio(ctx, i, E.cognomen, c); } }
 export function kill(ctx, i, cause, by = -1) {
   const { A, w, day } = ctx; if (A.status[i] !== ST.living && A.status[i] !== ST.exiled) return;
+  if (A.kind[i]) return leafDies(ctx, i, cause, by);
   A.status[i] = ST.shade; A.died[i] = day; A.until[i] = day + 20 + (hash32(w.seed, i, day) % 41); A.unburied[i] = 1; A.district[i] = D.asphodel; A.hunger[i] = 0; A.sick[i] = 0; A.jail[i] = 0;
   A.inv[i * 5] = 0;
   for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k]; if (j >= 0 && A.tieVal[i * TIES + k] > 30 && living(A, j)) think(ctx, j, TH.mourning_kin); }
@@ -65,6 +73,84 @@ export function kill(ctx, i, cause, by = -1) {
   ctx.log(E.death, i, by, -1, 0, cause);
   if (i === w.fleece) ctx.log(E.fleece, i, by, -1, 0, "the Fleece-bearer has fallen");
 }
+
+// a Leaf dies for good: grief, inheritance, three days on the Pyra, then a grave in Asphodel
+function leafDies(ctx, i, cause, by) {
+  const { A, w, day } = ctx;
+  for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k]; if (j >= 0 && A.tieVal[i * TIES + k] > 30 && living(A, j)) think(ctx, j, TH.mourning_kin); }
+  const lv = A.lover[i]; if (lv >= 0) { if (living(A, lv)) { think(ctx, lv, TH.lost_a_beloved); A.stress[lv] = Math.min(600, A.stress[lv] + 150); } A.lover[lv] = -1; A.lover[i] = -1; }
+  if (A.office[i] >= 0) { delete w.offices[OFFICES[A.office[i]].key]; A.office[i] = -1; }
+  // the estate goes to living children, else the beloved, else the Boule
+  const heirs = []; for (let c = ARGO; c < w.N; c++) if ((A.p1[c] === i || A.p2[c] === i) && living(A, c)) heirs.push(c);
+  if (!heirs.length && lv >= 0 && living(A, lv)) heirs.push(lv);
+  if (heirs.length) { const each = Math.floor(A.obols[i] / heirs.length); for (const h of heirs) A.obols[h] += each; w.treasury += A.obols[i] - each * heirs.length; } else w.treasury += A.obols[i];
+  A.obols[i] = 0; for (let g = 0; g < 5; g++) A.inv[i * 5 + g] = 0;
+  A.status[i] = ST.pyre; A.district[i] = D.pyra; A.died[i] = day; A.until[i] = day + 3; A.hunger[i] = 0; A.sick[i] = 0; A.jail[i] = 0;
+  w.leafDeaths++; w.director.lastDeath = day;
+  const age = ageOf(A, i, day), notable = age >= 60 || A.office[i] >= 0 || !A.kind[A.p1[i]] || ctx.rr.chance(0.25);
+  if (notable) ctx.log(E.death, i, by, -1, age, cause); else bio(ctx, i, E.death, by);
+}
+
+// ---------------------------------------------------------------- the generation of leaves: birth, growing up, old age
+function lifecycle(ctx) {
+  const { A, w, day } = ctx, r = ctx.r("life");
+  let leaves = 0; for (const i of ctx.live) if (A.kind[i]) leaves++;
+  w.leafCount = leaves;
+  // ageing and death
+  for (const i of ctx.live) {
+    if (!A.kind[i] || A.status[i]) continue;
+    const d = day - A.born[i], age = Math.floor(d / YEAR);
+    if (d === 14 * YEAR) { A.job[i] = adultJob(ctx, i, r); bio(ctx, i, E.comeofage, A.job[i]); }
+    let hz = HAZ[Math.min(130, age)] / YEAR; if (A.sick[i]) hz *= 4; if (A.hunger[i] > 3) hz *= 3;
+    if (r.chance(hz)) kill(ctx, i, age < 5 ? "died in infancy" : age >= 60 ? "died of old age" : A.sick[i] ? "plague" : A.hunger[i] > 3 ? "starved" : "a sudden fever");
+  }
+  // children are fed by their parents
+  for (const i of ctx.live) {
+    if (!A.kind[i] || A.status[i] || isAdult(A, i, day) || A.inv[i * 5] > 1) continue;
+    for (const p of [A.p1[i], A.p2[i]]) if (p >= 0 && living(A, p) && A.inv[p * 5] > 2) { A.inv[p * 5] -= 2; A.inv[i * 5] += 2; break; }
+  }
+  // couples sow children: prosperity, a household that is not yet full, and the world's carrying capacity
+  const K = 16000, room = Math.max(0, 1 - leaves / K), N0 = w.N, kidsOf = new Map();
+  for (let c = ARGO; c < N0; c++) if (living(A, c)) { const key = A.p1[c] * 65536 + A.p2[c]; kidsOf.set(key, (kidsOf.get(key) || 0) + 1); }
+  for (let i = 0; i < N0; i++) {
+    const j = A.lover[i]; if (j < i || A.status[i] || A.status[j] || A.district[i] !== A.district[j]) continue;
+    if (!fertile(A, i, day) || !fertile(A, j, day)) continue;
+    if (A.inv[i * 5] + A.inv[j * 5] < 6 || A.mood[i] + A.mood[j] < -30) continue;
+    const kids = (kidsOf.get(i * 65536 + j) || 0) + (kidsOf.get(j * 65536 + i) || 0);
+    if (kids >= 5 || !r.chance(0.018 * room * (kids ? 0.7 : 1))) continue;
+    bear(ctx, i, j, r);
+  }
+}
+const fertile = (A, i, day) => !A.kind[i] || (day - A.born[i] >= 16 * YEAR && day - A.born[i] < 46 * YEAR);
+function adultJob(ctx, i, r) {
+  const { A } = ctx, par = [A.p1[i], A.p2[i]].filter((p) => p >= 0);
+  if (par.length && r.chance(0.6)) return A.job[par[r.int(par.length)]];               // the family trade
+  const res = DISTRICTS[A.district[i]].res;
+  return res === "food" ? J.farmer : res === "fish" ? J.fisher : res === "ore" ? J.miner : res === "cloth" ? J.weaver : res === "smoke" ? J.grower : res === "pharmaka" ? J.herbalist : J.servant;
+}
+function bear(ctx, a, b, r) {
+  const { A, w, day } = ctx, c = w.N; ensureCap(w, c + 1); w.N++;
+  const B = w.A, first = r.chance(0.5) ? a : b, other = first === a ? b : a;
+  B.kind[c] = 1; B.status[c] = ST.living; B.born[c] = day; B.p1[c] = a; B.p2[c] = b; B.gen[c] = Math.max(B.gen[a], B.gen[b]) + 1;
+  B.lineage[c] = B.kind[a] ? B.lineage[a] : a;
+  // genes: bones from one parent (rarely drifting a tier), palette from the other; Leaves are born bare
+  let bones = B.bones[first]; if (r.chance(0.03)) bones = Math.max(0, Math.min(5, bones + (r.chance(0.5) ? 1 : -1))); if (bones > 5 && r.chance(0.5)) bones = B.bones[other] <= 5 ? B.bones[other] : 0;
+  B.bones[c] = bones; B.palette[c] = B.palette[other]; B.cloak[c] = w.none.cloak; B.crown[c] = w.none.crown; B.sight[c] = w.none.sight; B.artifact[c] = w.none.artifact;
+  for (let k = 0; k < 6; k++) B.pers[c * 6 + k] = clamp(Math.round((B.pers[a * 6 + k] + B.pers[b * 6 + k]) / 2 + (r.next() - 0.5) * 30), 0, 100);
+  for (let k = 0; k < 3; k++) B.ideo[c * 3 + k] = clamp(Math.round((B.ideo[a * 3 + k] + B.ideo[b * 3 + k]) / 2 + (r.next() - 0.5) * 30), -100, 100);
+  B.identity[c] = clamp(Math.round((B.identity[a] + B.identity[b]) / 2 + (r.next() - 0.5) * 20), 5, 100);
+  B.faction[c] = B.faction[first]; B.birthFac[c] = B.faction[first]; B.district[c] = B.district[a]; B.oikos[c] = B.oikos[a]; B.job[c] = B.job[first];
+  B.obols[c] = 0; B.inv[c * 5] = 4; B.vice[c] = 0; B.office[c] = -1; B.met[c] = -1; B.lover[c] = -1; B.until[c] = 0;
+  for (let k = 0; k < TIES; k++) { B.tieTo[c * TIES + k] = -1; B.tieVal[c * TIES + k] = 0; }
+  for (let k = 0; k < THS; k++) B.thType[c * THS + k] = 0;
+  tie(ctx, c, a, 80); tie(ctx, c, b, 80); tie(ctx, a, c, 85); tie(ctx, b, c, 85);
+  for (let s = ARGO; s < c; s++) if (B.p1[s] === a && B.p2[s] === b && living(B, s)) { tie(ctx, c, s, 50); tie(ctx, s, c, 50); }
+  w.births++;
+  const firstOfLine = !B.kind[a] && !B.kind[b] ? true : false;
+  if ((!B.kind[a] || !B.kind[b]) && ctx.rr.chance(0.35)) ctx.log(E.birth, a, b, B.district[c], c, firstOfLine ? "first" : "");
+  else { bio(ctx, a, E.birth, c); bio(ctx, b, E.birth, c); }
+}
+const isKin = (A, i, j) => A.p1[i] === j || A.p2[i] === j || A.p1[j] === i || A.p2[j] === i || (A.kind[i] && A.kind[j] && (A.p1[i] === A.p1[j] || A.p1[i] === A.p2[j] || A.p2[i] === A.p1[j] || A.p2[i] === A.p2[j]));
 
 // ---------------------------------------------------------------- omens from the chain
 function oikosOf(w, addr) { let k = w.oikosIx[addr]; if (k === undefined) { k = w.oikoi.length; w.oikoi.push({ addr, name: null }); w.oikosIx[addr] = k; } return k; }
@@ -118,10 +204,10 @@ function scheduled(ctx) {
     const s = A.status[i];
     if (s === ST.pyre && day >= A.until[i]) { A.status[i] = ST.asphodel; A.district[i] = D.asphodel; ctx.log(E.ostologia, i, -1, D.asphodel); }
     else if (s === ST.shade && day >= A.until[i]) {
-      A.status[i] = ST.living; A.deaths[i]++; A.district[i] = BLOODS[w.static.bones[i]].home; A.inv[i * 5] = 6; A.stress[i] = 50; A.unburied[i] = 0;
+      A.status[i] = ST.living; A.deaths[i]++; A.district[i] = BLOODS[A.bones[i]].home; A.inv[i * 5] = 6; A.stress[i] = 50; A.unburied[i] = 0;
       think(ctx, i, TH.twice_born); if (A.deaths[i] === 1) A.cognomen[i] = 1;
       ctx.log(E.return, i, -1, A.district[i], A.deaths[i]);
-    } else if (s === ST.exiled && day >= A.until[i]) { A.status[i] = ST.living; A.district[i] = BLOODS[w.static.bones[i]].home; ctx.log(E.exile_end, i, -1, A.district[i]); }
+    } else if (s === ST.exiled && day >= A.until[i]) { A.status[i] = ST.living; A.district[i] = BLOODS[A.bones[i]].home; ctx.log(E.exile_end, i, -1, A.district[i]); }
     if (A.jail[i] > 0) A.jail[i]--;
   }
   if (w.director.active.talos && day >= w.director.active.talos) { w.priceMult = 1; delete w.director.active.talos; }
@@ -138,11 +224,12 @@ function production(ctx) {
   const { A, w, day } = ctx, r = ctx.r("production"), dark = w.director.active.pall === day, out = new Int32Array(DISTRICTS.length);
   const prom = (w.director.active.prometheus || -1) >= day;
   for (const i of ctx.live) {
-    if (A.jail[i] || A.sick[i] || dark) continue;
+    if (A.jail[i] || A.sick[i] || dark || A.status[i]) continue;
+    const age = A.kind[i] ? (day - A.born[i]) / YEAR : 30; if (age < 5) continue;
     const job = JOBS[A.job[i]], good = JOB_GOOD[job]; if (!good) continue;
     const g = GOODS.indexOf(good), d = A.district[i];
     let q = job === "servant" || job === "rower" ? 2 : job === "merchant" ? 1 : (YIELD[good] || 1);
-    q *= (0.8 + P(A, i, 4) / 250) * (w.fertility[d] / 1000) * (A.inv[i * 5 + 3] > 0 ? 1.4 : 1) * (A.mood[i] < -30 ? 0.6 : 1);
+    q *= (age < 14 ? 0.5 : age >= 60 ? 0.7 : 1) * (0.8 + P(A, i, 4) / 250) * (w.fertility[d] / 1000) * (A.inv[i * 5 + 3] > 0 ? 1.4 : 1) * (A.mood[i] < -30 ? 0.6 : 1);
     if (prom && g === 4) q *= 2;
     const n = Math.floor(q) + (r.next() < q - Math.floor(q) ? 1 : 0);
     A.inv[i * 5 + g] = Math.min(400, A.inv[i * 5 + g] + n); out[d] += n;
@@ -184,7 +271,7 @@ function services(ctx) {
   if (!all.length) return;
   for (const i of ctx.live) {
     if (A.status[i]) continue;
-    const exp = BLOODS[w.static.bones[i]].wealth, floor = exp >> 1, spare = A.obols[i] - floor; if (spare < 40) continue;
+    const exp = BLOODS[A.bones[i]].wealth, floor = exp >> 1, spare = A.obols[i] - floor; if (spare < 40) continue;
     if (A.obols[i] > exp * 5) { const lit = Math.floor((A.obols[i] - exp * 5) / 400); if (lit > 0) { A.obols[i] -= lit; w.treasury += lit; } }   // leitourgia: the rich fund the city
     const pay = Math.max(1, Math.floor(spare / 80));
     const pool = workers[A.district[i]].length ? workers[A.district[i]] : all, j = pool[r.int(pool.length)];
@@ -198,13 +285,13 @@ function market(ctx) {
   for (let g = 0; g < 5; g++) {
     const sellers = [], buyers = []; let S = 0, Dm = 0;
     for (const i of ctx.live) {
-      if (A.jail[i] || A.status[i]) continue;
+      if (A.jail[i] || A.status[i] || !isAdult(A, i, ctx.day)) continue;
       const have = A.inv[i * 5 + g], need = g === 1 ? (A.vice[i] ? TARGET[1] : 0) : g === 3 ? (JOB_GOOD[JOBS[A.job[i]]] ? 1 : 0) : g === 4 ? (A.sick[i] ? 2 : P(A, i, 4) > 50 ? 1 : 0) : TARGET[g];
       if (have > need + 2) { const q = Math.min(have - need - 1, 25); sellers.push(i, q); S += q; }
       else if (have < need) {
         // willingness to pay, as a multiple of the base price: urgency and wealth (demand answers price)
         let wmax = g === 0 ? (A.hunger[i] ? 6 : 2.5) : g === 1 ? 3 : g === 2 ? 1.6 : g === 3 ? 1.4 : (A.sick[i] ? 6 : 1.3);
-        if (A.obols[i] > BLOODS[w.static.bones[i]].wealth * 4) wmax *= 2;
+        if (A.obols[i] > BLOODS[A.bones[i]].wealth * 4) wmax *= 2;
         if (w.prices[g] * w.priceMult <= BASE_PRICE[g] * wmax) { buyers.push(i, need - have); Dm += need - have; }
       }
     }
@@ -252,7 +339,7 @@ function love(ctx) {
     if (A.status[i]) continue;
     const l = A.lover[i];
     if (l >= 0) { const k = tieIndex(A, i, l); if (k < 0 || A.tieVal[i * TIES + k] < 30) { A.lover[i] = -1; if (A.lover[l] === i) A.lover[l] = -1; think(ctx, i, TH.heartbroken); if (living(A, l)) think(ctx, l, TH.heartbroken); if (i < l) ctx.log(E.heartbreak, i, l, A.district[i]); } continue; }
-    const j = best[i]; if (j < 0 || j < i || best[j] !== i || bv[i] < 69 || bv[j] < 69 || A.lover[j] >= 0 || !living(A, j)) continue;
+    const j = best[i]; if (j < 0 || j < i || best[j] !== i || !isAdult(A, i, ctx.day) || !isAdult(A, j, ctx.day) || isKin(A, i, j) || bv[i] < 69 || bv[j] < 69 || A.lover[j] >= 0 || !living(A, j)) continue;
     A.lover[i] = j; A.lover[j] = i; think(ctx, i, TH.in_love); think(ctx, j, TH.in_love); ctx.log(E.love, i, j, A.district[i]);
   }
 }
@@ -264,9 +351,9 @@ function migration(ctx) {
   let best = 0; for (let g = 1; g < 5; g++) if (ratio[g] > ratio[best]) best = g;
   const where = DISTRICTS.map((d, k) => k).filter((k) => DISTRICTS[k].res === GOODS[best] || (best === 0 && DISTRICTS[k].res === "fish"));
   for (const i of ctx.live) {
-    if (A.status[i] || A.jail[i]) continue;
+    if (A.status[i] || A.jail[i] || !isAdult(A, i, ctx.day)) continue;
     const good = JOB_GOOD[JOBS[A.job[i]]]; if (!good || JOBS[A.job[i]] === "servant" || JOBS[A.job[i]] === "rower") continue;
-    const g = GOODS.indexOf(good); if (ratio[best] < 1.4 || g === best || ratio[g] > 0.7 || A.obols[i] > BLOODS[w.static.bones[i]].wealth / 2 || !r.chance(0.08 + P(A, i, 5) / 600)) continue;
+    const g = GOODS.indexOf(good); if (ratio[best] < 1.4 || g === best || ratio[g] > 0.7 || A.obols[i] > BLOODS[A.bones[i]].wealth / 2 || !r.chance(0.08 + P(A, i, 5) / 600)) continue;
     const d = where[r.int(where.length)], res = DISTRICTS[d].res;
     A.district[i] = d; A.job[i] = res === "food" ? J.farmer : res === "fish" ? J.fisher : res === "ore" ? J.miner : res === "cloth" ? J.weaver : res === "smoke" ? J.grower : J.herbalist; n++;
     bio(ctx, i, E.migrate, d);
@@ -333,7 +420,7 @@ function moodStress(ctx) {
       if (A.thUntil[s] < day) { A.thType[s] = 0; continue; }
       seen[t] = (seen[t] || 0) + 1; m += THOUGHTS[t][1] * (seen[t] > 1 ? 0.6 : 1);
     }
-    const exp = BLOODS[w.static.bones[i]].wealth;       // Victoria-style expected standard of living per blood
+    const exp = BLOODS[A.bones[i]].wealth;       // Victoria-style expected standard of living per blood
     m += clamp((A.obols[i] / exp - 1) * 12, -20, 15);
     m += A.office[i] >= 0 ? 10 : 0;
     A.mood[i] = clamp(Math.round(m), -100, 100);
@@ -370,7 +457,7 @@ function unrest(ctx) {
   const { A, w } = ctx, r = ctx.r("unrest"), guards = guardCount(ctx), prev = w.activePrev || [];
   const active = DISTRICTS.map(() => []);
   for (const i of ctx.live) {
-    if (A.jail[i] || A.status[i]) continue;
+    if (A.jail[i] || A.status[i] || !isAdult(A, i, ctx.day)) continue;
     const H = clamp((A.hunger[i] * 12 + Math.max(0, -A.mood[i])) / 100, 0, 1);
     const L = w.factions[A.faction[i]].legit / 100;
     const G = H * (1 - L) + A.radical[i] / 400;
@@ -407,7 +494,7 @@ function defection(ctx) {
   const { A, w } = ctx, r = ctx.r("defect"); let n = 0;
   const cnt = new Int32Array(w.factions.length);
   for (const i of ctx.live) {
-    if (A.status[i]) continue;
+    if (A.status[i] || !isAdult(A, i, ctx.day)) continue;
     cnt.fill(0); let pos = 0;
     for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k]; if (j >= 0 && A.tieVal[i * TIES + k] >= 15 && living(A, j)) { cnt[A.faction[j]]++; pos++; } }
     if (pos < 3) continue;
@@ -418,9 +505,9 @@ function defection(ctx) {
     const dOwn = idist(A, i, w.factions[own].ideo), dNew = idist(A, i, w.factions[g].ideo);
     if (c / pos > theta && dNew + 10 < dOwn && r.chance(0.5)) {
       A.faction[i] = g; A.identity[i] = Math.max(5, A.identity[i] - 20); n++;
-      if (w.factions[g].blood !== w.static.bones[i] && g < w.baseFactions && r.chance(0.35)) ctx.log(E.defect, i, -1, A.district[i], g, w.factions[g].name);
+      if (w.factions[g].blood !== A.bones[i] && g < w.baseFactions && r.chance(0.35)) ctx.log(E.defect, i, -1, A.district[i], g, w.factions[g].name);
       else if (g >= w.baseFactions) ctx.log(E.defect, i, -1, A.district[i], g, w.factions[g].name);
-      if (w.factions[g].blood !== w.static.bones[i] && A.cognomen[i] === 0 && r.chance(0.1)) A.cognomen[i] = 15;
+      if (w.factions[g].blood !== A.bones[i] && A.cognomen[i] === 0 && r.chance(0.1)) A.cognomen[i] = 15;
     }
   }
 }
@@ -434,6 +521,7 @@ function politics(ctx) {
   const sorted = ctx.live.map((i) => A.obols[i]).sort((a, b) => a - b), top = sorted[Math.floor(sorted.length * 0.9)] || 0;
   w.factions.forEach((f) => (f.clout = 0));
   for (const i of ctx.live) {
+    if (A.status[i] || !isAdult(A, i, day)) continue;
     const o = A.obols[i]; const s = w.franchise === "headcount" ? 4 : w.franchise === "property" ? 4 + isqrt(Math.max(0, o)) / 2 : (o >= top ? isqrt(o) : 0);
     w.factions[A.faction[i]].clout += s;
   }
@@ -487,10 +575,10 @@ function politics(ctx) {
 
 function offices(ctx, proposer) {
   const { A, w } = ctx;
-  const best = (pred, score) => { let b = -1, bv = -1e9; for (const i of ctx.live) if (!A.jail[i] && pred(i)) { const v = score(i); if (v > bv) { bv = v; b = i; } } return b; };
+  const best = (pred, score) => { let b = -1, bv = -1e9; for (const i of ctx.live) if (!A.jail[i] && !A.status[i] && isAdult(A, i, ctx.day) && pred(i)) { const v = score(i); if (v > bv) { bv = v; b = i; } } return b; };
   const want = {
     tiphys: best((i) => A.faction[i] === proposer, (i) => isqrt(A.obols[i]) + P(A, i, 2) / 4 + A.tieVal.subarray(i * TIES, i * TIES + TIES).reduce((a, v) => a + Math.max(0, v), 0) / 20),
-    lynceus: best((i) => w.static.sight[i] === w._digital, (i) => P(A, i, 4) + P(A, i, 5)),
+    lynceus: best((i) => A.sight[i] === w._digital, (i) => P(A, i, 4) + P(A, i, 5)),
     orpheus: best((i) => true, (i) => P(A, i, 2) + P(A, i, 5) - P(A, i, 1) / 2 + (i % 97) / 100),
     aethalides: best((i) => A.job[i] === J.reaper, (i) => P(A, i, 4) - P(A, i, 1) / 3),
     medea: best((i) => A.job[i] === J.herbalist, (i) => A.obols[i] + P(A, i, 5)),
@@ -607,7 +695,7 @@ function stats(ctx) {
   let mood = 0; for (const i of ctx.live) mood += A.mood[i];
   w.stats.push({ d: day, live, shade, pyre, asph, exiled, sick, hungry, gini: Math.round(gini * 1000) / 1000, mood: Math.round(mood / Math.max(1, live)),
     prices: w.prices.map((p) => Math.round(p * 100) / 100), treasury: w.treasury, tax: w.taxPermille, unrest: (w.activePrev || []).reduce((a, b) => a + b, 0),
-    fac: w.factions.map((f) => f.alive ? f.members : 0) });
+    fac: w.factions.map((f) => f.alive ? f.members : 0), leaves: w.leafCount || 0, births: w.births, leafDeaths: w.leafDeaths, N: w.N });
   if (w.stats.length > 900) w.stats.splice(0, w.stats.length - 900);
 }
 function chk(ctx, where) { if (ctx.w.debug) invariant(ctx, where); }

@@ -1,8 +1,8 @@
 // The Argo: live viewer. Loads the latest checkpoint, catches the world up to the current hour in the browser
 // (same engine as the hourly GitHub job, so it is the same world), and draws it.
 import { deserialize, runUntil, omensByDay, dayNow, stateHash } from "./sim/engine.js";
-import { narrate, nameOf, VOICE } from "./sim/narrate.js";
-import { homeFaction } from "./sim/systems.js";
+import { narrate, nameOf, displayName, VOICE } from "./sim/narrate.js";
+import { homeFaction, ageOf, YEAR } from "./sim/systems.js";
 import { BLOODS, DISTRICTS, D, GOODS, JOBS, OFFICES, COGNOMENS, THOUGHTS, AXES, ST, GENESIS, PREHISTORY_DAYS } from "./sim/lore.js";
 import { TIES, THS, BIO } from "./sim/world.js";
 import { EV } from "./sim/systems.js";
@@ -36,7 +36,7 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
 })();
 
 const view = {
-  name: (i) => `${nameOf(i + 1)} #${i + 1}${w.A.cognomen[i] ? " " + COGNOMENS[w.A.cognomen[i]] : ""}`,
+  name: (i) => displayName(w.A, i, COGNOMENS),
   faction: (i) => w.factions[w.A.faction[i]].name,
   blood: (i) => w.factions[homeFaction(w, i)].name,
 };
@@ -87,7 +87,7 @@ function layout() {
   DISTRICTS.forEach((d, k) => {
     const c = SITE[k], g = groups[k];
     if (d.kind === "asphodel") {
-      const graves = g.filter((i) => A.status[i] === ST.asphodel), rest = g.filter((i) => A.status[i] !== ST.asphodel), cols = 12;
+      const graves = g.filter((i) => A.status[i] === ST.asphodel).sort((a, b) => (a < 9999 ? 0 : 1) - (b < 9999 ? 0 : 1) || A.died[a] - A.died[b] || a - b), rest = g.filter((i) => A.status[i] !== ST.asphodel), cols = Math.max(12, Math.ceil(Math.sqrt(graves.length) * 1.6));
       graves.forEach((i, n) => { home[i * 2] = c.x - cols * 9 + (n % cols) * 18; home[i * 2 + 1] = c.y - 40 + Math.floor(n / cols) * 22; });
       rest.forEach((i) => { const a = (hash32("sh", i) % 6283) / 1000, r = 60 + hash32("sr", i) % 140; home[i * 2] = c.x + Math.cos(a) * r; home[i * 2 + 1] = c.y + 60 + Math.sin(a) * r * 0.6; });
       city[k] = { R: 200, houses: [], venues: {} }; return;
@@ -122,7 +122,8 @@ function layout() {
     city[k] = { R, houses, venues };
   });
   S.home = home; S.city = city; S.cur = new Float32Array(N * 2); S.frame = new Uint8Array(N); S.vis = new Uint8Array(N);
-  S.looks = []; for (let i = 0; i < N; i++) S.looks.push(figure(lookOf(seed, i, JOBS[A.job[i]])));
+  S.looks = []; for (let i = 0; i < N; i++) S.looks.push(figure(lookOf(seed, A, i, JOBS[A.job[i]], w.factions[A.faction[i]].color, stageOf(i))));
+  S.lookDay = w.day;
   plans();
 }
 
@@ -139,6 +140,8 @@ function plans() {
     let wk, desc;
     if (A.jail[i]) { wk = V.gaol || [c.x, c.y]; desc = "sits in the gaol"; }
     else if (A.sick[i]) { wk = [hx, hy]; desc = "lies sick at home"; }
+    else if (A.kind[i] && stageOf(i) === 0) { wk = [hx + (u(5) - 0.5) * 8, hy + 6]; desc = "is carried about the house"; }
+    else if (A.kind[i] && stageOf(i) === 1) { wk = [hx + (u(5) - 0.5) * 70, hy + (u(7) - 0.5) * 50]; desc = "plays in the street and learns the family trade"; }
     else if (A.hunger[i] > 1) { wk = [c.x + (u(5) - 0.5) * 60, c.y + (u(7) - 0.5) * 40]; desc = "begs in the market"; }
     else if (job === "farmer" || job === "grower" || job === "herbalist") { wk = ring(C.R + 40 + u(1) * 220); desc = job === "herbalist" ? "gathers herbs in the meadows" : job === "grower" ? "tends the smoke-leaf fields" : "works the fields"; }
     else if (job === "fisher" || job === "rower" || job === "pirate") { const d0 = V.docks || ring(C.R + 60); wk = [d0[0] + (u(2) - 0.5) * 120, d0[1] + (u(4) - 0.5) * 120]; desc = job === "pirate" ? "lurks at the docks" : job === "rower" ? "pulls an oar in the harbour" : "fishes off the docks"; }
@@ -154,7 +157,8 @@ function plans() {
     let ev = [hx, hy], comp = -1, edesc = "stays home";
     const lover = A.lover[i], met = A.met[i], X = A.pers[i * 6 + 2], gods = A.ideo[i * 3 + 2];
     const tav = (a, b) => { const T = V.taverns || [[c.x, c.y]]; return T[hash32("tav", Math.min(a, b), Math.max(a, b)) % T.length]; };
-    if (A.jail[i] || A.sick[i]) { ev = wk; edesc = A.jail[i] ? "stays there through the night" : "does not rise all day"; }
+    if (A.kind[i] && stageOf(i) <= 1) { ev = [hx + (u(8) - 0.5) * 10, hy + 5]; edesc = "is put to bed early"; }
+    else if (A.jail[i] || A.sick[i]) { ev = wk; edesc = A.jail[i] ? "stays there through the night" : "does not rise all day"; }
     else if (lover >= 0 && A.status[lover] === ST.living && A.district[lover] === k) { const host = Math.min(i, lover); ev = [S.home[host * 2] + (i === host ? -5 : 5), S.home[host * 2 + 1] + 6]; comp = lover; edesc = "spends the evening with their beloved"; }
     else if (met >= 0 && A.status[met] === ST.living && A.district[met] === k) { const t = tav(i, met), kind = A.metKind[i]; ev = [t[0] + (i < met ? -5 : 5), t[1] + 8]; comp = met; edesc = kind === 1 ? "talks deep into the night with" : kind === 2 ? "shares a cup with" : kind === 3 ? "argues with" : "trades insults with"; }
     else if (X > 62) { const t = tav(i, i); ev = [t[0] + (u(8) - 0.5) * 30, t[1] + 8 + (u(9) - 0.5) * 16]; edesc = "drinks at the tavern"; }
@@ -173,7 +177,9 @@ function plans() {
     S.eveWith[i] = comp; S.where[i] = { work: desc, eve: edesc };
   }
   S.planDay = w.day;
+  if (S.lookDay !== w.day) { for (let i = 0; i < w.N; i++) S.looks[i] = figure(lookOf(seed, A, i, JOBS[A.job[i]], w.factions[A.faction[i]].color, stageOf(i))); S.lookDay = w.day; }
 }
+const stageOf = (i) => { const a = ageOf(w.A, i, w.day); return a < 5 ? 0 : a < 14 ? 1 : a < 60 ? 2 : 3; };
 const ease = (t) => t * t * (3 - 2 * t);
 function positions(now) {
   const A = w.A, f0 = (((now - GENESIS) % 3600) + 3600) % 3600 / 3600, Pp = S.plan, out = S.cur;
@@ -239,7 +245,7 @@ function render() {
     if (st === ST.asphodel) { cx.fillStyle = "#cfc9ba"; cx.fillRect(x - 4, y - 7, 8, 11); cx.fillStyle = "#7a6e5e"; cx.fillRect(x - 0.8, y - 15, 1.6, 9); continue; }
     cx.globalAlpha = st === ST.shade ? 0.3 : 1;
     if (mode === 0) { cx.fillStyle = w.factions[A.faction[i]].color; cx.fillRect(x - 3, y - 3, 6, 6); }
-    else { const L = S.looks[i]; cx.imageSmoothingEnabled = true; cx.drawImage(L.canvas, S.frame[i] * L.w, 0, L.w, L.h, x - figH * 0.32, y - figH, figH * 0.64, figH); }
+    else { const L = S.looks[i], hh = A.kind[i] ? figH * [0.45, 0.68, 0.9, 0.86][stageOf(i)] : figH; cx.imageSmoothingEnabled = true; cx.drawImage(L.canvas, S.frame[i] * L.w, 0, L.w, L.h, x - hh * 0.32, y - hh, hh * 0.64, hh); }
     if (st === ST.pyre) { cx.globalAlpha = 0.6 + 0.4 * fl; cx.fillStyle = "#ff7a1a"; cx.beginPath(); cx.moveTo(x - 7, y + 2); cx.quadraticCurveTo(x, y - 26 * fl, x + 7, y + 2); cx.fill();
       if (i === 8984) { cx.globalAlpha = 1; cx.fillStyle = "#2b2b2b"; cx.fillRect(x + 10, y - 9, 8, 11); } }
     if (i === S.sel || i === S.hover) { cx.globalAlpha = 1; cx.strokeStyle = "#e3b341"; cx.lineWidth = Math.max(1.5, 1.5 / sc); cx.strokeRect(x - 7, y - figH - 2, 14, figH + 4); }
@@ -292,7 +298,7 @@ document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { do
 document.querySelectorAll(".voices input").forEach((b) => (b.onchange = chronicle));
 document.addEventListener("click", (e) => { const a = e.target.closest("[data-i]"); if (a) { e.preventDefault(); const i = +a.dataset.i; openLegends(i); } });
 function linkify(text) {
-  return esc(text).replace(/([A-Z][a-z]+) #(\d{1,4})((?: the [A-Z][\w-]+(?:-[A-Za-z]+)?| Siren-deaf| Maker-touched| Plague-spared)?)/g, (m, n, id, cog) => `<a class="who" data-i="${id - 1}">${n} #${id}${cog}</a>`);
+  return esc(text).replace(/([A-Z][a-z]+(?: [A-Z][a-z]+ides)?) ([#~])(\d{1,5})((?: the [A-Z][\w-]+(?:-[A-Za-z]+)?| Siren-deaf| Maker-touched| Plague-spared)?)/g, (m, n, mark, id, cog) => `<a class="who" data-i="${mark === "#" ? id - 1 : 9998 + Number(id)}">${n} ${mark}${id}${cog}</a>`);
 }
 function chronicle() {
   const on = new Set([...document.querySelectorAll(".voices input")].filter((x) => x.checked).map((x) => x.dataset.v));
@@ -329,15 +335,17 @@ function panels() {
     <h3>Offices</h3>${off}<h3>Laws (Ostrom grammar)</h3>${w.laws.slice(0, 10).map((l) => `<div class="law">${esc(l.adico)}<span class="num">${dayLabel(l.day)}</span></div>`).join("")}`;
   // economy
   const st = w.stats.slice(-240), last = st.at(-1);
-  $("#p-econ").innerHTML = `<div class="kv"><b>Living</b><span>${last.live.toLocaleString()}</span><b>Hungry</b><span>${last.hungry}</span><b>Sick</b><span>${last.sick}</span><b>Gini</b><span>${last.gini}</span><b>Mean mood</b><span>${last.mood}</span><b>Unrest</b><span>${last.unrest} ready to riot</span></div>
+  $("#p-econ").innerHTML = `<div class="kv"><b>Living</b><span>${last.live.toLocaleString()} (${(last.leaves || 0).toLocaleString()} Leaves)</span><b>Born / died</b><span>${(last.births || 0).toLocaleString()} Leaves born, ${(last.leafDeaths || 0).toLocaleString()} gone to the Pyra</span><b>Hungry</b><span>${last.hungry}</span><b>Sick</b><span>${last.sick}</span><b>Gini</b><span>${last.gini}</span><b>Mean mood</b><span>${last.mood}</span><b>Unrest</b><span>${last.unrest} ready to riot</span></div>
     <h3>Prices (obols)</h3><div class="kv">${GOODS.map((g, k) => `<b>${g}</b><span>${w.prices[k].toFixed(2)}</span>`).join("")}</div>
-    ${spark("Food price", st.map((s) => s.prices[0]), "#c9b98f")}${spark("Hungry", st.map((s) => s.hungry), "#e06a5a")}${spark("Gini", st.map((s) => s.gini), "#7fb4ff")}${spark("Shades in Asphodel", st.map((s) => s.shade), "#9aa4b5")}`;
+    ${spark("Leaves alive", st.map((s) => s.leaves || 0), "#9be37f")}${spark("Food price", st.map((s) => s.prices[0]), "#c9b98f")}${spark("Hungry", st.map((s) => s.hungry), "#e06a5a")}${spark("Gini", st.map((s) => s.gini), "#7fb4ff")}${spark("Shades in Asphodel", st.map((s) => s.shade), "#9aa4b5")}`;
   // dead
   const pyre = [], graves = [], shades = []; for (let i = 0; i < w.N; i++) { const s = A.status[i]; if (s === ST.pyre) pyre.push(i); else if (s === ST.asphodel) graves.push(i); else if (s === ST.shade) shades.push(i); }
   const lst = (a) => a.map((i) => `<a class="who" data-i="${i}">${esc(view.name(i))}</a>`).join(", ") || "none";
-  $("#p-dead").innerHTML = `<h3>On the Pyra (${pyre.length})</h3><p>${lst(pyre)}</p><p class="muted">Burned on-chain in the last five real days; their art still shows fire.</p>
-    <h3>Asphodel graves (${graves.length})</h3><p>${lst(graves)}</p><p class="muted">Burned tokens after the fire: bones gathered, an oar planted on each mound.</p>
-    <h3>Shades (${shades.length})</h3><p class="muted">Died inside the world. Shades return after 20 to 60 days, changed; only burns are forever.</p><p>${lst(shades.slice(0, 120))}${shades.length > 120 ? " …" : ""}</p>`;
+  const unmade = graves.filter((i) => i < 9999), leafGraves = graves.filter((i) => i >= 9999).sort((x, y) => A.died[y] - A.died[x]);
+  $("#p-dead").innerHTML = `<h3>On the Pyra (${pyre.length})</h3><p>${lst(pyre)}</p><p class="muted">Argonauts burned on-chain in the last five real days (their art still shows fire), and Leaves cremated in the last three days.</p>
+    <h3>The unmade (${unmade.length})</h3><p>${lst(unmade)}</p><p class="muted">Argonauts burned on the chain. Fire is the only death the Sown can die; an oar is planted on each mound.</p>
+    <h3>Leaves in the earth (${leafGraves.length})</h3><p>${lst(leafGraves.slice(0, 60))}${leafGraves.length > 60 ? " …" : ""}</p><p class="muted">The mortal children of the Minyai, most recent first.</p>
+    <h3>Broken, mending (${shades.length})</h3><p class="muted">Argonauts broken by wounds, hunger or plague. Their bones re-knit in Asphodel after 20 to 60 days.</p><p>${lst(shades.slice(0, 120))}${shades.length > 120 ? " …" : ""}</p>`;
   $("#p-about").innerHTML = `<p><b>The Argo</b> is an autonomous world. Each of the 9,999 Argonauts lives on its own: it works, trades, eats, talks, holds grudges, votes, riots, defects, dies and sometimes returns. Nobody steers it.</p>
     <p>One real hour is one day of the voyage. The world is computed by a deterministic engine: the GitHub job and your browser run the same code from the same checkpoint and get the same world (fingerprint <code>${stateHash(w)}</code>).</p>
     <p>The only outside force is the chain. Sales move an Argonaut to a new house, and the price arrives as gold from Colchis. Burns light the Pyra. The Maker's rulings remake a character. Renderer changes make the Argo's speaking beam speak.</p>
@@ -353,8 +361,15 @@ function spark(label, vals, color) {
 // ------------------------------------------------------------------ Legends page of one Argonaut
 function openLegends(i) {
   const A = w.A, tok = i + 1, f = w.factions[A.faction[i]], d = seed.dicts, oik = w.oikoi[A.oikos[i]] || {};
-  const status = ["living", "a shade in Asphodel", "burning on the Pyra", "buried in the Asphodel Meadow", "in exile"][A.status[i]];
-  const traits = ["Bones", "Palette", "Cloak", "Crown", "Sight", "Artifact"].map((t) => `<span class="pill">${t}: ${esc(t === "Bones" ? d.Bones[seed.bones[i]] : d[t][seed[t.toLowerCase()][i]])}</span>`).join("");
+  const status = (A.kind[i] ? ["living", "", "burning on the Pyra", "buried in the Asphodel Meadow", "in exile"] : ["living", "broken, mending in Asphodel", "burning on the Pyra: unmade", "unmade by fire, buried in Asphodel", "in exile"])[A.status[i]];
+  const leaf = !!A.kind[i], key = { Bones: "bones", Palette: "palette", Cloak: "cloak", Crown: "crown", Sight: "sight", Artifact: "artifact" };
+  const traits = (leaf ? ["Bones", "Palette"] : Object.keys(key)).map((t) => `<span class="pill">${t}: ${esc(d[t][A[key[t]][i]])}</span>`).join("") + (leaf ? '<span class="pill">a Leaf: mortal</span>' : '<span class="pill">Sown: deathless but for fire</span>');
+  // family
+  const kids = [], sibs = []; for (let c = 9999; c < w.N; c++) { if (A.p1[c] === i || A.p2[c] === i) kids.push(c); else if (leaf && c !== i && A.p1[c] === A.p1[i] && A.p2[c] === A.p2[i]) sibs.push(c); }
+  const who = (j) => `<a class="who" data-i="${j}">${esc(view.name(j))}</a>${A.status[j] >= 2 && A.status[j] <= 3 ? " †" : ""}`;
+  const age = leaf ? ageOf(A, i, w.day) : null, deadLeaf = leaf && A.status[i] >= 2;
+  const family = (leaf ? `<div class="kv"><b>Born</b><span>${dayLabel(A.born[i])}${deadLeaf ? ` · died ${dayLabel(A.died[i])} aged ${Math.floor((A.died[i] - A.born[i]) / YEAR)}` : ` · ${age} years old`}</span><b>Parents</b><span>${who(A.p1[i])} and ${who(A.p2[i])}</span><b>Line</b><span>generation ${A.gen[i]} of the line of ${who(A.lineage[i])}</span>${sibs.length ? `<b>Siblings</b><span>${sibs.map(who).join(", ")}</span>` : ""}</div>` : "")
+    + (kids.length ? `<div class="kv"><b>Children</b><span>${kids.map(who).join(", ")}</span></div>` : "");
   const hex = ["Honesty", "Emotionality", "Extraversion", "Agreeableness", "Conscientiousness", "Openness"].map((h, k) => `<div class="trait"><span>${h}</span><div class="bar"><b style="width:${A.pers[i * 6 + k]}%;background:var(--gold)"></b></div><span class="num">${A.pers[i * 6 + k]}</span></div>`).join("");
   const ideo = AXES.map((a, k) => { const v = A.ideo[i * 3 + k]; return `<div class="trait"><span>${v >= 0 ? a[0] : a[1]}</span><div class="bar"><b style="left:${50 + Math.min(0, v) / 2}%;width:${Math.abs(v) / 2}%;background:var(--myth)"></b></div><span class="num">${Math.abs(v)}</span></div>`; }).join("");
   const th = []; for (let k = 0; k < THS; k++) { const t = A.thType[i * THS + k]; if (t && A.thUntil[i * THS + k] >= w.day - 1) th.push(`<span class="pill">${THOUGHTS[t][0]} ${THOUGHTS[t][1] > 0 ? "+" : ""}${THOUGHTS[t][1]}</span>`); }
@@ -364,14 +379,17 @@ function openLegends(i) {
   $("#lgCard").innerHTML = `<button class="close" aria-label="Close">×</button>
    <div class="lg-head"><canvas id="lgArt" width="24" height="24"></canvas><div><h2>${esc(view.name(i))}</h2>
      <div class="t">${esc(f.name)}, ${esc(f.title)} · ${A.status[i] === ST.pyre || A.status[i] === ST.asphodel ? "once a " + JOBS[A.job[i]] : JOBS[A.job[i]] + " in " + esc(DISTRICTS[A.district[i]].name)} · ${status}${A.office[i] >= 0 ? " · " + OFFICES[A.office[i]].title : ""}</div>
-     <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a></div>
+     <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}${i < 9999 ? `<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a>` : "born in the world, not on the chain"}</div>
      <div style="margin-top:6px">${traits}</div></div></div>
+   ${family ? `<h3>Family</h3>${family}` : ""}
    <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span></div></div></div>
    ${A.status[i] === ST.living && S.where && S.where[i] ? `<h3>Today</h3><p>${esc(view.name(i).split(' ')[0])} ${esc(S.where[i].work)}, then ${esc(S.where[i].eve)}${S.eveWith[i] >= 0 ? ` <a class="who" data-i="${S.eveWith[i]}">${esc(view.name(S.eveWith[i]))}</a>` : ""}.${A.lover[i] >= 0 ? ` Beloved: <a class="who" data-i="${A.lover[i]}">${esc(view.name(A.lover[i]))}</a>.` : ""}</p>` : ""}
    <h3>On their mind</h3><div>${th.join("") || '<span class="muted">nothing pressing</span>'}</div>
    <h3>Bonds</h3><div>${ties.map(([v, j]) => `<span class="pill" style="border-color:${v >= 0 ? "#3d6b4a" : "#7a3030"}">${v >= 0 ? "♥" : "✕"} <a class="who" data-i="${j}">${esc(view.name(j))}</a> ${v}</span>`).join("") || '<span class="muted">alone</span>'}</div>
    <h3>Life</h3><ol class="bio">${bio.join("") || '<li class="muted">Nothing remembered yet.</li>'}</ol>${recent ? `<h3>In the chronicle</h3><ol class="bio">${recent}</ol>` : ""}`;
-  const c = $("#lgArt").getContext("2d"), [sx, sy] = spriteAt(i); c.drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24);
+  const c = $("#lgArt").getContext("2d");
+  if (i < 9999) { const [sx, sy] = spriteAt(i); c.drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); }
+  else { const L = S.looks[i]; c.fillStyle = "#1b2a40"; c.fillRect(0, 0, 24, 24); c.imageSmoothingEnabled = true; c.drawImage(L.canvas, 4 * L.w, 0, L.w, L.h, 5, 1, 14, 22); }
   if (A.status[i] === ST.asphodel || A.status[i] === ST.shade) { c.globalCompositeOperation = "saturation"; c.fillStyle = "#888"; c.fillRect(0, 0, 24, 24); }
   $("#legends").classList.add("on"); $("#legends").setAttribute("aria-hidden", "false"); $(".close").onclick = closeLegends; focus(i);
 }
@@ -389,8 +407,8 @@ addEventListener("keydown", (e) => { if (e.key === "Escape") closeLegends(); });
 $("#q").addEventListener("input", () => {
   const q = $("#q").value.trim().toLowerCase(), box = $("#qres"); if (!q) { box.style.display = "none"; return; }
   const out = []; const id = parseInt(q.replace("#", ""), 10);
-  if (id >= 1 && id <= 9999) out.push(id - 1);
-  for (let i = 0; i < w.N && out.length < 12; i++) if (nameOf(i + 1).toLowerCase().startsWith(q) && !out.includes(i)) out.push(i);
+  if (q.startsWith("~")) { const n = parseInt(q.slice(1), 10); if (n >= 1 && 9998 + n < w.N) out.push(9998 + n); } else if (id >= 1 && id <= 9999) out.push(id - 1);
+  for (let i = 0; i < w.N && out.length < 12; i++) if (w.A.status[i] !== 3 && nameOf(i + 1).toLowerCase().startsWith(q) && !out.includes(i)) out.push(i);
   box.innerHTML = out.map((i) => `<div data-i="${i}">${esc(view.name(i))} · ${esc(view.faction(i))}</div>`).join(""); box.style.display = out.length ? "block" : "none";
 });
 document.addEventListener("click", (e) => { if (!e.target.closest(".search")) $("#qres").style.display = "none"; });

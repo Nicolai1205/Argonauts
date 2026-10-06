@@ -7,10 +7,21 @@ const PRE = ["Agath", "Alk", "Andr", "Antim", "Ari", "Arch", "Chrys", "Dem", "Di
 const SUF = ["on", "os", "ias", "ides", "ippos", "krates", "medes", "nikos", "phon", "stratos", "dotos", "genes", "kles", "laos", "machos", "menes", "doros", "ope", "eia", "ion"];
 /** a stable Greek name for every token */
 export function nameOf(tok) { const h = hash32("name", tok); return PRE[h % PRE.length] + SUF[(h >>> 8) % SUF.length]; }
+/** patronymic from a parent's name: Glaukphon -> Glaukphonides, Archos -> Archides */
+export const patronym = (name) => name.replace(/(ippos|os|as|es|is|ias|ope|eia|ion|a|e|o)$/, "") + "ides";
+export const ARGO_N = 9999;
+/** display name of any entity: tokens "Name #id", Leaves "Name Patronymides ~n" */
+export function displayName(A, i, cognomens) {
+  if (i < ARGO_N) return `${nameOf(i + 1)} #${i + 1}${A.cognomen[i] ? " " + cognomens[A.cognomen[i]] : ""}`;
+  return `${nameOf(i + 1)} ${patronym(nameOf(A.p1[i] + 1))} ~${i - ARGO_N + 1}${A.cognomen[i] ? " " + cognomens[A.cognomen[i]] : ""}`;
+}
 
 // three voices; every event type has several lines per voice, picked by the event id
 const T = {
   death: {
+    "died of old age": ["{a} died of old age at {v}, surrounded by the bones who sowed them. The Leaves fall; the Sown remain.", "Old age took {a} at {v}. They burn on the Pyra tonight and the family keeps the ashes.", "{a} lived {v} years, which is long for a Leaf. The Argonauts who knew them as a child have not aged a day."],
+    "died in infancy": ["A child of the {fa}, {a}, died before their fifth year. The Sown parents do not understand grief, and learn it.", "{a} lived only {v} years. As is the generation of leaves, so is that of men."],
+    "a sudden fever": ["A fever took {a} at {v}. Leaves fall early sometimes.", "{a}, only {v}, burned with fever for a night and then on the Pyra."],
     starved: ["{a} starved in {where}. The grain was in the stores; {a} had no obols to reach it.", "Hunger took {a} of the {fa}. Nobody kept count of the days.", "{a} lay down by the road in {where} and the crows were patient."],
     plague: ["The Gorgon-snake's sickness rotted {a} from within, as it rotted Mopsus in Libya.", "{a} died of the fever. The herbalists had no more of the Prometheion to sell.", "The flesh fell from {a} before the bones did. The plague moves on through {where}."],
     "cut down in the riot": ["{a} was cut down when the Reapers broke the crowd in {where}.", "A Reaper's blade found {a} in the riot. {fa} will remember the face that held it."],
@@ -20,7 +31,9 @@ const T = {
     "murdered in the night of knives": ["{a} was murdered in the night of knives. In the morning the killers told visitors the dead had only gone away.", "The Lemnian deed came to {where}: {a} died in bed, by a hand that had broken bread with {a}."],
     _: ["{a} died ({s}).", "Death came for {a} of the {fa} in {where}."],
   },
-  return: ["{a} came back from the Asphodel Meadow, thin and strange. The others call {a} the Twice-Born.", "Like Aethalides, who alternates between the living and the dead, {a} walked out of Asphodel and back into {where}.", "{a} returned from the dead ({v}×). The {fa} made room at the fire, but no one sat close."],
+  return: ["{a}'s bones re-knit in the Asphodel Meadow and walked back to {where}. Only fire unmakes the Sown.", "Like Aethalides, who passes between the living and the dead, {a} rose from Asphodel and returned to {where}.", "{a} was broken and is whole again ({v}×). The {fa} made room at the fire, but no one sat close."],
+  birth: ["{a} and {b} sowed a child in {where}: {c}. A Leaf, born to bone.", "A child for the {fa}: {c}, born to {a} and {b}. It will grow old; its parents will not.", "{c} was born in {where} to {a} and {b}{first}."],
+  comeofage: ["{a} came of age."],
   burn8985: ["{a} did not go to the Pyra like the others. The Maker built a barrel of oil for {a} alone, and it burns beside the pyre; the smoke is black and smells of the old world."],
   burn: ["{a} was given to the Pyra. The bones burn bright on the shore; {b} inherits what was left.", "On the chain they sent {a} to the dead address. On the shore the Pyra took {a}, and the smoke went up for days.", "{a} of the {fa} burns. Ash falls on {where}, and Charon is owed nothing; the fire took it all."],
   ostologia: ["The fire under {a} has gone out. The bones were gathered and an oar was planted on the mound in the Asphodel Meadow.", "Ostologia for {a}: ash raked, bones gathered, oar set upright. Elpenor asked for no more."],
@@ -71,9 +84,11 @@ const T = {
 const DIRS = (code) => { const ax = Math.floor(code / 2), up = code % 2 === 0; return AXES[ax][up ? 0 : 1]; };
 
 /** render one event; view = { name(i), faction(i)->name, factionById(k)->name } */
+const BROKEN = ["{a} was broken in {where} ({s}). The bones lie scattered in Asphodel and will knit again; only fire unmakes the Sown.",
+  "{a} of the {fa} fell ({s}). Their bones go to the Asphodel Meadow to mend.", "Broken, not dead: {a} ({s}). The Reapers carry the pieces to Asphodel."];
 export function narrate(e, view) {
   const h = hash32("tx", e.i, e.t);
-  let set = e.t === "burn" && e.a === 8984 ? T.burn8985 : T[e.t]; if (!set) return `${e.t} (${e.s || ""})`;
+  let set = e.t === "burn" && e.a === 8984 ? T.burn8985 : e.t === "death" && e.a >= 0 && e.a < 9999 && !["answered the Sirens"].includes(e.s) ? BROKEN : T[e.t]; if (!set) return `${e.t} (${e.s || ""})`;
   if (!Array.isArray(set)) set = set[e.s] || set._;
   let tpl = set[h % set.length];
   const who = (i) => (i >= 0 ? view.name(i) : "someone");
@@ -81,10 +96,10 @@ export function narrate(e, view) {
   if (e.t === "riot") { try { const x = JSON.parse(e.s); riot = `${x.dead ? x.dead + " died, " : ""}${x.jailed} were jailed, ${x.looted} rations looted.`; } catch { } }
   const [s1, s2] = (e.s || "").split("|");
   const map = {
-    a: who(e.a), b: who(e.b), where: e.x >= 0 ? DISTRICTS[e.x].name : "the archipelago", fa: e.a >= 0 ? view.faction(e.a) : "Minyans",
+    a: who(e.a), b: who(e.b), c: e.t === "birth" ? who(e.v) : (e.t === "cognomen" ? COGNOMENS[e.v] : ""), first: e.s === "first" ? ", the first Leaf of their line" : "", where: e.x >= 0 ? DISTRICTS[e.x].name : "the archipelago", fa: e.a >= 0 ? view.faction(e.a) : "Minyans",
     bfa: e.a >= 0 ? view.blood(e.a) : "", pfa: e.a >= 0 ? view.blood(e.a) : "", s: e.s || "", v: e.v, r: riot, s1, s2,
     eth: (e.v / 100).toFixed(2), price: (e.v / 100).toFixed(1), dir: e.t === "beam" ? DIRS(e.v) : "", caught: e.s === "caught" ? ", and the Reapers caught them" : "",
-    role: e.t === "office" ? OFFICES[e.v].role : "", c: e.t === "cognomen" ? COGNOMENS[e.v] : "",
+    role: e.t === "office" ? OFFICES[e.v].role : "",
   };
   return tpl.replace(/\{(\w+)\}/g, (_, k) => (map[k] !== undefined ? map[k] : ""));
 }
@@ -94,4 +109,4 @@ export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plag
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
   crash: "realism", migrate: "realism", dole: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
-  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism" };
+  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism" };

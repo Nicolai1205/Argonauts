@@ -4,11 +4,11 @@ const CLOAK = { Death: "#141418", Clergy: "#e9e6dc", Royalty: "#6b2d8f", Servant
 const W = 18, H = 28, PX = 2;                    // design box (units) and cache pixels per unit
 const cache = new Map();
 
-export function lookOf(seed, i, job) {
+export function lookOf(seed, A, i, job, tunic, stage) {
   const d = seed.dicts;
-  return { bones: d.Bones[seed.bones[i]], cloak: d.Cloak[seed.cloak[i]], crown: d.Crown[seed.crown[i]], sight: d.Sight[seed.sight[i]], art: d.Artifact[seed.artifact[i]], breath: seed.breath[i], job };
+  return { bones: d.Bones[A.bones[i]], cloak: d.Cloak[A.cloak[i]], crown: d.Crown[A.crown[i]], sight: d.Sight[A.sight[i]], art: d.Artifact[A.artifact[i]], breath: i < 9999 ? seed.breath[i] : 0, job, tunic: A.kind[i] ? tunic : null, stage: A.kind[i] ? stage : 2 };
 }
-const keyOf = (L) => `${L.bones}|${L.cloak}|${L.crown}|${L.sight}|${L.art}|${L.breath}|${L.job}`;
+const keyOf = (L) => `${L.bones}|${L.cloak}|${L.crown}|${L.sight}|${L.art}|${L.breath}|${L.job}|${L.tunic}|${L.stage}`;
 
 /** returns {canvas, w, h} holding 5 frames side by side */
 export function figure(L) {
@@ -29,12 +29,15 @@ function draw(g, L, fr) {
   // legs
   g.strokeStyle = bone; g.lineWidth = 1.3;
   line(g, cx, hip, cx - 2 + sw * 2.2, 26.5); line(g, cx, hip, cx + 2 - sw * 2.2, 26.5);
+  // Leaves wear a short tunic in their faction's colour; elders stoop on a staff
+  if (L.tunic) { g.fillStyle = L.tunic; g.beginPath(); g.moveTo(cx - 3, neck + 0.5); g.lineTo(cx + 3, neck + 0.5); g.lineTo(cx + 4, 19.5); g.lineTo(cx - 4, 19.5); g.closePath(); g.fill(); }
+  if (L.stage === 3) { g.strokeStyle = "#7a6342"; g.lineWidth = 0.8; line(g, cx + 5, 12, cx + 6.5, 26.5); }
   // robe over the legs
   if (L.cloak !== "none" && CLOAK[L.cloak]) {
     g.fillStyle = CLOAK[L.cloak]; g.beginPath(); g.moveTo(cx - 3, neck + 0.5); g.lineTo(cx + 3, neck + 0.5); g.lineTo(cx + 4.8, 23.5); g.lineTo(cx - 4.8, 23.5); g.closePath(); g.fill();
     if (L.cloak === "Royalty") { g.strokeStyle = "#e3b341"; g.lineWidth = 0.6; line(g, cx - 4.6, 23.2, cx + 4.6, 23.2); line(g, cx, neck + 1, cx, 23); }
     if (L.cloak === "Clergy") { g.strokeStyle = "#c9a227"; g.lineWidth = 0.6; line(g, cx, 12, cx, 16); line(g, cx - 1.5, 13.3, cx + 1.5, 13.3); }
-  } else {
+  } else if (!L.tunic) {
     // spine and ribs
     g.strokeStyle = bone; g.lineWidth = 1.2; line(g, cx, neck, cx, hip);
     g.lineWidth = 0.7; line(g, cx - 2.2, 12.5, cx + 2.2, 12.5); line(g, cx - 2, 14.5, cx + 2, 14.5); line(g, cx - 1.6, 16.3, cx + 1.6, 16.3);

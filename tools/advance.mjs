@@ -6,7 +6,7 @@ import fs from "node:fs";
 import zlib from "node:zlib";
 import { createWorld, serialize, deserialize, stateHash, runUntil, omensByDay, dayNow, dayOfTs, GENESIS, PREHISTORY_DAYS } from "../sim/engine.js";
 import { VERSION } from "../sim/world.js";
-import { narrate, nameOf, VOICE } from "../sim/narrate.js";
+import { narrate, nameOf, displayName, VOICE } from "../sim/narrate.js";
 import { homeFaction } from "../sim/systems.js";
 import { BLOODS, DISTRICTS, COGNOMENS, OFFICES, ST } from "../sim/lore.js";
 
@@ -28,7 +28,7 @@ const byDay = omensByDay(hist.omens.concat(fresh));
 const target = untilArg ? Number(untilArg.split("=")[1]) : dayNow(Date.now() / 1000) + 1;   // include the current hour's day
 
 const view = {
-  name: (i) => `${nameOf(i + 1)} #${i + 1}${w.A.cognomen[i] ? " " + COGNOMENS[w.A.cognomen[i]] : ""}`,
+  name: (i) => displayName(w.A, i, COGNOMENS),
   faction: (i) => w.factions[w.A.faction[i]].name,
   blood: (i) => w.factions[homeFaction(w, i)].name,
 };
@@ -47,7 +47,7 @@ const meta = {
   omens: { history: hist.omens.length, after: fresh.length }, stats: w.stats.at(-1),
   factions: w.factions.map((f) => ({ id: f.id, name: f.name, title: f.title, color: f.color, alive: f.alive, members: f.members, seats: f.seats, legit: f.legit, inCoalition: f.inCoalition, ideo: f.ideo, founder: f.founder, born: f.born })),
   laws: w.laws.slice(0, 12), offices: Object.fromEntries(Object.entries(w.offices).map(([k, i]) => [k, { i, name: view.name(i) }])),
-  treasury: w.treasury, tax: w.taxPermille, franchise: w.franchise, prices: w.prices, coalition: w.boule.coalition,
+  leaves: w.leafCount || 0, births: w.births, leafDeaths: w.leafDeaths, N: w.N, treasury: w.treasury, tax: w.taxPermille, franchise: w.franchise, prices: w.prices, coalition: w.boule.coalition,
 };
 fs.writeFileSync(`${W}/meta.json`, JSON.stringify(meta));
 console.log(`advance: day ${from} -> ${w.day} in ${Date.now() - t0} ms, hash ${hash}, omens after seed ${fresh.length} (${assigned} newly dated)`);
