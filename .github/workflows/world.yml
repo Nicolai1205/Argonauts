@@ -1,0 +1,38 @@
+# Every hour: read the chain, advance the world one day (1 real hour = 1 sim day), publish the site.
+# The live world (checkpoint, chronicle, omens) lives on the `world` branch as a single force-pushed commit,
+# so the repository does not grow with every hour.
+name: world
+on:
+  schedule: [{ cron: "3 * * * *" }]
+  workflow_dispatch:
+  push: { branches: [main] }
+permissions: { contents: write, pages: write, id-token: write }
+concurrency: { group: world, cancel-in-progress: false }
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.deploy.outputs.page_url }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        id: world
+        continue-on-error: true
+        with: { ref: world, path: world }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Read the chain
+        run: node tools/sync.mjs world data/history.json
+      - name: Advance the world
+        run: node tools/advance.mjs world
+      - name: Save the world branch
+        run: |
+          cd world && rm -rf .git && git init -q -b world
+          git -c user.name="the Argo" -c user.email="argo@users.noreply.github.com" add -A
+          git -c user.name="the Argo" -c user.email="argo@users.noreply.github.com" commit -qm "$(node -e 'const m=require("./meta.json");console.log(`day ${m.day-1} · ${m.hash}`)')"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" world
+      - name: Build site
+        run: node tools/build_site.mjs world _site
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: deploy
+        uses: actions/deploy-pages@v4

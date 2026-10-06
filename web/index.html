@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Argo</title>
+<meta name="description" content="An autonomous, live world of 9,999 Argonauts. One real hour is one day of the voyage.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b1220'/%3E%3Cpath d='M2 10h12l-2 3H4z' fill='%23e3b341'/%3E%3Cpath d='M8 2v8M8 3l4 6H8' stroke='%23e9e1cf' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="ship">ARGO</span><span class="sub">the voyage of the Minyai</span></div>
+  <div class="clock"><span id="day">Day …</span><span id="dawn" class="muted"></span></div>
+  <div class="search"><input id="q" placeholder="Find an Argonaut: #8985 or a name" autocomplete="off"><div id="qres" class="qres"></div></div>
+</header>
+<main>
+  <section class="chart" id="chartWrap">
+    <canvas id="chart"></canvas>
+    <div class="legend" id="legend"></div>
+    <div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button><button id="zfit" aria-label="Fit">⤢</button></div>
+    <div class="tip" id="tip"></div>
+    <div class="loading" id="loading">Waking the Minyai…</div>
+  </section>
+  <aside class="side">
+    <nav class="tabs" role="tablist">
+      <button data-tab="chron" class="on">Chronicle</button><button data-tab="fac">Factions</button><button data-tab="boule">Boule</button>
+      <button data-tab="econ">Economy</button><button data-tab="dead">The dead</button><button data-tab="about">About</button>
+    </nav>
+    <div class="panel on" id="p-chron"><div class="voices"><label><input type="checkbox" data-v="myth" checked> myth</label><label><input type="checkbox" data-v="horror" checked> horror</label><label><input type="checkbox" data-v="realism" checked> realism</label></div><ol id="chron" class="chron"></ol></div>
+    <div class="panel" id="p-fac"></div>
+    <div class="panel" id="p-boule"></div>
+    <div class="panel" id="p-econ"></div>
+    <div class="panel" id="p-dead"></div>
+    <div class="panel" id="p-about"></div>
+  </aside>
+</main>
+<div class="legends" id="legends" aria-hidden="true"><div class="lg-card" id="lgCard"></div></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

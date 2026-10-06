@@ -1,0 +1,12 @@
+{
+  "name": "argonauts-world",
+  "private": true,
+  "type": "module",
+  "description": "An autonomous, live world for the 9,999 Argonauts. One real hour is one day of the voyage.",
+  "scripts": {
+    "sync": "node tools/sync.mjs world data/history.json",
+    "advance": "node tools/advance.mjs world",
+    "site": "node tools/build_site.mjs world _site",
+    "tick": "npm run sync && npm run advance && npm run site"
+  }
+}

@@ -1,0 +1,478 @@
+{
+ "tokens": 9999,
+ "live": 9977,
+ "burned": 22,
+ "holders": 2342,
+ "bones": {
+  "Bone": 4468,
+  "Prehistoric": 2492,
+  "Silver": 1295,
+  "Coral": 800,
+  "Floral": 500,
+  "Petrified": 300,
+  "Gold": 88,
+  "Radioactive": 25,
+  "Alien": 9
+ },
+ "faction_culture_lift": {
+  "Bone": {
+   "Cloak": {
+    "Clergy": 1.1,
+    "Ivory": 1.08,
+    "Royalty": 1.03
+   },
+   "Crown": {
+    "Dawn Pink Beanie": 1.64,
+    "Corsair": 1.35,
+    "Aegean Blue Beanie": 1.16
+   },
+   "Sight": {
+    "Versace": 1.37,
+    "Louis Vuitton": 1.35,
+    "Gucci": 1.35
+   },
+   "Artifact": {
+    "Vape": 1.14,
+    "Woodpipe": 1.09,
+    "none": 0.84
+   },
+   "Palette": {
+    "Bubblegum": 1.13,
+    "Violet": 1.08,
+    "Lavender": 1.05
+   },
+   "persona": {
+    "The Influencer": 1.44,
+    "The Socialite": 1.27,
+    "The Priest": 1.11
+   }
+  },
+  "Coral": {
+   "Cloak": {
+    "none": 1.32
+   },
+   "Crown": {
+    "Dawn Pink Beanie": 1.33,
+    "Oarsman's Band": 1.28,
+    "Purphat": 1.17
+   },
+   "Sight": {
+    "none": 1.6,
+    "Shades": 1.39,
+    "Glasses": 1.23
+   },
+   "Artifact": {
+    "none": 1.29,
+    "Woodpipe": 0.84,
+    "Vape": 0.74
+   },
+   "Palette": {
+    "Siren": 1.82,
+    "Storm": 1.15,
+    "Punkblue": 1.11
+   },
+   "persona": {
+    "The Purist": 3.12,
+    "The Deckhand": 2.5,
+    "The Thinker": 2.41
+   }
+  },
+  "Floral": {
+   "Cloak": {
+    "Ivory": 1.53,
+    "Servant": 1.38,
+    "Royalty": 1.2
+   },
+   "Crown": {
+    "Corsair": 1.35,
+    "none": 1.29,
+    "Purphat": 1.18
+   },
+   "Sight": {
+    "none": 2.56,
+    "3D Glasses": 2.16,
+    "Glasses": 2.07
+   },
+   "Artifact": {
+    "none": 1.18,
+    "Woodpipe": 0.94,
+    "Vape": 0.81
+   },
+   "Palette": {
+    "Seafoam": 1.39,
+    "MuseGreen": 1.07,
+    "Blush": 1.07
+   },
+   "persona": {
+    "The Gardener": 19.95,
+    "The Rower": 2.15,
+    "The Rebel": 2.1
+   }
+  },
+  "Gold": {
+   "Cloak": {
+    "none": 1.07,
+    "Clergy": 0.93,
+    "Death": 0.64
+   },
+   "Crown": {
+    "none": 1.6,
+    "Oarsman's Band": 0.7,
+    "Bandana": 0.67
+   },
+   "Sight": {
+    "none": 3.58,
+    "Shades": 1.22,
+    "Glasses": 1.04
+   },
+   "Artifact": {
+    "none": 1.57,
+    "Woodpipe": 0.8,
+    "Vape": 0.4
+   },
+   "Palette": {
+    "Lavender": 1.51,
+    "Offwhite": 1.3,
+    "Blush": 1.27
+   },
+   "persona": {
+    "The King": 113.38
+   }
+  },
+  "Petrified": {
+   "Cloak": {
+    "Royalty": 1.14,
+    "none": 1.05,
+    "Death": 0.88
+   },
+   "Crown": {
+    "none": 1.29,
+    "Bandana": 0.92,
+    "Oarsman's Band": 0.89
+   },
+   "Sight": {
+    "none": 2.71,
+    "Shades": 1.48,
+    "Digital": 1.13
+   },
+   "Artifact": {
+    "none": 1.46,
+    "Woodpipe": 0.75,
+    "Vape": 0.6
+   },
+   "Palette": {
+    "Blush": 1.6,
+    "Punkblue": 1.42,
+    "Lavender": 1.42
+   },
+   "persona": {
+    "The Ancient": 33.26,
+    "The Rebel": 1.62,
+    "The Rower": 1.44
+   }
+  },
+  "Prehistoric": {
+   "Cloak": {
+    "Death": 1.24,
+    "Clergy": 1.19,
+    "Ivory": 1.1
+   },
+   "Crown": {
+    "Aegean Blue Beanie": 1.15,
+    "Bandana": 1.13,
+    "none": 1.07
+   },
+   "Sight": {
+    "Dior": 1.19,
+    "Prada": 1.16,
+    "Louis Vuitton": 1.16
+   },
+   "Artifact": {
+    "Vape": 1.07,
+    "Woodpipe": 1.03,
+    "none": 0.93
+   },
+   "Palette": {
+    "Bubblegum": 1.08,
+    "Siren": 1.08,
+    "Sky": 1.05
+   },
+   "persona": {
+    "The Reaper": 1.26,
+    "The Priest": 1.2,
+    "The Influencer": 1.18
+   }
+  },
+  "Radioactive": {
+   "Cloak": {
+    "Servant": 22.02,
+    "Death": 1.88,
+    "none": 0.63
+   },
+   "Crown": {
+    "Aegean Blue Beanie": 1.91,
+    "none": 1.63
+   },
+   "Sight": {
+    "Glasses": 2.43,
+    "3D Glasses": 2.18,
+    "none": 1.9
+   },
+   "Artifact": {
+    "none": 1.64,
+    "Woodpipe": 0.8
+   },
+   "Palette": {
+    "Radioactive Lavender": 399.08,
+    "Radioactive Seafoam": 399.08,
+    "Radioactive Void Charcoal": 399.08
+   },
+   "persona": {
+    "The Mutant": 399.08
+   }
+  },
+  "Silver": {
+   "Cloak": {
+    "Royalty": 1.32,
+    "Death": 1.07,
+    "Ivory": 1.04
+   },
+   "Crown": {
+    "none": 1.14,
+    "Dawn Pink Beanie": 1.05,
+    "Bandana": 0.91
+   },
+   "Sight": {
+    "none": 1.46,
+    "Shades": 1.39,
+    "Digital": 1.35
+   },
+   "Artifact": {
+    "none": 1.28,
+    "Woodpipe": 0.82,
+    "Vape": 0.78
+   },
+   "Palette": {
+    "Offwhite": 1.15,
+    "Punkblue": 1.11,
+    "Blush": 1.11
+   },
+   "persona": {
+    "The Purist": 1.93,
+    "The Deckhand": 1.75,
+    "The Thinker": 1.57
+   }
+  }
+ },
+ "households": {
+  "single_token": 1269,
+  "multi_token": 1073,
+  "multi_tier": 932,
+  "tokens_in_multi_tier": 8352,
+  "largest": 950
+ },
+ "coholding": {
+  "Bone": {
+   "Prehistoric": 553,
+   "Silver": 389,
+   "Coral": 301,
+   "Floral": 200,
+   "Petrified": 135,
+   "Gold": 58,
+   "Radioactive": 15,
+   "Alien": 4
+  },
+  "Prehistoric": {
+   "Bone": 553,
+   "Silver": 316,
+   "Coral": 245,
+   "Floral": 180,
+   "Petrified": 105,
+   "Gold": 45,
+   "Radioactive": 15,
+   "Alien": 5
+  },
+  "Silver": {
+   "Bone": 389,
+   "Prehistoric": 316,
+   "Coral": 194,
+   "Floral": 139,
+   "Petrified": 103,
+   "Gold": 35,
+   "Radioactive": 12,
+   "Alien": 4
+  },
+  "Coral": {
+   "Bone": 301,
+   "Prehistoric": 245,
+   "Silver": 194,
+   "Floral": 131,
+   "Petrified": 78,
+   "Gold": 30,
+   "Radioactive": 9,
+   "Alien": 5
+  },
+  "Floral": {
+   "Bone": 200,
+   "Prehistoric": 180,
+   "Silver": 139,
+   "Coral": 131,
+   "Petrified": 75,
+   "Gold": 38,
+   "Radioactive": 10,
+   "Alien": 6
+  },
+  "Petrified": {
+   "Bone": 135,
+   "Prehistoric": 105,
+   "Silver": 103,
+   "Coral": 78,
+   "Floral": 75,
+   "Gold": 36,
+   "Radioactive": 9,
+   "Alien": 4
+  },
+  "Gold": {
+   "Bone": 58,
+   "Prehistoric": 45,
+   "Silver": 35,
+   "Coral": 30,
+   "Floral": 38,
+   "Petrified": 36,
+   "Radioactive": 8,
+   "Alien": 3
+  },
+  "Radioactive": {
+   "Bone": 15,
+   "Prehistoric": 15,
+   "Silver": 12,
+   "Coral": 9,
+   "Floral": 10,
+   "Petrified": 9,
+   "Gold": 8,
+   "Alien": 3
+  },
+  "Alien": {
+   "Bone": 4,
+   "Prehistoric": 5,
+   "Silver": 4,
+   "Coral": 5,
+   "Floral": 6,
+   "Petrified": 4,
+   "Gold": 3,
+   "Radioactive": 3
+  }
+ },
+ "trades_by_bones": {
+  "Alien": {
+   "n": 18,
+   "eth": 117.69
+  },
+  "Bone": {
+   "n": 11406,
+   "eth": 3134.82
+  },
+  "Coral": {
+   "n": 1811,
+   "eth": 479.44
+  },
+  "Floral": {
+   "n": 1009,
+   "eth": 343.28
+  },
+  "Gold": {
+   "n": 204,
+   "eth": 339.28
+  },
+  "Petrified": {
+   "n": 599,
+   "eth": 295.65
+  },
+  "Prehistoric": {
+   "n": 5972,
+   "eth": 1617.58
+  },
+  "Radioactive": {
+   "n": 35,
+   "eth": 159.76
+  },
+  "Silver": {
+   "n": 3120,
+   "eth": 831.32
+  }
+ },
+ "estates_x_bones": {
+  "Alien": {
+   "Clergy": 0,
+   "Death": 2,
+   "Ivory": 1,
+   "Royalty": 0,
+   "Servant": 5,
+   "none": 1
+  },
+  "Bone": {
+   "Clergy": 300,
+   "Death": 482,
+   "Ivory": 182,
+   "Royalty": 107,
+   "Servant": 62,
+   "none": 3335
+  },
+  "Coral": {
+   "Clergy": 0,
+   "Death": 0,
+   "Ivory": 0,
+   "Royalty": 0,
+   "Servant": 0,
+   "none": 800
+  },
+  "Floral": {
+   "Clergy": 33,
+   "Death": 63,
+   "Ivory": 29,
+   "Royalty": 14,
+   "Servant": 10,
+   "none": 351
+  },
+  "Gold": {
+   "Clergy": 5,
+   "Death": 6,
+   "Ivory": 3,
+   "Royalty": 1,
+   "Servant": 2,
+   "none": 71
+  },
+  "Petrified": {
+   "Clergy": 14,
+   "Death": 28,
+   "Ivory": 8,
+   "Royalty": 8,
+   "Servant": 3,
+   "none": 239
+  },
+  "Prehistoric": {
+   "Clergy": 181,
+   "Death": 329,
+   "Ivory": 104,
+   "Royalty": 63,
+   "Servant": 39,
+   "none": 1776
+  },
+  "Radioactive": {
+   "Clergy": 0,
+   "Death": 5,
+   "Ivory": 0,
+   "Royalty": 0,
+   "Servant": 8,
+   "none": 12
+  },
+  "Silver": {
+   "Clergy": 77,
+   "Death": 147,
+   "Ivory": 51,
+   "Royalty": 40,
+   "Servant": 16,
+   "none": 964
+  }
+ }
+}
