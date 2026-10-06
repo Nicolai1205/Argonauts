@@ -69,7 +69,23 @@ export function generate() {
     }
   }
   for (const s of Object.values(SITES)) for (let y = s.y - 2; y <= s.y + 2; y++) for (let x = s.x - 2; x <= s.x + 2; x++) if (elev[y * N + x] < SEA) elev[y * N + x] = SEA + 0.02;
-  return { elev, moist, biome, SEA, roads: roads(elev, biome, SEA) };
+  return { elev, moist, biome, SEA, roads: roads(elev, biome, SEA), rivers: rivers(elev, moist, biome, SEA) };
+}
+
+// rivers: fill pits (priority flood from the sea), let rain run downhill (D8), and draw where enough water gathers
+function rivers(elev, moist, biome, SEA) {
+  const N = SIZE, filled = Float32Array.from(elev), done = new Uint8Array(N * N), q = [];
+  for (let i = 0; i < N * N; i++) if (elev[i] < SEA) { done[i] = 1; q.push(i); }
+  const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  // breadth-first from the sea, raising pits so every land tile has a path down (an approximation of Planchon-Darboux)
+  for (let h = 0; h < q.length; h++) { const c = q[h], cx = c % N, cy = (c / N) | 0;
+    for (const [dx, dy] of D8) { const x = cx + dx, y = cy + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const n = y * N + x; if (done[n]) continue; done[n] = 1; if (filled[n] <= filled[c]) filled[n] = filled[c] + 1e-5; q.push(n); } }
+  const order = q.slice().reverse(), flux = new Float32Array(N * N), down = new Int32Array(N * N).fill(-1);
+  for (const c of order) { if (elev[c] < SEA) continue; let best = -1, bh = filled[c]; const cx = c % N, cy = (c / N) | 0;
+    for (const [dx, dy] of D8) { const x = cx + dx, y = cy + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const n = y * N + x; if (filled[n] < bh) { bh = filled[n]; best = n; } } down[c] = best; }
+  for (const c of order) { if (elev[c] < SEA) continue; flux[c] += 0.4 + moist[c]; if (down[c] >= 0) flux[down[c]] += flux[c]; }
+  const out = []; for (let i = 0; i < N * N; i++) if (elev[i] >= SEA && flux[i] > 55 && down[i] >= 0 && biome[i] !== "city") out.push([i, down[i], Math.min(1, flux[i] / 400)]);
+  return out;
 }
 
 // roads: A* over a cost grid between cities; sea lanes (dashed) where a road would have to swim

@@ -75,6 +75,9 @@ const ROADS = MAP.roads.map((r) => { const land = new Path2D(), sea = new Path2D
   r.path.forEach(([x, y, wet], n) => { const px = x * TILE + TILE / 2, py = y * TILE + TILE / 2, P = wet ? sea : land; if (n === 0 || wet !== prevSea) P.moveTo(px, py); else P.lineTo(px, py); if (n > 0 && wet !== prevSea) (wet ? sea : land).moveTo(px, py); prevSea = wet; });
   return { land, sea }; });
 const SITE = DISTRICTS.map((d) => { const s = SITES[d.key]; return { x: s.x * TILE + TILE / 2, y: s.y * TILE + TILE / 2, r: s.r * TILE }; });
+const RIVERS = (() => { const p = new Path2D(); for (const [a, b] of MAP.rivers) { p.moveTo((a % SIZE) * TILE + TILE / 2, Math.floor(a / SIZE) * TILE + TILE / 2); p.lineTo((b % SIZE) * TILE + TILE / 2, Math.floor(b / SIZE) * TILE + TILE / 2); } return p; })();
+// sea lanes as point lists, for ships
+const LANES = MAP.roads.map((r) => r.path.filter((p) => p[2]).map(([x, y]) => [x * TILE + TILE / 2, y * TILE + TILE / 2])).filter((l) => l.length > 6);
 
 // ------------------------------------------------------------------ cities: streets, houses by household, workplaces, venues
 const LOT = 26, SPEED = 30000;                          // world units per lot; walking speed in world units per sim day
@@ -223,6 +226,11 @@ function render() {
   cx.fillStyle = "#0b1a33"; cx.fillRect(0, 0, r.width, r.height);
   cx.save(); cx.translate(S.x, S.y); cx.scale(sc, sc);
   cx.imageSmoothingEnabled = false; cx.drawImage(TERRAIN, 0, 0, SIZE, SIZE, 0, 0, WORLD, WORLD);
+  // rivers
+  cx.strokeStyle = "#2f6a9a"; cx.lineWidth = Math.max(5, 1.4 / sc); cx.lineCap = "round"; cx.stroke(RIVERS);
+  // seasons: winter whitens the land, high summer bleaches it
+  { const month = Math.floor(((w.day % 360) + 360) % 360 / 30), wint = month === 10 || month === 11 || month === 0 ? (month === 11 ? 0.22 : 0.12) : 0, summer = month >= 4 && month <= 6 ? 0.06 : 0;
+    if (wint) { cx.fillStyle = `rgba(235,240,250,${wint})`; cx.fillRect(0, 0, WORLD, WORLD); } if (summer) { cx.fillStyle = `rgba(255,220,140,${summer})`; cx.fillRect(0, 0, WORLD, WORLD); } }
   // roads and sea lanes
   cx.lineCap = "round"; cx.lineJoin = "round";
   for (const R of ROADS) { cx.strokeStyle = "#a08a62"; cx.lineWidth = Math.max(5, 1.6 / sc); cx.stroke(R.land); cx.setLineDash([18, 22]); cx.strokeStyle = "#9fc3e6aa"; cx.lineWidth = Math.max(3, 1.2 / sc); cx.stroke(R.sea); cx.setLineDash([]); }
@@ -245,6 +253,20 @@ function render() {
   for (const k of CITIES) { const L = w.war.lord[k]; if (L !== k) { cx.strokeStyle = "rgba(227,179,65,.55)"; cx.setLineDash([30, 20]); cx.lineWidth = Math.max(4, 2 / sc); cx.beginPath(); cx.moveTo(SITE[k].x, SITE[k].y); cx.lineTo(SITE[L].x, SITE[L].y); cx.stroke(); cx.setLineDash([]); } }
   for (const x of w.war.wars) { const a = SITE[x.a], b = SITE[x.target]; cx.strokeStyle = `rgba(224,90,70,${0.5 + 0.4 * Math.sin(tAnim / 300)})`; cx.lineWidth = Math.max(8, 3 / sc); cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke();
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; cx.fillStyle = "#e05a46"; cx.font = `${18 / sc}px serif`; cx.textAlign = "center"; cx.fillText("⚔", mx, my); }
+  // ships on the sea lanes: fishers and rowers put out by day; black sails at night
+  { const sailors = w.stats.length ? Math.min(40, Math.round((w.stats.at(-1).live || 0) / 400)) : 10, tday = (now / 3600 % 1);
+    for (let k = 0; k < sailors; k++) { const L = LANES[k % LANES.length]; if (!L) break; const u = ((now / (90 + (k % 7) * 20)) + k * 0.137) % 1, p = Math.floor(u * (L.length - 1)), f = u * (L.length - 1) - p, [x0, y0] = L[p], [x1, y1] = L[p + 1] || L[p];
+      const x = x0 + (x1 - x0) * f, y = y0 + (y1 - y0) * f, pirate = (night && k % 3 === 0); cx.fillStyle = "#5a3d22"; cx.beginPath(); cx.moveTo(x - 14, y); cx.lineTo(x + 14, y); cx.lineTo(x + 9, y + 6); cx.lineTo(x - 9, y + 6); cx.closePath(); cx.fill();
+      cx.fillStyle = pirate ? "#111" : "#efe6cf"; cx.beginPath(); cx.moveTo(x, y - 20); cx.lineTo(x + 10, y - 2); cx.lineTo(x, y - 2); cx.closePath(); cx.fill(); } }
+  // what happened today, drawn where it happened
+  { const today = w.day - 1, evs = chron.concat(provisional).filter((e) => e.d === today);
+    for (const e of evs) { if (e.x < 0 || !SITE[e.x]) continue; const c = SITE[e.x], R = (S.city[e.x] ? S.city[e.x].R : 120) + 40;
+      if (e.t === "riot" || e.t === "iconoclasm") { for (let k = 0; k < 6; k++) { const a = k * 1.05 + tAnim / 900, rr = R * 0.5; const fx = c.x + Math.cos(a) * rr, fy = c.y + Math.sin(a) * rr * 0.6; const g = cx.createRadialGradient(fx, fy, 2, fx, fy, 60); g.addColorStop(0, `rgba(255,120,40,${0.5 + 0.3 * Math.sin(tAnim / 150 + k)})`); g.addColorStop(1, "rgba(255,80,20,0)"); cx.fillStyle = g; cx.beginPath(); cx.arc(fx, fy, 60, 0, 6.283); cx.fill(); } }
+      if (e.t === "plague") { const g = cx.createRadialGradient(c.x, c.y, 10, c.x, c.y, R * 1.3); g.addColorStop(0, "rgba(120,200,90,.28)"); g.addColorStop(1, "rgba(120,200,90,0)"); cx.fillStyle = g; cx.beginPath(); cx.arc(c.x, c.y, R * 1.3, 0, 6.283); cx.fill(); }
+      if (e.t === "battle") { for (let k = 0; k < 5; k++) { const sx = c.x + (k - 2) * 40, sy = c.y - R * 0.6 - ((tAnim / 40 + k * 37) % 120); cx.fillStyle = `rgba(90,90,90,${0.35 - ((tAnim / 40 + k * 37) % 120) / 400})`; cx.beginPath(); cx.arc(sx, sy, 30, 0, 6.283); cx.fill(); } }
+      if (e.t === "festival") { for (let k = 0; k < 14; k++) { const a = k * 0.45, lx = c.x + Math.cos(a) * R * 0.7, ly = c.y + Math.sin(a) * R * 0.5; cx.fillStyle = `hsla(${(k * 40) % 360},90%,65%,${0.6 + 0.4 * Math.sin(tAnim / 200 + k)})`; cx.fillRect(lx - 4, ly - 4, 8, 8); } }
+    }
+    if (w.director.active && w.director.active.pall === w.day - 1) { cx.fillStyle = "rgba(0,0,0,.55)"; cx.fillRect(0, 0, WORLD, WORLD); } }
   // the Pyra
   const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97);
   const grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, 150); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
