@@ -1,6 +1,6 @@
 # The Argo: handover
 
-Status on 2026-10-06. **Rules v9**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
+Status on 2026-10-06 (afternoon). **Rules v18**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
 An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and their mortal children. **One real hour is one sim day.** Day 0 is 2026-10-06 00:00 UTC.
 
 ## 1. How it runs (nothing to babysit)
@@ -8,7 +8,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
   1. Checks out `main` plus the `world` branch, into `world/`.
   2. `tools/sync.mjs`: keyless chain sync. RPC `eth_getLogs` for Transfer/MetadataUpdate/BatchMetadataUpdate on the collection, plus the Blockscout API for every deployer transaction (`setTraits` is decoded to its token).
   3. `tools/advance.mjs`: loads the checkpoint, dates late omens, runs days up to now, narrates, sifts stories, and writes `state.json.gz`, `meta.json`, `chronicle/c*.json`, `sift.json`, `omens.json` and `feed.xml`.
-  4. `tools/selftest.mjs`: resuming from the checkpoint must equal continuing in memory. **The job refuses to publish otherwise.**
+  4. `tools/selftest.mjs`: 35 days, resuming after every day, must produce exactly the same save as continuing in memory (whole serialized state, not just the hash). **The job refuses to publish otherwise.**
   5. Force-pushes `world/` as a single commit to the `world` branch, so history doesn't grow.
   6. `tools/build_site.mjs` assembles `web/`, `sim/`, `data/` and `world/` into `_site/`. Every module import is cache-busted.
   7. Deploys to Pages.
@@ -27,13 +27,21 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 | `sim/rumor.js` | Daley–Kendall rumours with mutation; faith myth templates |
 | `sim/fleece.js` | The Golden Fleece quest (bearer = token #5266), relics with provenance |
 | `sim/trade.js` | Inter-city trade flows at landed prices, pirate skimming, visual caravans |
+| `sim/miasma.js` | v11 The Unclean City: miasma and katharsis, the Erinyes, blood-price vs vengeance, supplication, restless dead, the pharmakos, feuds |
+| `sim/gift.js` | v12 The Gift and the Duty: liturgies and antidosis, the Boule's grain fleet, inherited xenia (seeded by every real sale), theoxenia |
+| `sim/memory.js` | v13 Long Memory: Lethe/Mnemosyne at the re-knit, long-term and core memories, the weight of leaves, oaths and line curses, scars, the Samothracian mysteries |
+| `sim/oracle.js` | v14 Oracles: Dodona on beam days, Delphic prophecy by ambiguity grammar (resolved by the first fitting event), Phineus, stolen hero bones |
+| `sim/heroes.js` | v15 Beasts and Heroes: five beasts with lairs/hunger/radius, hunts, the Pagasaean and funeral games, strange moods and named relics, house renown and legacies |
+| `sim/iron.js` | v16 The Stone in Their Midst: Sown tension and the stone, the spear-mark, the Iron clock, hubris/nemesis, the Agrionia, Demophon, Theoclymenus' doom, the Lemnian New Fire |
+| `sim/hidden.js` | v17 What Is Hidden: unwitnessed killings and cases, belief, the Areopagus, secrets and blackmail, embezzling office-holders, reputation, curse tablets |
+| `sim/discord.js` | v18 Discord: weather (rain, drought, flood, storm), colonies by lot, orators before the vote, Turchin's political stress index, offices vacated for ever by on-chain burns |
 | `sim/sift.js` | Story sifter → front page (patterns, salience × rarity, era names) |
 | `sim/narrate.js` | Procedural prose for every event; names (`displayName`, patronymics, dialects) |
 | `sim/lore.js` | Canon constants: clock, bloods, Spartoi houses, districts, goods, jobs, thoughts, offices, incidents |
 | `web/` | Viewer: `app.js` (map, panels, follow, time-lapse, links), `map.js` (terrain, biomes, rivers, roads), `figures.js` (stick skeletons), `portrait.js` + `compose.js` (on-chain renderer port), `biography.js`, `codex.js` |
 | `tools/py/compile_seed.py` | Builds `data/seed.json`, `data/history.json` and `data/fleet.bin.gz` from the parent research DB (`../data/argonauts.db`) |
 | `data/art.json` | Renderer blobs and names (from `report/pix/remix.json`) |
-| `docs/` | RESEARCH, DESIGN, LORE, FEASIBILITY, CULTURE, ROADMAP, this file |
+| `docs/` | RESEARCH, DESIGN, LORE, FEASIBILITY, CULTURE, ROADMAP, this file; `docs/research/` has SIMULATIONS.md, MYTH.md (sources for v11–v18) and AUDIT.md (the v9 engine audit) |
 
 ## 3. Rules that must not be broken
 1. **Determinism.**
@@ -53,6 +61,10 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
    - It reads `version` **before** decoding. Decoding an old layout crashed the job for 40 minutes once.
 5. **New per-agent arrays** go in `LAYOUT` (world.js) and must be initialised for newborns in `bear()` (systems.js).
 6. **Dead entities stay in the arrays**, and `ctx.live` is built once per day and goes stale after deaths. Every system must skip `A.status[i] !== 0`. A dead agent in a later system once caused a money leak through an empty pool.
+7. **Negative days.** The prehistory runs on negative days, and JS `%` keeps the sign. Use `((day % n) + n) % n` for anything but `=== 0`, and never use `-1` as an "unset day" sentinel (use `null`). Both bugs happened in this wave.
+8. **Event payloads.** `s` fields are `kind|detail|…`; narrate looks up a line set by the full `s`, then by the part before the first `:` or `|`, then `_`. Hidden traces (`ctx.trace`) reach the sifter with `h: 1`; sifter cases that should only fire on real events must check `!e.h`.
+9. **Killings.** Call `kill(ctx, i, cause, by, hidden)`. A known killer (`by >= 0`) pollutes and opens a blood-debt; `hidden = true` stains the killer in secret, opens a case and logs only "found dead at dawn".
+10. **Patch scripts.** Python patch files with JS containing apostrophes must use triple quotes; a syntax error aborts the whole patch (nothing applied), which is safe but easy to miss.
 
 ## 4. Operating it
 - **Local full tick:** `npm run tick` (sync, advance, site), or step by step:
@@ -80,29 +92,37 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 10. weekly: centroids, defection, migration, love
 11. monthly: politics (D'Hondt, coalition, ADICO laws, Baron-Ferejohn, offices, ostracism, schisms)
 12. director
-13. culture: prophets, faiths, festivals
-14. war: cities, vassals, quest
-15. crafts, fashion, dialects, rumours
-16. lifecycle
-17. funerals
-18. stats
-19. invariant
+13. the Unclean City, Long Memory, oracles, beasts and games, the stone and the Iron clock, the hidden, weather and colonies (`miasmaDaily` → `memoryDaily` → `oracleDaily` → `heroesDaily` → `ironDaily` → `hiddenDaily` → `discordDaily`); monthly on day 15 the liturgies (`giftMonthly`)
+14. culture: prophets, faiths, festivals
+15. war: cities, vassals, quest (battles pause during the games' truce)
+16. crafts, fashion, dialects, rumours
+17. lifecycle (births, ageing, death; Leaves dead a year are blanked weekly)
+18. funerals
+19. stats
+20. invariant
 
-## 6. Current balance (v9 prehistory, end values)
-- About 10,950 alive, of which about 1,000 are Leaves.
-- About 400–900 hungry; Gini about 0.6–0.7.
+## 6. Current balance (v18; measured over a fresh prehistory plus a two-year forward run)
+- About 10,800 alive at day 0, of which about 900 are Leaves; Leaves grow to ~4,400 by day 730 and flatten toward the logistic cap.
+- Hunger swings with Hesiod's year and the droughts: 1–15% (mostly 2–6%). Gini 0.67–0.73. Unrest (active Epstein rebels) 30–190, down from 2,101 in v9.
+- Tick ~40 ms/day; fresh world-gen ~13 s; state ~1.2 MB gzipped at day 0, ~1.9 MB at day 730.
+- Per sim-year, roughly: 70–130 vendettas, 15–35 blood-prices, 5–20 supplications, 5–15 scapegoats, ~100 liturgies, 20–50 antidosis challenges, ~70 oracles, 5–6 beast attacks and as many hunts, 8 Pagasaean Games, ~40 strange moods, a few stones among the Sown, ~25 curse tablets, ~5 trials, ~20 weather events, a colony or two.
 - Leaves: a year every 12 sim days; adult at 14; fertile 16–45; logistic cap 16,000.
 - About 19% of people have a beloved: love needs a mutual best bond of 69 or more, it ends below 30, and bonds decay weekly.
 - Faiths: base conversion 0.16 × zeal; prophets after catastrophes, with a 20-day cooldown and at most 12 alive.
 - Wars: rel < −30, cohesion > 0.25, power > 1.15× the defender's (with terrain), at most 650 units away.
 
 ## 7. Watch items and known gaps
-- **Inequality** rose to about 0.7 once haulers earn carriage. Consider a carriage tax or guild dues.
-- **Lemnos and the Chalybes forges** can sit at famine bread prices (poor producers can't afford imports).
+- **State growth:** ~0.35 MB gzipped per sim-year (13 KB/real day). Dead Leaves are blanked after a year; a true archive (renumbering) would break links, so if it matters, move dead rows' bio/genes into a side file.
+- **Herbalists** nearly die out (the pharmaka trade is tiny), so plague kills more than it should. Consider seeding herbalists from Anthemoessa births.
+- **Beasts** only attack 5–6 times a sim-year; prey regrows fast. Tune `heroes.js` hunger if they feel absent.
+- **Prophecies** mostly lapse when there is no war; fine as flavour, but the fit rules could be broadened.
+- **Xenia** sits at its 4,000 cap from history alone; oldest bonds lapse first.
+- **Inequality** holds near 0.7 despite liturgies and guild dues (a quarter of carriage goes to the Boule); rowers and weavers are the rich trades.
+- **Lemnos** is poor (a smoke-only island) and hungriest in winter; the liturgies' grain and the Boule's grain fleet relieve it but don't fix it.
 - **World-gen speed** (about 14 s) and the state size (about 4.4 MB raw, about 1 MB gzipped) grow with dead Leaves. Archive long-dead Leaves out of the state eventually.
 - **Browser catch-up runs on the main thread** (fine for ≤48 days); a Web Worker is still open.
 - **The 60-day cron rule:** the heartbeat is in place but not yet proven over two months.
-- **Not built yet** (`docs/ROADMAP.md`): elections with candidates and speeches, weather, trunk-road merging, the Web Worker, save compaction.
+- **Not built yet** (`docs/ROADMAP.md`): the text layer (reactive narration, Qud-style domains), trunk-road merging, the Web Worker, a cross-engine determinism test, poems.
 
 ## 8. Canon (short)
 - **The Maker** (alphacentaurikid / ACK) sowed the Minyai on 26 Aug 2026 (the Sowing). The Minyai are bone and only fire unmakes them.
