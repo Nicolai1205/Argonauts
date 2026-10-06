@@ -64,7 +64,7 @@ function catchUp() {
   runUntil(w, target, byDay, (d, ev) => { for (const e of ev) if (!e.h) provisional.push({ ...e, text: narrate(e, view), voice: VOICE[e.t] || "realism", prov: true }); for (const st of sift(M, d, ev, w, view.name)) st.prov = true; });
   return true;
 }
-function liveTick() { if (!S.catching && catchUp()) { layout(); panels(); flash(); } updateClock(); }
+function liveTick() { const n0 = provisional.length; if (!S.catching && catchUp()) { layout(); panels(); flash(); notifyWatched(provisional.slice(n0)); } updateClock(); }
 /** replay in a module worker; resolves false if workers are unavailable so the caller can fall back to the main thread */
 function workerCatchUp(stTxt, omens) {
   return new Promise((resolve) => {
@@ -424,7 +424,7 @@ function focus(i) { const b = cv.getBoundingClientRect(); S.scale = Math.max(S.s
 // ------------------------------------------------------------------ side panels
 document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { document.querySelectorAll(".tabs button,.panel").forEach((x) => x.classList.remove("on")); b.classList.add("on"); $("#p-" + b.dataset.tab).classList.add("on"); }));
 document.querySelectorAll(".voices input").forEach((b) => (b.onchange = chronicle));
-document.addEventListener("click", (e) => { const a = e.target.closest("[data-i]"); if (a) { e.preventDefault(); const i = +a.dataset.i; openLegends(i); } });
+document.addEventListener("click", (e) => { const hh = e.target.closest("[data-h]"); if (hh) { e.preventDefault(); openHouse(+hh.dataset.h); return; } const a = e.target.closest("[data-i]"); if (a) { e.preventDefault(); const i = +a.dataset.i; openLegends(i); } });
 function linkify(text) {
   return esc(text).replace(/([A-Z][a-z]+(?: [A-Z][a-z]+ides)?) ([#~])(\d{1,5})((?: the [A-Z][\w-]+(?:-[A-Za-z]+)?| Siren-deaf| Maker-touched| Plague-spared)?)/g, (m, n, mark, id, cog) => `<a class="who" data-i="${mark === "#" ? id - 1 : 9998 + Number(id)}">${n} ${mark}${id}${cog}</a>`);
 }
@@ -457,6 +457,7 @@ function frontPage() {
   html += `<div class="story ${lead.score < 50 ? "" : "lead"}"><span class="k">${esc(lead.kind)}</span>${lead.score < 50 ? `<h4>${esc(lead.title)}</h4>` : `<h2>${esc(lead.title)}</h2>`}<p>${linkify(lead.text)}</p>
     <blockquote class="poem">${ps.lines.map((l) => `<span>${esc(l)}</span>`).join("")}<span class="refrain">${esc(cf.refrain)}</span><cite>${singer >= 0 ? `<a class="who" data-i="${singer}">${esc(view.name(singer))}</a>, the Orpheus` : "the Orpheus"}, ${esc({ lament: "a lament", praise: "a song of praise", hymn: "a hymn", blame: "a blame-song" }[ps.form])} in ${esc(cf.name)}, ${esc(cf.measure)}</cite></blockquote></div>`;
   for (const x of rest.slice(0, 5)) html += `<div class="story"><span class="k">${esc(x.kind)}</span><h4>${esc(x.title)}</h4><p>${linkify(x.text)}</p></div>`;
+  html = (S.sinceHtml ??= sinceLastVisit()) + html;
   html += brewing();
   html += `<div class="gz-old">` + days.slice(1, 40).map((d) => `<h5>${dayLabel(d)}</h5>` + byD[d].sort((a, b) => b.score - a.score).slice(0, 3).map((x) => `<div><b>${esc(x.title)}.</b> ${linkify(x.text)}</div>`).join("")).join("") + `</div>`;
   $("#p-front").innerHTML = html;
@@ -466,6 +467,10 @@ function brewing() {
   const A = w.A, a = (i) => `<a class="who" data-i="${i}">${esc(view.name(i))}</a>`, items = [], fame = (i) => (i < 9999 ? 2 : 0) + (A.cognomen[i] ? 2 : 0) + (A.office[i] >= 0 ? 3 : 0);
   const act = w.director && w.director.act; if (act) items.push(`<li><b>The storyteller</b> is in its ${esc(act)} act${w.director.next ? `, saving for ${esc(w.director.next)}` : ""}.</li>`);
   for (const war of (w.war && w.war.wars) || []) items.push(`<li><b>War:</b> ${esc(war.name)}, ${war.battles} battle${war.battles === 1 ? "" : "s"} so far.</li>`);
+  for (const o of (w.oaths || []).filter((o) => o.kind === "vengeance" && o.until - w.day <= 20 && w.A.status[o.who] === 0).slice(0, 3)) items.push(`<li><b>An oath falls due:</b> ${a(o.who)} swore on the Styx to take ${a(o.to)}; ${o.until - w.day} day${o.until - w.day === 1 ? "" : "s"} left, or the line is cursed.</li>`);
+  for (const c of (w.cases || []).filter((c) => c.open).slice(0, 2)) { const e = Object.entries(c.sus).sort((x, y) => y[1] - x[1]), tot = e.reduce((s, [, v]) => s + v, 0); if (e.length) items.push(`<li><b>Who killed ${a(c.v)}?</b> The city leans toward ${a(Number(e[0][0]))} (${Math.round(e[0][1] / Math.max(0.1, tot) * 100)}% of the talk).</li>`); }
+  for (const b of (w.beasts || []).filter((b) => b.alive && b.hunger >= 40)) items.push(`<li><b>${esc(b.name.replace(/^./, (c) => c.toUpperCase()))}</b> is hungry (${b.hunger}/100) and ranging wider.</li>`);
+  for (const m of w.movements || []) items.push(`<li><b>A movement</b> behind ${a(m.lead)}: ${esc(m.what)} (${["petition", "agitation", "ready to rise"][m.stage]}, ${m.n} strong).</li>`);
   for (const p of (w.prophecies || []).slice(-3)) items.push(`<li><b>Unfulfilled oracle</b> to ${a(p.who)}: “${esc(p.text)}” (${p.until - w.day} days left)</li>`);
   for (const h of w.heldBones || []) items.push(`<li><b>Stolen bones:</b> ${a(h.i)} lies in ${esc(DISTRICTS[h.city].name)}, ransom ${h.ransom} obols.</li>`);
   if (w.phineus >= 0) items.push(`<li><b>The Harpies</b> still foul the table of the blind seer ${a(w.phineus)}.</li>`);
@@ -549,6 +554,44 @@ function spark(label, vals, color) {
 }
 
 // ------------------------------------------------------------------ Legends page of one Argonaut
+// ------------------------------------------------------------------ houses (one wallet = one oikos) and the watchlist
+const houseName = (k) => { const o = w.oikoi[k] || {}; return o.name || (o.addr ? o.addr.slice(0, 6) + "…" + o.addr.slice(-4) : "?"); };
+const houseMembers = (k) => { const out = []; for (let i = 0; i < w.N; i++) if (w.A.oikos[i] === k) out.push(i); return out; };
+const WATCH = (() => { try { return JSON.parse(localStorage.getItem("argo.watch") || "{}"); } catch { return {}; } })(); WATCH.c ||= []; WATCH.h ||= [];
+const saveWatch = () => { try { localStorage.setItem("argo.watch", JSON.stringify(WATCH)); } catch { } };
+const watched = (e) => { const A = w.A, hs = new Set(WATCH.h); return [e.a, e.b].some((i) => i >= 0 && (WATCH.c.includes(i) || (A.oikos[i] !== undefined && hs.has(w.oikoi[A.oikos[i]]?.addr)))); };
+function toast(html) { let box = $("#toasts"); if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); } const t = document.createElement("div"); t.className = "toast"; t.innerHTML = html; box.appendChild(t); setTimeout(() => t.remove(), 12000); }
+function notifyWatched(events) { for (const e of events.filter(watched).slice(-4)) toast(`<b>★</b> ${linkify(e.text)}`); }
+function sinceLastVisit() {
+  let last = -1e9; try { last = Number(localStorage.getItem("argo.lastDay") ?? -1e9); } catch { }
+  try { localStorage.setItem("argo.lastDay", String(w.day - 1)); } catch { }
+  if (!WATCH.c.length && !WATCH.h.length) return "";
+  const evs = chron.concat(provisional).filter((e) => e.d > last && watched(e)).slice(-8).reverse();
+  return evs.length ? `<div class="since"><h4>Since you were last here</h4><ol>${evs.map((e) => `<li><span class="num">${dayLabel(e.d)}</span> ${linkify(e.text)}</li>`).join("")}</ol></div>` : "";
+}
+function openHouse(k) {
+  const A = w.A, o = w.oikoi[k] || {}, mem = houseMembers(k), toks = mem.filter((i) => i < 9999), leaves = mem.filter((i) => i >= 9999);
+  const liveT = toks.filter((i) => A.status[i] === ST.living), deadT = toks.filter((i) => A.status[i] === ST.asphodel || A.status[i] === ST.pyre);
+  const xs = Object.keys(w.xenia || {}).map((key) => key.split(":").map(Number)).filter(([a, b]) => a === k || b === k).map(([a, b]) => (a === k ? b : a));
+  const lines = new Set(mem.map((i) => A.lineage[i])), feuds = Object.values(w.feuds || {}).filter((f) => lines.has(f.a) || lines.has(f.b)), curses = [...lines].filter((L) => w.curses && w.curses[L]);
+  const rel = (w.relics || []).filter((r) => mem.includes(r.holder)), fame = mem.reduce((s, i) => s + (A.status[i] === ST.living ? A.fame[i] : 0), 0);
+  const who = (i) => `<a class="who" data-i="${i}">${esc(view.name(i))}</a>`, on = WATCH.h.includes(o.addr);
+  $("#lgCard").innerHTML = `<button class="close" aria-label="Close">×</button>
+   <div class="lg-head"><div><h2>The house of ${esc(houseName(k))}</h2>
+     <div class="t">${toks.length} Argonauts (${liveT.length} walking, ${deadT.length} burned) · ${leaves.length} Leaves born to it · name ${fame >= 0 ? "+" : ""}${fame}</div>
+     <div class="t">${o.addr ? `<a class="who" href="https://opensea.io/${o.addr}" target="_blank" rel="noopener">${esc(o.addr)}</a>` : ""}</div>
+     <div class="lg-tools"><button id="hWatch">${on ? "★ Watching" : "☆ Watch this house"}</button><button id="hShare">Copy link</button></div></div></div>
+   <h3>The Sown of the house</h3><div>${toks.slice(0, 80).map((i) => `<span class="pill">${who(i)} · ${A.status[i] === ST.living ? esc(DISTRICTS[A.district[i]].name) : A.status[i] === ST.shade ? "broken, mending" : "burned"}</span>`).join("") || '<span class="muted">none</span>'}${toks.length > 80 ? ` <span class="muted">and ${toks.length - 80} more</span>` : ""}</div>
+   ${leaves.length ? `<h3>Leaves of the house</h3><div>${leaves.slice(-40).reverse().map((i) => `<span class="pill">${who(i)}${A.status[i] >= 2 && A.status[i] <= 3 ? " †" : ""}</span>`).join("")}</div>` : ""}
+   <h3>Guest-friends</h3><p>${xs.length ? `Bound by real sales on the chain to ${xs.length} house${xs.length > 1 ? "s" : ""}: ${xs.slice(0, 20).map((x) => `<a class="who" data-h="${x}">${esc(houseName(x))}</a>`).join(", ")}${xs.length > 20 ? "…" : ""}. Guest-friends lower their spears to each other in battle.` : "No guest-friends yet."}</p>
+   ${feuds.length ? `<h3>Feuds</h3><p>${feuds.map((f) => `the line of ${who(f.a)} against the line of ${who(f.b)}, ${f.n} blood-debt${f.n > 1 ? "s" : ""}`).join("; ")}.</p>` : ""}
+   ${curses.length ? `<h3>Curses</h3><p>${curses.map((L) => `the line of ${who(L)} is cursed (since ${dayLabel(w.curses[L].since)})`).join("; ")}.</p>` : ""}
+   ${rel.length ? `<h3>Relics in the house</h3><p>${rel.map((r) => `${esc(r.name)} (with ${who(r.holder)})`).join("; ")}.</p>` : ""}`;
+  $("#legends").classList.add("on"); $("#legends").setAttribute("aria-hidden", "false"); $(".close").onclick = closeLegends;
+  if (o.addr) history.replaceState(null, "", `#/h/${o.addr}`);
+  $("#hWatch").onclick = () => { const p = WATCH.h.indexOf(o.addr); if (p >= 0) WATCH.h.splice(p, 1); else WATCH.h.push(o.addr); saveWatch(); $("#hWatch").textContent = p >= 0 ? "☆ Watch this house" : "★ Watching"; };
+  $("#hShare").onclick = () => { const url = location.href.split("#")[0] + `#/h/${o.addr}`; navigator.clipboard.writeText(url).then(() => ($("#hShare").textContent = "Link copied")).catch(() => prompt("Link", url)); };
+}
 function openLegends(i) {
   const A = w.A, tok = i + 1, f = w.factions[A.faction[i]], d = seed.dicts, oik = w.oikoi[A.oikos[i]] || {};
   const status = (A.kind[i] ? ["living", "", "burning on the Pyra", "buried in the Asphodel Meadow", "in exile"] : ["living", "broken, mending in Asphodel", "burning on the Pyra: unmade", "unmade by fire, buried in Asphodel", "in exile"])[A.status[i]];
@@ -573,7 +616,7 @@ function openLegends(i) {
      <div class="t">${esc(f.name)}, ${esc(f.title)} · ${A.status[i] === ST.pyre || A.status[i] === ST.asphodel ? "once a " + JOBS[A.job[i]] : (leaf && w.day - A.born[i] < 14 * 12 ? `a child of ${ageOf(A, i, w.day)}, of a ${JOBS[A.job[i]]}'s household,` : JOBS[A.job[i]]) + " in " + esc(DISTRICTS[A.district[i]].name)} · ${status}${A.office[i] >= 0 ? " · " + OFFICES[A.office[i]].title : ""}</div>
      <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}${i < 9999 ? `<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a>` : "born in the world, not on the chain"}</div>
      <div style="margin-top:6px">${traits}</div>
-     <div class="lg-tools">${A.status[i] === ST.living ? '<button id="lgFollow">Follow</button>' : ""}<button id="lgShare">Copy link</button></div></div></div>
+     <div class="lg-tools">${A.status[i] === ST.living ? '<button id="lgFollow">Follow</button>' : ""}<button id="lgWatch">${WATCH.c.includes(i) ? "★ Watching" : "☆ Watch"}</button><button id="lgShare">Copy link</button><button data-h="${A.oikos[i]}">The house</button></div></div></div>
    <h3>A life</h3>${biography(w, seed, i, view, dayLabel, M.stories || [], chron.concat(provisional)).map((p) => `<p>${linkify(p)}</p>`).join("")}
    ${family || thumbs ? `<h3>Family</h3>${thumbs}${family}` : ""}
    <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span>${A.miasma && A.miasma[i] ? `<b>Miasma</b><span style="color:var(--horror)">${A.miasma[i]} stain${A.miasma[i] > 1 ? "s" : ""}${A.fury[i] ? ", hounded by the Erinyes" : ""}</span>` : ""}${A.fame && A.fame[i] ? `<b>Name</b><span>${A.fame[i] > 40 ? "famous" : A.fame[i] > 10 ? "well spoken of" : A.fame[i] < -40 ? "infamous" : "ill spoken of"} (${A.fame[i]})</span>` : ""}${A.mark && A.mark[i] ? `<b>Marks</b><span>${[A.mark[i] & 1 ? "the spear-mark of the Earth-born" : "", A.mark[i] & 2 ? "nursed in the fire" : "", A.mark[i] & 4 ? "born grey at the temples" : ""].filter(Boolean).join(", ")}</span>` : ""}${A.mystes && A.mystes[i] ? `<b>Initiate</b><span>${A.mystes[i] === 2 ? "given Memory by the Maker" : "of the Kabeiroi"}</span>` : ""}${A.lethe && A.lethe[i] ? `<b>Lethe</b><span>drank ${A.lethe[i]}×</span>` : ""}${A.buried && A.buried[i] ? `<b>Buried</b><span>${A.buried[i]} of their Leaves</span>` : ""}${A.scar && A.scar[i] ? `<b>Scar</b><span>${["", "the smoke-eater", "the mourner", "the silent", "the cruel", "the wanderer", "the oath-maker", "the unnaming", "the bone-breaker"][A.scar[i]]}</span>` : ""}${A.avenge && A.avenge[i] ? `<b>Sworn</b><span>vengeance on <a class="who" data-i="${A.avenge[i] - 1}">${esc(view.name(A.avenge[i] - 1))}</a></span>` : ""}<b>Faith</b><span style="color:${w.faiths[A.faith[i]].color}">${esc(w.faiths[A.faith[i]].name)}</span><b>Wears</b><span style="color:${w.styles[A.style[i]].color}">${esc(w.styles[A.style[i]].name)}</span><b>Devotion</b><span>${A.devotion[i]}</span></div></div></div>
@@ -591,6 +634,7 @@ function openLegends(i) {
   if (A.status[i] === ST.asphodel || A.status[i] === ST.shade) { c.globalCompositeOperation = "saturation"; c.fillStyle = "#888"; c.fillRect(0, 0, 24, 24); }
   $("#legends").classList.add("on"); $("#legends").setAttribute("aria-hidden", "false"); $(".close").onclick = closeLegends; focus(i);
   if ($("#lgFollow")) $("#lgFollow").onclick = () => { closeLegends(); follow(i); };
+  $("#lgWatch").onclick = () => { const p = WATCH.c.indexOf(i); if (p >= 0) WATCH.c.splice(p, 1); else WATCH.c.push(i); saveWatch(); $("#lgWatch").textContent = p >= 0 ? "☆ Watch" : "★ Watching"; };
   $("#lgShare").onclick = () => { const url = location.href.split("#")[0] + `#/${i < 9999 ? "a/" + (i + 1) : "l/" + (i - 9998)}`; navigator.clipboard.writeText(url).then(() => ($("#lgShare").textContent = "Link copied")).catch(() => prompt("Link", url)); };
 }
 function bioText(t, arg) {
@@ -612,6 +656,7 @@ function route() {
   const idOf = (k, n) => (k === "a" ? Number(n) - 1 : 9998 + Number(n));
   if ((h[0] === "a" || h[0] === "l") && h[1]) { const i = idOf(h[0], h[1]); if (i >= 0 && i < w.N) openLegends(i); }
   else if (h[0] === "follow" && h[2]) { const i = idOf(h[1], h[2]); if (i >= 0 && i < w.N) follow(i); }
+  else if (h[0] === "h" && h[1]) { const k = w.oikoi.findIndex((o) => o.addr && o.addr.toLowerCase() === h[1].toLowerCase()); if (k >= 0) openHouse(k); }
   else if (h[0] === "tab" && h[1]) { const b = document.querySelector(`.tabs [data-tab="${h[1]}"]`); if (b) b.click(); }
 }
 
@@ -676,6 +721,7 @@ $("#q").addEventListener("input", () => {
   const out = []; const id = parseInt(q.replace("#", ""), 10);
   if (q.startsWith("~")) { const n = parseInt(q.slice(1), 10); if (n >= 1 && 9998 + n < w.N) out.push(9998 + n); } else if (id >= 1 && id <= 9999) out.push(id - 1);
   for (let i = 0; i < w.N && out.length < 12; i++) if (w.A.status[i] !== 3 && nameOf(i + 1).toLowerCase().startsWith(q) && !out.includes(i)) out.push(i);
-  box.innerHTML = out.map((i) => `<div data-i="${i}">${esc(view.name(i))} · ${esc(view.faction(i))}</div>`).join(""); box.style.display = out.length ? "block" : "none";
+  const houses = []; if (q.length >= 3) for (let k = 0; k < w.oikoi.length && houses.length < 6; k++) { const o = w.oikoi[k]; if ((o.addr && o.addr.toLowerCase().startsWith(q)) || (o.name && o.name.toLowerCase().includes(q))) houses.push(k); }
+  box.innerHTML = houses.map((k) => `<div data-h="${k}">House of ${esc(houseName(k))} · ${houseMembers(k).length} souls</div>`).join("") + out.map((i) => `<div data-i="${i}">${esc(view.name(i))} · ${esc(view.faction(i))}</div>`).join(""); box.style.display = out.length || houses.length ? "block" : "none";
 });
 document.addEventListener("click", (e) => { if (!e.target.closest(".search")) $("#qres").style.display = "none"; });
