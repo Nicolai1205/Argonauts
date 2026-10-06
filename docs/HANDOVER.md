@@ -168,7 +168,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ Walkers take L-shaped street paths instead of cutting through houses.
 - ✅ Journeys between cities are drawn during the hour they happen, chained over the road and sea network (`w.trips`, kept 3 days): migrants, colonists, avengers tracking a target, the Reapers' watch, exiles and scapegoats, Argonauts walking home from Asphodel, pilgrims to the Pythia, hunting parties (there and back), war levies, the hounded sailing off-map to Aeaea.
 - ✅ Wrecks marked on the lane, convoy escorts beside ships, stolen bones in the thief city, beasts prowling their circle, shrines at slain beasts' lairs, local rain, drought cracks, fog on the Mist-terraces, the Pyra glowing with the number it holds.
-- Still open: a real street graph inside cities; beasts drawn as creatures instead of glyphs; rivers that widen in flood.
+- ✅ Walkers follow the city street grid; beasts drawn as creatures; rivers swell in the wet.
 - **State growth (measured, v22):** the save is dominated by tie indices (random, so they barely compress), dead Leaves' life records (needed for their pages) and holder addresses. A binary save would save ~13%; not worth it yet.
 ### D. Engagement (spectators and holders)  ✅ mostly built
 - ✅ Holder view: search by wallet or house name; `#/h/<address>` opens the house (its Sown and Leaves, guest-friends from real sales, feuds, curses, relics, good name).
@@ -177,7 +177,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ Brewing with stakes: oaths falling due, which way the city leans in open cases, hungry beasts, movements.
 - ✅ Charts: one series per chart with crosshair tooltips and a table view (Leaves, food price, hunger, Gini, shades, unrest, the stress index, the Iron clock).
 - ✅ Arcs tab: the lives the front page keeps returning to this month, in order. ✅ Mobile checked at 400px (no overflow).
-- Still open: RSS per character or house (needs server-side files per entity; could generate for watched-popular houses only); a family-tree graphic; a map layer of feuds and guest-friendships.
+- ✅ RSS per house (`world/feeds/<address>.xml`, houses of 3+ tokens, last two months); a family tree (grandparents to grandchildren) on every page; a map layer (⚭) of feuds (red) and guest-friendships (blue) between cities.
 ### E. Lore and story  ✅ v24 (most)
 - ✅ Every faith retells riots, revolts, schisms, temples, beast attacks, hunts, the stone and colonies (they are now remembered and shown in the Codex).
 - ✅ A beast that eats a city can become a god (the Theriodai, "the Hunger in the Hills"); it grew to a major faith in test runs.

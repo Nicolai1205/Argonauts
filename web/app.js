@@ -45,9 +45,9 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
     if (ahead <= 2) catchUp();
     layout(); fit(); render(); panels();
     $("#loading").remove(); performance.mark("argo-ready");
-    setInterval(liveTick, 15000); requestAnimationFrame(frame); loadArt(); route(); addEventListener("hashchange", route);
-    // the pixel atlas (1.4 MB) is only for portraits: fetch it after the world is on screen
+    // the pixel atlas (1.4 MB) is only for portraits: fetch it after the world is on screen (before routing, so a linked page waits for it)
     spritesReady = gunzip("data/fleet.bin.gz").then((r) => r.arrayBuffer()).then((b) => { sprites = buildAtlas(new Uint8Array(b)); });
+    setInterval(liveTick, 15000); requestAnimationFrame(frame); loadArt(); route(); addEventListener("hashchange", route);
     if (ahead > 2) { S.catching = true; $("#dawn").textContent = `catching up ${ahead} days…`;
       workerCatchUp(stTxt, omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1)).then((ok) => { S.catching = false; if (!ok) catchUp(); layout(); panels(); flash(); }); }
   } catch (e) { $("#loading").textContent = "The sea is fogged: " + e.message; console.error(e); }
@@ -341,6 +341,14 @@ function render() {
     drawBeast(b.k, bx, by, Math.max(1, 1 / sc / 2.2), tAnim, 0.6 + b.hunger / 250); cx.fillStyle = "#c8463a"; cx.font = `${13 / sc}px serif`; cx.textAlign = "center"; cx.fillText(b.name, bx, by + 30 * Math.max(1, 1 / sc / 2.2)); }
   // colonies: the road from the old hearth to the new
   for (const col of (w.colonies || []).slice(-6)) { const a = SITE[col.from], b = SITE[col.to]; cx.strokeStyle = "rgba(127,180,255,.45)"; cx.setLineDash([6, 14]); cx.lineWidth = Math.max(3, 1.2 / sc); cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); cx.setLineDash([]); }
+  if (S.bonds) {
+    const at = (L) => { const d = w.A.district[L]; return d < D.pyra ? d : -1; }, home = {}; const key = (a, b) => (a < b ? a + ":" + b : b + ":" + a), feud = {}, xen = {};
+    for (const f of Object.values(w.feuds || {})) { const a = at(f.a), b = at(f.b); if (a >= 0 && b >= 0 && a !== b) feud[key(a, b)] = (feud[key(a, b)] || 0) + f.n; }
+    if (!S.xenCity || S.xenDay !== w.day) { S.xenCity = {}; S.xenDay = w.day; const rep = new Map(); for (let i = 0; i < w.N; i++) if (w.A.status[i] === ST.living && !rep.has(w.A.oikos[i])) rep.set(w.A.oikos[i], w.A.district[i]);
+      for (const k of Object.keys(w.xenia || {})) { const [a, b] = k.split(":").map(Number), da = rep.get(a), db = rep.get(b); if (da === undefined || db === undefined || da === db) continue; S.xenCity[key(da, db)] = (S.xenCity[key(da, db)] || 0) + 1; } }
+    for (const [k, n] of Object.entries(S.xenCity)) { const [a, b] = k.split(":").map(Number); cx.strokeStyle = "rgba(127,180,255,.5)"; cx.lineWidth = Math.max(2, Math.min(18, Math.sqrt(n) * 1.5) / sc / 4); cx.beginPath(); cx.moveTo(SITE[a].x, SITE[a].y + 20); cx.lineTo(SITE[b].x, SITE[b].y + 20); cx.stroke(); }
+    for (const [k, n] of Object.entries(feud)) { const [a, b] = k.split(":").map(Number); cx.strokeStyle = "rgba(224,90,70,.75)"; cx.setLineDash([16, 10]); cx.lineWidth = Math.max(2, Math.min(18, n * 2) / sc / 4); cx.beginPath(); cx.moveTo(SITE[a].x, SITE[a].y - 20); cx.lineTo(SITE[b].x, SITE[b].y - 20); cx.stroke(); cx.setLineDash([]); }
+  }
   // banners of lordship and lines of war
   for (const k of CITIES) { const L = w.war.lord[k]; if (L !== k) { cx.strokeStyle = "rgba(227,179,65,.55)"; cx.setLineDash([30, 20]); cx.lineWidth = Math.max(4, 2 / sc); cx.beginPath(); cx.moveTo(SITE[k].x, SITE[k].y); cx.lineTo(SITE[L].x, SITE[L].y); cx.stroke(); cx.setLineDash([]); } }
   for (const x of w.war.wars) { const a = SITE[x.a], b = SITE[x.target]; cx.strokeStyle = `rgba(224,90,70,${0.5 + 0.4 * Math.sin(tAnim / 300)})`; cx.lineWidth = Math.max(8, 3 / sc); cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke();
@@ -634,6 +642,7 @@ function openHouse(k) {
    <div class="lg-head"><div><h2>The house of ${esc(houseName(k))}</h2>
      <div class="t">${toks.length} Argonauts (${liveT.length} walking, ${deadT.length} burned) · ${leaves.length} Leaves born to it · name ${fame >= 0 ? "+" : ""}${fame}</div>
      <div class="t">${o.addr ? `<a class="who" href="https://opensea.io/${o.addr}" target="_blank" rel="noopener">${esc(o.addr)}</a>` : ""}</div>
+     <div class="t"><a class="who" href="world/feeds/${(o.addr || "").toLowerCase()}.xml" target="_blank" rel="noopener">RSS feed of this house</a> (houses of three or more)</div>
      <div class="lg-tools"><button id="hWatch">${on ? "★ Watching" : "☆ Watch this house"}</button><button id="hShare">Copy link</button></div></div></div>
    <h3>The Sown of the house</h3><div>${toks.slice(0, 80).map((i) => `<span class="pill">${who(i)} · ${A.status[i] === ST.living ? esc(DISTRICTS[A.district[i]].name) : A.status[i] === ST.shade ? "broken, mending" : "burned"}</span>`).join("") || '<span class="muted">none</span>'}${toks.length > 80 ? ` <span class="muted">and ${toks.length - 80} more</span>` : ""}</div>
    ${leaves.length ? `<h3>Leaves of the house</h3><div>${leaves.slice(-40).reverse().map((i) => `<span class="pill">${who(i)}${A.status[i] >= 2 && A.status[i] <= 3 ? " †" : ""}</span>`).join("")}</div>` : ""}
@@ -645,6 +654,15 @@ function openHouse(k) {
   if (o.addr) history.replaceState(null, "", `#/h/${o.addr}`);
   $("#hWatch").onclick = () => { const p = WATCH.h.indexOf(o.addr); if (p >= 0) WATCH.h.splice(p, 1); else WATCH.h.push(o.addr); saveWatch(); $("#hWatch").textContent = p >= 0 ? "☆ Watch this house" : "★ Watching"; };
   $("#hShare").onclick = () => { const url = location.href.split("#")[0] + `#/h/${o.addr}`; navigator.clipboard.writeText(url).then(() => ($("#hShare").textContent = "Link copied")).catch(() => prompt("Link", url)); };
+}
+function familyTree(i) {
+  const A = w.A, kidsOf = (p) => { const out = []; for (let c = 9999; c < w.N; c++) if (A.p1[c] === p || A.p2[c] === p) out.push(c); return out; };
+  const par = (x) => (A.kind[x] ? [A.p1[x], A.p2[x]].filter((p) => p >= 0) : []);
+  const gp = par(i).flatMap(par), p = par(i), kids = kidsOf(i), gk = kids.flatMap(kidsOf);
+  if (!p.length && !kids.length) return "";
+  const box = (x) => `<a class="tnode ${A.status[x] >= 2 && A.status[x] <= 3 ? "dead" : ""}${x < 9999 ? " bone" : ""}" data-i="${x}">${esc(view.name(x).split(" ")[0])}${x < 9999 ? " #" + (x + 1) : ""}</a>`;
+  const row = (label, xs) => xs.length ? `<div class="trow"><span class="tl">${label}</span>${xs.slice(0, 14).map(box).join("")}${xs.length > 14 ? `<span class="muted">+${xs.length - 14}</span>` : ""}</div>` : "";
+  return `<h3>Family tree</h3><div class="tree">${row("grandparents", [...new Set(gp)])}${row("parents", p)}${row("", [i].concat(A.lover[i] >= 0 ? [A.lover[i]] : []))}${row("children", kids)}${row("grandchildren", gk)}</div>`;
 }
 function openLegends(i) {
   const A = w.A, tok = i + 1, f = w.factions[A.faction[i]], d = seed.dicts, oik = w.oikoi[A.oikos[i]] || {};
@@ -672,7 +690,7 @@ function openLegends(i) {
      <div style="margin-top:6px">${traits}</div>
      <div class="lg-tools">${A.status[i] === ST.living ? '<button id="lgFollow">Follow</button>' : ""}<button id="lgWatch">${WATCH.c.includes(i) ? "★ Watching" : "☆ Watch"}</button><button id="lgShare">Copy link</button><button data-h="${A.oikos[i]}">The house</button></div></div></div>
    <h3>A life</h3>${biography(w, seed, i, view, dayLabel, M.stories || [], chron.concat(provisional)).map((p) => `<p>${linkify(p)}</p>`).join("")}
-   ${family || thumbs ? `<h3>Family</h3>${thumbs}${family}` : ""}
+   ${family || thumbs ? `<h3>Family</h3>${thumbs}${family}` : ""}${familyTree(i)}
    <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span>${A.miasma && A.miasma[i] ? `<b>Miasma</b><span style="color:var(--horror)">${A.miasma[i]} stain${A.miasma[i] > 1 ? "s" : ""}${A.fury[i] ? ", hounded by the Erinyes" : ""}</span>` : ""}${A.skill ? `<b>Skill</b><span>${A.skill[i]}${A.skill[i] >= 95 ? " (a master)" : ""}</span>` : ""}${A.guard && A.guard[i] ? `<b>Guardian</b><span><a class="who" data-i="${A.guard[i] - 1}">${esc(view.name(A.guard[i] - 1))}</a></span>` : ""}${A.immune && A.immune[i] ? `<b>Immune</b><span>${A.immune[i]} days</span>` : ""}${A.fame && A.fame[i] ? `<b>Name</b><span>${A.fame[i] > 40 ? "famous" : A.fame[i] > 10 ? "well spoken of" : A.fame[i] < -40 ? "infamous" : "ill spoken of"} (${A.fame[i]})</span>` : ""}${A.mark && A.mark[i] ? `<b>Marks</b><span>${[A.mark[i] & 1 ? "the spear-mark of the Earth-born" : "", A.mark[i] & 2 ? "nursed in the fire" : "", A.mark[i] & 4 ? "born grey at the temples" : ""].filter(Boolean).join(", ")}</span>` : ""}${A.mystes && A.mystes[i] ? `<b>Initiate</b><span>${A.mystes[i] === 2 ? "given Memory by the Maker" : "of the Kabeiroi"}</span>` : ""}${A.lethe && A.lethe[i] ? `<b>Lethe</b><span>drank ${A.lethe[i]}×</span>` : ""}${A.buried && A.buried[i] ? `<b>Buried</b><span>${A.buried[i]} of their Leaves</span>` : ""}${A.scar && A.scar[i] ? `<b>Scar</b><span>${["", "the smoke-eater", "the mourner", "the silent", "the cruel", "the wanderer", "the oath-maker", "the unnaming", "the bone-breaker"][A.scar[i]]}</span>` : ""}${A.avenge && A.avenge[i] ? `<b>Sworn</b><span>vengeance on <a class="who" data-i="${A.avenge[i] - 1}">${esc(view.name(A.avenge[i] - 1))}</a></span>` : ""}<b>Faith</b><span style="color:${w.faiths[A.faith[i]].color}">${esc(w.faiths[A.faith[i]].name)}</span><b>Wears</b><span style="color:${w.styles[A.style[i]].color}">${esc(w.styles[A.style[i]].name)}</span><b>Devotion</b><span>${A.devotion[i]}</span></div></div></div>
    ${A.status[i] === ST.living && S.where && S.where[i] ? `<h3>Today</h3><p>${esc(view.name(i).split(' ')[0])} ${esc(S.where[i].work)}, then ${esc(S.where[i].eve)}${S.eveWith[i] >= 0 ? ` <a class="who" data-i="${S.eveWith[i]}">${esc(view.name(S.eveWith[i]))}</a>` : ""}.${A.lover[i] >= 0 ? ` Beloved: <a class="who" data-i="${A.lover[i]}">${esc(view.name(A.lover[i]))}</a>.` : ""}</p>` : ""}
    ${(w.relics || []).filter((r) => r.holder === i).map((r) => `<h3>Carries ${esc(r.name)}</h3><ol class="bio">${r.history.map(([d, h, how]) => `<li><span class="num">${dayLabel(d)}</span> · <a class="who" data-i="${h}">${esc(view.name(h))}</a>: ${esc(how)}</li>`).join("")}</ol>`).join("")}
@@ -746,6 +764,7 @@ $("#zluck").onclick = () => {
 
 // ------------------------------------------------------------------ time-lapse: the cities' history, week by week
 const R = { on: false, k: 0, playing: false, timer: null };
+$("#zbond").onclick = () => { S.bonds = !S.bonds; $("#zbond").classList.toggle("on", S.bonds); render(); };
 $("#zlapse").onclick = () => {
   const tl = w.war.timeline || []; if (!tl.length) return;
   if (S.follow >= 0) unfollow(); closeLegends(); fit(); R.on = true; R.k = 0; $("#replay").classList.add("on"); const sl = $("#rslider"); sl.max = tl.length - 1; sl.value = 0; showReplay(); play(true);
