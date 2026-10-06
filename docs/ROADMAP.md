@@ -138,7 +138,7 @@ Monsters with lairs and appetites, hunts, funeral and Pagasaean games, strange m
 ### v16: The Stone in Their Midst  ✅ live (`sim/iron.js`)
 Spartoi self-slaughter, the Iron Clock (Hesiod's Five Ages as world health), the Agrionia, the Demophon heresy, Theoclymenus' vision, the Lemnian New Fire.
 
-### v17: What Is Hidden
+### v17: What Is Hidden  ✅ live (`sim/hidden.js`)
 Secrets and hooks, open mysteries with an Areopagus trial, reputation from gossip.
 
 ### v18: Discord

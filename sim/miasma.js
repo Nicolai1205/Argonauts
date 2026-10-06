@@ -5,6 +5,7 @@
 import { DISTRICTS, D, ST, TH, J } from "./lore.js";
 import { TIES } from "./world.js";
 import { xeniaViolated } from "./gift.js";
+import { openCase } from "./hidden.js";
 
 const YEAR = 12, adult = (A, i, day) => !A.kind[i] || day - A.born[i] >= 14 * YEAR;
 const alive = (A, i) => i >= 0 && A.status[i] === ST.living;
@@ -23,14 +24,14 @@ export function pollute(ctx, i, n) {
 }
 
 /** every killing with a known hand: pollution, a blood-debt to settle, and for a Leaf cut off young or by violence, a restless shade */
-export function onKilling(ctx, v, k) {
+export function onKilling(ctx, v, k, hidden = false) {
   const { A, w, day } = ctx; if (k < 0 || k === v || k >= ctx.w.N) return;
   const kinslayer = kin(A, v, k) || (A.lineage[v] === A.lineage[k] && A.kind[v]);
   const guest = xeniaViolated(ctx, v, k);
   pollute(ctx, k, kinslayer || guest ? 3 : A.kind[v] ? 2 : 1);
-  if (guest) ctx.log(ctx.E.xenoi, k, v, A.district[k], 0, "violated");
-  if (kinslayer) { ctx.log(ctx.E.kinslayer, k, v, A.district[k]); ctx.cognomen(k, 21); ctx.renown(k, -60); }
-  w.blood.push({ v, k, day, d: A.district[k] }); if (w.blood.length > 200) w.blood.shift();
+  if (guest && !hidden) ctx.log(ctx.E.xenoi, k, v, A.district[k], 0, "violated");
+  if (kinslayer && !hidden) { ctx.log(ctx.E.kinslayer, k, v, A.district[k]); ctx.cognomen(k, 21); ctx.renown(k, -60); }
+  if (hidden) openCase(ctx, v, k); else { w.blood.push({ v, k, day, d: A.district[k] }); if (w.blood.length > 200) w.blood.shift(); }
   if (A.kind[v] && !A.mystes[v] && w.restless.length < 60) w.restless.push({ i: v, k, day, d: A.district[v] < D.pyra ? A.district[v] : A.district[k] });
 }
 
@@ -115,7 +116,7 @@ export function miasmaDaily(ctx) {
     if (A.district[t] !== A.district[i]) { if (A.district[t] < D.pyra && r.chance(0.04)) A.district[i] = A.district[t]; continue; }
     if (!r.chance(0.07)) continue;
     A.avenge[i] = 0; ctx.think(i, TH.vengeance_taken);
-    if (r.chance(0.55)) { ctx.kill(t, "vengeance", i); ctx.cognomen(i, 20); ctx.renown(i, 10); ctx.oathEnds(i, "vengeance", true); ctx.memorize(i, 7, t, 60); }
+    if (r.chance(0.55)) { ctx.kill(t, "vengeance", i, r.chance(0.35)); ctx.cognomen(i, 20); ctx.renown(i, 10); ctx.oathEnds(i, "vengeance", true); ctx.memorize(i, 7, t, 60); }
     else { A.sick[t] = Math.max(A.sick[t], 3); A.stress[t] = Math.min(600, A.stress[t] + 120); ctx.log(E.vendetta, i, t, A.district[i], 0, "wounded"); }
   }
 
@@ -143,7 +144,7 @@ export function miasmaDaily(ctx) {
     if (DISTRICTS[d].kind !== "quarter" || pop[d] < 100 || day - w.scapegoat[d] < 60) continue;
     const crisis = sick[d] > pop[d] * 0.08 || hungry[d] > pop[d] * 0.25 || pol[d] > 10 + pop[d] / 40; if (!crisis || !r.chance(0.08)) continue;
     const pool = ctx.byDist[d].filter((i) => !A.status[i] && adult(A, i, day) && A.office[i] < 0 && i !== w.fleece);
-    const worth = (i) => { let s = A.obols[i]; for (let t = 0; t < TIES; t++) if (A.tieVal[i * TIES + t] > 0) s += A.tieVal[i * TIES + t]; return s; };
+    const worth = (i) => { let s = A.obols[i] + A.fame[i] * 3; for (let t = 0; t < TIES; t++) if (A.tieVal[i * TIES + t] > 0) s += A.tieVal[i * TIES + t]; return s; };
     pool.sort((x, y) => worth(x) - worth(y) || x - y); const goats = pool.slice(0, 2); if (goats.length < 2) continue;
     w.scapegoat[d] = day;
     for (const g of goats) { ctx.memorize(g, 8, -1, 90); A.status[g] = ST.exiled; A.until[g] = day + 60; A.district[g] = D.agora; ctx.think(g, TH.exiled); ctx.cognomen(g, 19); }

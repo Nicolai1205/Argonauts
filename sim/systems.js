@@ -15,13 +15,14 @@ import { giftMonthly, bindXenia } from "./gift.js";
 import { oracleDaily } from "./oracle.js";
 import { heroesDaily, renown, legacy } from "./heroes.js";
 import { ironDaily, onSale, birthMarks } from "./iron.js";
+import { hiddenDaily } from "./hidden.js";
 import { memoryDaily, memorize, onReknit, swear, oathEnds, cursed, onLeafDeath, scarOf } from "./memory.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire", "case", "trial", "secret", "tablet"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -29,7 +30,7 @@ const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded 
 const A_ = (w) => w.A;
 export function tick(w, omens = []) {
   const day = w.day, ev = [];
-  const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) }; ctx.rr = ctx.r("misc"); ctx.E = E; ctx.TH = TH; ctx.think = (i, th) => think(ctx, i, th); ctx.kill = (i, c, by) => kill(ctx, i, c, by); ctx.remember = remember;
+  const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) }; ctx.rr = ctx.r("misc"); ctx.E = E; ctx.TH = TH; ctx.think = (i, th) => think(ctx, i, th); ctx.kill = (i, c, by, hid) => kill(ctx, i, c, by, hid); ctx.remember = remember;
   ctx.cognomen = (i, c) => setCognomen(ctx, i, c); ctx.renown = (i, n) => renown(w, A_(w), i, n); ctx.tie = (i, j, d) => tie(ctx, i, j, d); ctx.memorize = (i, k, who, s) => memorize(ctx, i, k, who, s); ctx.oathEnds = (i, k, kept) => oathEnds(ctx, i, k, kept); ctx.swear = (i, j, k, d) => swear(ctx, i, j, k, d); ctx.forgeRelic = (...a) => forgeRelic(ctx, ...a); ctx.captureRelics = (...a) => captureRelics(ctx, ...a); ctx.champion = (c) => champion(ctx, c);
   ctx.trace = (t, a, b, x = -1) => ev.push({ i: -1, d: day, t: EV[t], a, b, x, v: 0, s: "", h: 1 });   // seen by the story sifter, not the chronicle
   ctx.log = (t, a = -1, b = -1, x = -1, v = 0, s = "") => { const e = { i: ++w.eventSeq, d: day, t: EV[t], a, b, x, v, s }; ev.push(e); if (a >= 0) bio(ctx, a, t, b); if (b >= 0 && b !== a) bio(ctx, b, t, a); return e; };
@@ -46,7 +47,7 @@ export function tick(w, omens = []) {
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   if (((day % 30) + 30) % 30 === 15) { index(ctx); giftMonthly(ctx); } chk(ctx, 'gift');
   director(ctx); chk(ctx, 'director');
-  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); chk(ctx, 'miasma');
+  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); hiddenDaily(ctx); chk(ctx, 'miasma');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
@@ -92,10 +93,11 @@ const HAZ = (() => { const h = []; let g = 0.0004; for (let a = 0; a <= 130; a++
 export const homeFaction = (w, i) => w.A.birthFac[i];
 const P = (A, i, k) => A.pers[i * 6 + k];          // 0 H,1 E,2 X,3 A,4 C,5 O
 function setCognomen(ctx, i, c) { if (ctx.A.cognomen[i] !== c) { ctx.A.cognomen[i] = c; bio(ctx, i, E.cognomen, c); } }
-export function kill(ctx, i, cause, by = -1) {
+export function kill(ctx, i, cause, by = -1, hidden = false) {
   const { A, w, day } = ctx; if (A.status[i] !== ST.living && A.status[i] !== ST.exiled) return;
-  if (by >= 0) onKilling(ctx, i, by);
-  if (A.kind[i]) return leafDies(ctx, i, cause, by);
+  if (by >= 0) onKilling(ctx, i, by, hidden);
+  if (hidden) { cause = A.kind[i] ? "found dead at dawn" : "found broken at dawn"; by = -1; }
+  if (A.kind[i]) return leafDies(ctx, i, cause, by, hidden);
   A.status[i] = ST.shade; A.died[i] = day; A.until[i] = day + 20 + (hash32(w.seed, i, day) % 41); A.unburied[i] = 1; A.district[i] = D.asphodel; A.hunger[i] = 0; A.sick[i] = 0; A.jail[i] = 0;
   A.inv[i * 5] = 0;
   for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k]; if (j >= 0 && A.tieVal[i * TIES + k] > 30 && living(A, j)) think(ctx, j, TH.mourning_kin); }
@@ -107,7 +109,7 @@ export function kill(ctx, i, cause, by = -1) {
 }
 
 // a Leaf dies for good: grief, inheritance, three days on the Pyra, then a grave in Asphodel
-function leafDies(ctx, i, cause, by) {
+function leafDies(ctx, i, cause, by, hidden = false) {
   const { A, w, day } = ctx;
   for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k]; if (j >= 0 && A.tieVal[i * TIES + k] > 30 && living(A, j)) think(ctx, j, TH.mourning_kin); }
   const lv = A.lover[i]; if (lv >= 0) { if (living(A, lv)) { think(ctx, lv, TH.lost_a_beloved); A.stress[lv] = Math.min(600, A.stress[lv] + 150); memorize(ctx, lv, 2, i, 100); } A.lover[lv] = -1; A.lover[i] = -1; }
@@ -123,7 +125,7 @@ function leafDies(ctx, i, cause, by) {
   w.leafDeaths++;
   const age = ageOf(A, i, day);
   onLeafDeath(ctx, i, age, by >= 0);
-  if (by < 0 && age < 14 && !A.mystes[i] && ctx.rr.chance(0.35)) onUntimely(ctx, i);
+  if (by < 0 && !hidden && age < 14 && !A.mystes[i] && ctx.rr.chance(0.35)) onUntimely(ctx, i);
   const notable = age >= 60 || heldOffice || !A.kind[A.p1[i]] || ctx.rr.chance(0.25);
   if (notable) ctx.log(E.death, i, by, -1, age, cause); else { bio(ctx, i, E.death, by); ctx.trace(E.death, i, by); }
 }
@@ -194,7 +196,7 @@ function bear(ctx, a, b, r) {
   B.style[c] = B.style[first]; B.dialect[c] = B.district[a];
   birthMarks(w, B, c, a, b);
   B.faith[c] = B.faith[first]; B.devotion[c] = (B.devotion[a] + B.devotion[b]) >> 2;
-  B.miasma[c] = 0; B.fury[c] = 0; B.avenge[c] = 0;
+  B.miasma[c] = 0; B.fury[c] = 0; B.avenge[c] = 0; B.fame[c] = 0;
   B.obols[c] = 0; B.inv[c * 5] = 4; B.vice[c] = 0; B.office[c] = -1; B.met[c] = -1; B.lover[c] = -1; B.until[c] = 0;
   for (let k = 0; k < TIES; k++) { B.tieTo[c * TIES + k] = -1; B.tieVal[c * TIES + k] = 0; }
   for (let k = 0; k < THS; k++) B.thType[c * THS + k] = 0;
@@ -464,7 +466,7 @@ function social(ctx) {
     let dist = 0; for (let k = 0; k < 3; k++) dist += Math.abs(A.ideo[i * 3 + k] - A.ideo[j * 3 + k]);
     const same = A.faction[i] === A.faction[j], kin = A.oikos[i] === A.oikos[j];
     const fa = A.faith[i], fb = A.faith[j], sect = fa === fb ? (A.devotion[i] > 50 && A.devotion[j] > 50 ? 8 : 2) : fa && fb ? -8 : (fa || fb) && (A.devotion[i] > 60 || A.devotion[j] > 60) ? -4 : 0;
-    const score = (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 - shun(A, i, j) - (A.scar[i] === 4 ? 12 : 0) + (same ? 15 : -4) + (kin ? 12 : 0) + (A.lover[i] === j ? 10 : 0) + sect + r.next() * 40 - 20;
+    const score = (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 - shun(A, i, j) + A.fame[j] / 8 - (A.scar[i] === 4 ? 12 : 0) + (same ? 15 : -4) + (kin ? 12 : 0) + (A.lover[i] === j ? 10 : 0) + sect + r.next() * 40 - 20;
     if (score > 20) { convert(ctx, i, j, true); convert(ctx, j, i, true); }
     if (score > 0) gossip(ctx, i, j);
     A.met[i] = j; A.met[j] = A.met[j] < 0 ? i : A.met[j]; const kind = score > 45 ? 1 : score > 20 ? 2 : score > 0 ? 3 : 4; A.metKind[i] = kind; if (A.met[j] === i) A.metKind[j] = kind;
@@ -782,7 +784,7 @@ function director(ctx) {
       const sp = w.factions.map((f, i) => i).filter((i) => i >= w.baseFactions && w.factions[i].alive && w.factions[i].legit < 25);
       const f = r.pick(sp), killers = ctx.live.filter((i) => A.faction[i] === f); if (!killers.length) break;
       const where = A.district[killers[0]], victims = ctx.byDist[where].filter((i) => A.faction[i] !== f); let n = 0;
-      for (const v of pick(victims, 5 + r.int(10))) { kill(ctx, v, "murdered in the night of knives", killers[r.int(killers.length)]); n++; }
+      for (const v of pick(victims, 5 + r.int(10))) { kill(ctx, v, "murdered in the night of knives", killers[r.int(killers.length)], true); n++; }
       setCognomen(ctx, killers[0], 9); ctx.log(E.lemnian, killers[0], -1, where, n, w.factions[f].name); remember(w, day, "lemnian", killers[0], 80, `the night of knives in ${DISTRICTS[where].name.replace(/^the /, "")}`, -1); break; }
     case "bounty": w.fertility[d] = 1000; for (const i of ctx.byDist[d]) { A.inv[i * 5] += 4; think(ctx, i, TH.feasted); } ctx.log(E.bounty, -1, -1, d); break;
     case "prometheus": dir.active.prometheus = day + 3; for (const i of ctx.byDist[D.bear].concat(ctx.byDist[D.forges])) think(ctx, i, TH.terror_at_an_omen); ctx.log(E.prometheus, -1, -1, D.bear); break;
