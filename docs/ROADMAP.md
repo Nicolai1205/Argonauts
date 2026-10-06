@@ -135,7 +135,7 @@ Unrest (2,101 → ~80), director pacing, market price ratchet, nobles' rents, pi
 ### v15: Beasts and Heroes  ✅ live (`sim/heroes.js`; epitaphs in `web/biography.js`)
 Monsters with lairs and appetites, hunts, funeral and Pagasaean games, strange moods that forge named relics, dynasty renown, epitaphs and poems.
 
-### v16: The Stone in Their Midst
+### v16: The Stone in Their Midst  ✅ live (`sim/iron.js`)
 Spartoi self-slaughter, the Iron Clock (Hesiod's Five Ages as world health), the Agrionia, the Demophon heresy, Theoclymenus' vision, the Lemnian New Fire.
 
 ### v17: What Is Hidden

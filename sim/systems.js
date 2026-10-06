@@ -14,13 +14,14 @@ import { miasmaDaily, onKilling, onUntimely, onBurn, shun } from "./miasma.js";
 import { giftMonthly, bindXenia } from "./gift.js";
 import { oracleDaily } from "./oracle.js";
 import { heroesDaily, renown, legacy } from "./heroes.js";
+import { ironDaily, onSale, birthMarks } from "./iron.js";
 import { memoryDaily, memorize, onReknit, swear, oathEnds, cursed, onLeafDeath, scarOf } from "./memory.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -45,7 +46,7 @@ export function tick(w, omens = []) {
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   if (((day % 30) + 30) % 30 === 15) { index(ctx); giftMonthly(ctx); } chk(ctx, 'gift');
   director(ctx); chk(ctx, 'director');
-  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); chk(ctx, 'miasma');
+  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); chk(ctx, 'miasma');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
@@ -191,6 +192,7 @@ function bear(ctx, a, b, r) {
   B.identity[c] = clamp(Math.round((B.identity[a] + B.identity[b]) / 2 + (r.next() - 0.5) * 20), 5, 100);
   B.faction[c] = B.faction[first]; B.birthFac[c] = B.faction[first]; B.district[c] = B.district[a]; B.oikos[c] = B.oikos[a]; B.job[c] = B.job[first];
   B.style[c] = B.style[first]; B.dialect[c] = B.district[a];
+  birthMarks(w, B, c, a, b);
   B.faith[c] = B.faith[first]; B.devotion[c] = (B.devotion[a] + B.devotion[b]) >> 2;
   B.miasma[c] = 0; B.fury[c] = 0; B.avenge[c] = 0;
   B.obols[c] = 0; B.inv[c * 5] = 4; B.vice[c] = 0; B.office[c] = -1; B.met[c] = -1; B.lover[c] = -1; B.until[c] = 0;
@@ -226,7 +228,7 @@ function applyOmens(ctx, omens) {
       ctx.log(E.burn, i, heir, D.pyra); remember(w, day, "burn", i, 90, `the burning of ${nameOf(i + 1)}`, A.faith[heir >= 0 ? heir : i]);
     } else if (o.k === "transfer" && o.tok) {
       const i = o.tok - 1, to = oikosOf(w, o.to); if (A.oikos[i] === to) continue;
-      const from = A.oikos[i]; A.oikos[i] = to; bindXenia(w, from, to, day);
+      const from = A.oikos[i]; A.oikos[i] = to; bindXenia(w, from, to, day); onSale(ctx, i, o.eth);
       const escrow = /escrow/i.test(w.oikoi[to].name || "");
       if (o.eth > 0) { const g = Math.round(o.eth * 200); A.obols[i] += g; w.minted += g; if (living(A, i)) think(ctx, i, o.eth >= 0.2 ? TH.gold_from_colchis : TH.sold_into_a_new_house); }
       else if (!escrow && living(A, i)) think(ctx, i, TH.sold_into_a_new_house);
@@ -289,6 +291,7 @@ function production(ctx) {
     q *= craftBoost(w, d, A.job[i]) * (age < 14 ? 0.5 : age >= 60 ? 0.7 : 1) * (0.8 + P(A, i, 4) / 250) * (w.fertility[d] / 1000) * (A.inv[i * 5 + 3] > 0 ? 1.4 : 1) * (A.mood[i] < -30 ? 0.6 : 1);
     if (prom && g === 4) q *= 2;
     if (g === 0) q *= job === "farmer" ? FIELD_SEASON[mo] : SEA_SEASON[mo];
+    if (w.newFire !== null && w.newFire !== undefined && d === D.lemnos) q *= 0.5;   // every fire on Lemnos is out
     const n = Math.floor(q) + (r.next() < q - Math.floor(q) ? 1 : 0);
     A.inv[i * 5 + g] = Math.min(400, A.inv[i * 5 + g] + n); out[d] += n;
     if (A.inv[i * 5 + 3] > 0 && r.chance(1 / 8)) A.inv[i * 5 + 3]--;
@@ -486,7 +489,7 @@ function social(ctx) {
     if (A.sick[i] > 2 && !A.sick[j] && r.chance(0.06)) A.sick[j] = 1;
     if (A.hunger[i] > 1 && A.inv[j * 5] > 10) { const k = tieIndex(A, j, i); if (k >= 0 && A.tieVal[j * TIES + k] > 25) { A.inv[j * 5] -= 3; A.inv[i * 5] += 3; tie(ctx, i, j, 5); } }
     // pirates take
-    if (A.job[i] === J.pirate && !same && isAdult(A, i, ctx.day) && A.obols[j] > A.obols[i] * 2 && r.chance(0.12 * (100 - P(A, i, 0)) / 100)) {
+    if (A.job[i] === J.pirate && !same && isAdult(A, i, ctx.day) && A.obols[j] > A.obols[i] * 2 && r.chance(0.12 * (100 - P(A, i, 0)) / 100 * (w.iron && w.iron.tier >= 1 ? 1.2 : 1))) {   // when Aidos leaves the earth, shame no longer stops a thief
       const take = Math.max(1, Math.floor(A.obols[j] / 10)); A.obols[j] -= take; A.obols[i] += take; think(ctx, j, TH.robbed); tie(ctx, j, i, -40);
       if (r.chance(0.05)) { const rl = relicsOf(w, j)[0]; if (rl) passRelic(ctx, rl, i, "stolen"); }
       A.radical[j] = clamp(A.radical[j] + 5, -100, 100);
@@ -739,7 +742,7 @@ function director(ctx) {
   // RimWorld-style storyteller: a smoothed toll of recent breakings sets the pace; it picks its next blow, then saves for it
   dir.heat = Math.round(((dir.heat || 0) * 0.9 + (dir.toll || 0) * 10) * 10) / 10; dir.toll = 0;
   dir.base = Math.round(((dir.base || dir.heat) * 0.98 + dir.heat * 0.02) * 10) / 10;   // what counts as a hard season is relative to the usual toll
-  dir.adapt = Math.round(Math.max(0.4, Math.min(2.2, 1.3 * (dir.base + 50) / (dir.heat + 50))) * 100) / 100; dir.points = Math.round((dir.points + dir.adapt) * 100) / 100;
+  dir.adapt = Math.round(Math.max(0.4, Math.min(2.6, 1.3 * (dir.base + 50) / (dir.heat + 50) * (w.iron && w.iron.tier >= 3 ? 1.3 : 1))) * 100) / 100; dir.points = Math.round((dir.points + dir.adapt) * 100) / 100;
   const allowed = ([k]) => (k !== "lemnian" || w.factions.some((f, i) => i >= w.baseFactions && f.alive && f.legit < 25)) && (k !== "ghost" || unburiedCount(ctx) > 0);
   if (!dir.next || !allowed(INCIDENTS.find((x) => x[0] === dir.next))) { const ok = INCIDENTS.filter(allowed); dir.next = r.weighted(ok, ok.map((x) => x[2]))[0]; }
   // the act: quiet (points accrue slowly), rising (faster), climax (the biggest blow it can afford), aftermath (nothing)
