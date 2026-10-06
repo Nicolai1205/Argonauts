@@ -1,0 +1,26 @@
+# Weekly health check: run a whole sim-year forward from the live checkpoint (a private copy; nothing is published)
+# and write hunger, inequality, unrest, population, speed and the event histogram into the run summary.
+name: health
+on:
+  schedule: [{ cron: "30 6 * * 1" }]
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  year:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with: { ref: world, path: world }
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - name: Lint
+        run: node tools/lint.mjs
+      - name: A sim-year forward
+        run: |
+          {
+            echo "## The Argo: a sim-year forward from day $(node -e 'console.log(require("./world/meta.json").day)')"
+            echo '```'
+            node tools/bench.mjs world 360 | tr ',' '\n' | head -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
