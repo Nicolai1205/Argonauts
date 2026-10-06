@@ -351,24 +351,31 @@ function services(ctx) {
 }
 function market(ctx) {
   services(ctx);
-  const { A, w } = ctx, r = ctx.r("market"), Pm = w.cprices, vol = [0, 0, 0, 0, 0], wsum = [0, 0, 0, 0, 0];
+  const { A, w } = ctx, r = ctx.r("market"), Pm = w.cprices, vol = [0, 0, 0, 0, 0], wsum = [0, 0, 0, 0, 0], nD = DISTRICTS.length;
+  // who trades today, in which market, and what they need (none of this changes while the markets run; stock and purses do)
+  const el = [], em = [], ned = [];
+  for (const i of ctx.live) {
+    if (A.jail[i] || A.status[i] || !isAdult(A, i, ctx.day)) continue;
+    el.push(i); em.push(cityOf(A.district[i])); ned.push(A.vice[i] ? TARGET[1] : 0, JOB_GOOD[JOBS[A.job[i]]] ? 1 : 0, A.sick[i] ? 2 : P(A, i, 4) > 50 ? 1 : 0);
+  }
+  const wm = new Float64Array(w.N);
   for (let g = 0; g < 5; g++) {
     // every city keeps its own market; the small grounds trade at Pagasae
-    const sellers = {}, buyers = {}, S = {}, Dm = {}, wm = {};
-    for (const i of ctx.live) {
-      if (A.jail[i] || A.status[i] || !isAdult(A, i, ctx.day)) continue;
-      const m = cityOf(A.district[i]);
-      const have = A.inv[i * 5 + g], need = g === 0 ? TARGET[0] : g === 1 ? (A.vice[i] ? TARGET[1] : 0) : g === 3 ? (JOB_GOOD[JOBS[A.job[i]]] ? 1 : 0) : g === 4 ? (A.sick[i] ? 2 : P(A, i, 4) > 50 ? 1 : 0) : TARGET[g];
-      if (have > need + 2) { const q = Math.min(have - need - 1, 25); (sellers[m] || (sellers[m] = [])).push(i, q); S[m] = (S[m] || 0) + q; }
+    const sellers = new Array(nD), buyers = new Array(nD), S = new Int32Array(nD), Dm = new Int32Array(nD);
+    for (let e = 0; e < el.length; e++) {
+      const i = el[e], m = em[e];
+      const have = A.inv[i * 5 + g], need = g === 0 ? TARGET[0] : g === 1 ? ned[e * 3] : g === 3 ? ned[e * 3 + 1] : g === 4 ? ned[e * 3 + 2] : TARGET[g];
+      if (have > need + 2) { const q = Math.min(have - need - 1, 25); (sellers[m] || (sellers[m] = [])).push(i, q); S[m] += q; }
       else if (have < need) {
         // willingness to pay, as a multiple of the base price: urgency and wealth (demand answers price)
         let wmax = g === 0 ? (A.hunger[i] ? 6 : 2.5) : g === 1 ? 3 : g === 2 ? 1.6 : g === 3 ? 1.4 : (A.sick[i] ? 6 : 1.3);
         if (A.obols[i] > BLOODS[A.bones[i]].wealth * 4) wmax *= 2;
-        wm[i] = wmax; (buyers[m] || (buyers[m] = [])).push(i, need - have); if (Pm[m][g] * w.priceMult <= BASE_PRICE[g] * wmax) Dm[m] = (Dm[m] || 0) + need - have;
+        wm[i] = wmax; (buyers[m] || (buyers[m] = [])).push(i, need - have); if (Pm[m][g] * w.priceMult <= BASE_PRICE[g] * wmax) Dm[m] += need - have;
       }
     }
-    for (const mk of Object.keys({ ...sellers, ...buyers }).map(Number).sort((a, b) => a - b)) {
-      const sl = sellers[mk] || [], by = buyers[mk] || [], s0 = S[mk] || 0, d0 = Dm[mk] || 0;
+    for (let mk = 0; mk < nD; mk++) {
+      if (!sellers[mk] && !buyers[mk]) continue;
+      const sl = sellers[mk] || [], by = buyers[mk] || [], s0 = S[mk], d0 = Dm[mk];
       vol[g] += s0 + d0; wsum[g] += Pm[mk][g] * (s0 + d0);
       const pe = Pm[mk][g] * w.priceMult; if (!sl.length || !by.length) continue;
       const bo = []; for (let k = 0; k < by.length; k += 2) bo.push(k); r.shuffle(bo);
@@ -401,11 +408,12 @@ function market(ctx) {
     }
     // what the city could not settle at home goes on the road
     const left = { sellers: {}, buyers: {}, wmax: wm };
-    for (const [mk, sl] of Object.entries(sellers)) if (sl.some((v, k) => k % 2 && v > 0)) left.sellers[mk] = sl;
-    for (const [mk, by] of Object.entries(buyers)) if (by.some((v, k) => k % 2 && v > 0)) left.buyers[mk] = by;
+    const anyLeft = (a) => { for (let k = 1; k < a.length; k += 2) if (a[k] > 0) return true; return false; };
+    for (let mk = 0; mk < nD; mk++) { if (sellers[mk] && anyLeft(sellers[mk])) left.sellers[mk] = sellers[mk]; if (buyers[mk] && anyLeft(buyers[mk])) left.buyers[mk] = buyers[mk]; }
     tradeFlows(ctx, g, left);
     // prices answer what is still unsettled after the city market and the roads: unmet demand raises, unsold stock lowers
-    for (const mk of Object.keys({ ...sellers, ...buyers }).map(Number)) {
+    for (let mk = 0; mk < nD; mk++) {
+      if (!sellers[mk] && !buyers[mk]) continue;
       let unmet = 0, unsold = 0; const sl = sellers[mk] || [], by = buyers[mk] || [];
       for (let k = 1; k < sl.length; k += 2) unsold += sl[k];
       for (let k = 0; k < by.length; k += 2) { const i = by[k]; if (Pm[mk][g] * w.priceMult <= BASE_PRICE[g] * wm[i] && A.obols[i] >= Math.ceil(Pm[mk][g] * w.priceMult)) unmet += by[k + 1]; }
@@ -453,7 +461,7 @@ function migration(ctx) {
 // ---------------------------------------------------------------- society
 function social(ctx) {
   const { A, w } = ctx, r = ctx.r("social"), guards = guardCount(ctx);
-  const crews = {}; for (const i of ctx.live) { const k = A.district[i] * 32 + A.job[i]; (crews[k] || (crews[k] = [])).push(i); }
+  const crews = new Array(DISTRICTS.length * 32); for (const i of ctx.live) { const k = A.district[i] * 32 + A.job[i]; (crews[k] || (crews[k] = [])).push(i); }
   A.met.fill(-1); A.metKind.fill(0);
   for (const i of ctx.live) {
     if (A.status[i] || A.jail[i] || !r.chance((0.45 + P(A, i, 2) / 220) * (A.scar[i] === 3 ? 0.5 : 1))) continue;
@@ -507,11 +515,13 @@ function moodStress(ctx) {
   const { A, w, day } = ctx, r = ctx.r("mood");
   for (const i of ctx.live) {
     if (A.status[i]) continue;
-    let m = 0; const seen = {};
+    let m = 0, s0 = 0, s1 = 0, s2 = 0, s3 = 0, s4 = 0, ns = 0;
     for (let k = 0; k < THS; k++) {
       const s = i * THS + k, t = A.thType[s]; if (!t) continue;
       if (A.thUntil[s] < day) { A.thType[s] = 0; continue; }
-      seen[t] = (seen[t] || 0) + 1; m += THOUGHTS[t][1] * (seen[t] > 1 ? 0.6 : 1);
+      const again = (ns > 0 && s0 === t) || (ns > 1 && s1 === t) || (ns > 2 && s2 === t) || (ns > 3 && s3 === t) || (ns > 4 && s4 === t);
+      if (ns === 0) s0 = t; else if (ns === 1) s1 = t; else if (ns === 2) s2 = t; else if (ns === 3) s3 = t; else if (ns === 4) s4 = t; ns++;
+      m += THOUGHTS[t][1] * (again ? 0.6 : 1);
     }
     const exp = BLOODS[A.bones[i]].wealth;       // Victoria-style expected standard of living per blood
     m += clamp((A.obols[i] / exp - 1) * 12, -20, 15);
@@ -815,7 +825,7 @@ function funerals(ctx) {
 function stats(ctx) {
   const { A, w, day } = ctx; const live = ctx.live.length; let shade = 0, pyre = 0, asph = 0, exiled = 0, sick = 0, hungry = 0;
   for (let i = 0; i < ctx.N; i++) { const s = A.status[i]; if (s === ST.shade) shade++; else if (s === ST.pyre) pyre++; else if (s === ST.asphodel) asph++; else if (s === ST.exiled) exiled++; }
-  const ob = ctx.live.map((i) => A.obols[i]).sort((a, b) => a - b); let cum = 0, tot = 0; for (let k = 0; k < ob.length; k++) { cum += (k + 1) * ob[k]; tot += ob[k]; }
+  const ob = new Float64Array(ctx.live.length); for (let k = 0; k < ob.length; k++) ob[k] = A.obols[ctx.live[k]]; ob.sort(); let cum = 0, tot = 0; for (let k = 0; k < ob.length; k++) { cum += (k + 1) * ob[k]; tot += ob[k]; }
   const gini = tot ? (2 * cum) / (ob.length * tot) - (ob.length + 1) / ob.length : 0;
   for (const i of ctx.live) { if (A.sick[i]) sick++; if (A.hunger[i]) hungry++; }
   let mood = 0; for (const i of ctx.live) mood += A.mood[i];

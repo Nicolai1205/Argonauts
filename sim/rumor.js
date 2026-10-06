@@ -50,11 +50,11 @@ function believe(ctx, i, R, k) {
 }
 /** daily: a rumour that has stopped spreading dies; a hot rumour that blames a faith sours cities that believe it */
 export function rumorsDaily(ctx) {
-  const { A, w, day } = ctx;
+  const { A, w, day } = ctx, nD = DISTRICTS.length, spread = new Int32Array(SLOTS), heard = new Int32Array(SLOTS * nD);
+  for (const i of ctx.live) { if (A.status[i]) continue; const d = A.district[i]; for (let k = 0; k < SLOTS; k++) { const s = A.rumor[i * SLOTS + k]; if (s === 1) spread[k]++; if (s) heard[k * nD + d]++; } }
   for (let k = 0; k < SLOTS; k++) {
     const R = w.rumors[k]; if (!R || R.dead) continue;
-    let spreaders = 0; const byCity = {};
-    for (const i of ctx.live) { if (A.status[i]) continue; const s = A.rumor[i * SLOTS + k]; if (s === 1) spreaders++; if (s) byCity[A.district[i]] = (byCity[A.district[i]] || 0) + 1; }
+    const spreaders = spread[k], byCity = {}; for (let d = 0; d < nD; d++) if (heard[k * nD + d]) byCity[d] = heard[k * nD + d];
     if (!spreaders || day - R.born > 60) { R.dead = true; R.died = day; ctx.log(ctx.E.rumorend, -1, -1, R.district, R.reach, R.text); continue; }
     if (R.blame >= 0 && R.heat >= 50 && day % 7 === 0 && w.war) {
       // cities where the rumour runs hot turn on cities where the blamed faith rules

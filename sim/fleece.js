@@ -4,7 +4,8 @@ import { CITIES } from "./war.js";
 
 const dist = (a, b) => { const dx = DISTRICTS[a].x - DISTRICTS[b].x, dy = DISTRICTS[a].y - DISTRICTS[b].y; return Math.round(Math.sqrt(dx * dx + dy * dy)); };   // integer: replays identically in every engine
 const short = (k) => DISTRICTS[k].name.replace(/^the /, "").replace(/ & the Agora/, "");
-export const cityOf = (d) => (CITIES.includes(d) ? d : D.agora);
+let CITY_OF = null;
+export const cityOf = (d) => (CITY_OF || (CITY_OF = DISTRICTS.map((x, k) => (CITIES.includes(k) ? k : D.agora))))[d];
 
 export function initQuest(w) {
   const b = w.fleece, A = w.A;

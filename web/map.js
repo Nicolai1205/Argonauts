@@ -96,18 +96,24 @@ function roads(elev, biome, SEA) {
   const out = [];
   for (const [a, b] of LINKS) {
     const A = SITES[a], B = SITES[b], start = A.y * N + A.x, goal = B.y * N + B.x;
-    const g = new Float32Array(N * N).fill(Infinity), from = new Int32Array(N * N).fill(-1), heap = [[0, start]]; g[start] = 0;
+    const g = new Float32Array(N * N).fill(Infinity), from = new Int32Array(N * N).fill(-1), done = new Uint8Array(N * N); g[start] = 0;
     const h = (i) => Math.abs((i % N) - B.x) + Math.abs(Math.floor(i / N) - B.y);
-    while (heap.length) {
-      let bi = 0; for (let k = 1; k < heap.length; k++) if (heap[k][0] < heap[bi][0]) bi = k;   // small graphs; a linear scan is fine
-      const [, cur] = heap.splice(bi, 1)[0]; if (cur === goal) break;
+    // binary min-heap of (f, insertion order, node); the order breaks ties so every engine draws the same road
+    const hf = [], hs = [], hn = []; let seq = 0;
+    const less = (a, b) => hf[a] < hf[b] || (hf[a] === hf[b] && hs[a] < hs[b]);
+    const swap = (a, b) => { let t = hf[a]; hf[a] = hf[b]; hf[b] = t; t = hs[a]; hs[a] = hs[b]; hs[b] = t; t = hn[a]; hn[a] = hn[b]; hn[b] = t; };
+    const push = (f, n) => { let k = hf.length; hf.push(f); hs.push(seq++); hn.push(n); while (k > 0) { const p = (k - 1) >> 1; if (!less(k, p)) break; swap(k, p); k = p; } };
+    const pop = () => { const n = hn[0], last = hf.length - 1; swap(0, last); hf.pop(); hs.pop(); hn.pop(); let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < hf.length && less(l, m)) m = l; if (r < hf.length && less(r, m)) m = r; if (m === k) break; swap(k, m); k = m; } return n; };
+    push(h(start), start);
+    while (hf.length) {
+      const cur = pop(); if (done[cur]) continue; done[cur] = 1; if (cur === goal) break;
       const cx = cur % N, cy = Math.floor(cur / N);
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
         const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
-        const ni = ny * N + nx, ng = g[cur] + cost(ni) * (dx && dy ? 1.414 : 1);
-        if (ng < g[ni]) { g[ni] = ng; from[ni] = cur; heap.push([ng + h(ni), ni]); }
+        const ni = ny * N + nx; if (done[ni]) continue;
+        const ng = g[cur] + cost(ni) * (dx && dy ? 1.414 : 1);
+        if (ng < g[ni]) { g[ni] = ng; from[ni] = cur; push(ng + h(ni), ni); }
       }
-      if (heap.length > 6000) heap.sort((p, q) => p[0] - q[0]).length = 3000;
     }
     const path = []; for (let c = goal; c >= 0; c = from[c]) { path.push([c % N, Math.floor(c / N), elev[c] < SEA]); if (c === start) break; }
     out.push({ a, b, path: path.reverse() });

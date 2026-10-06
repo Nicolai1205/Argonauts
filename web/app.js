@@ -23,18 +23,17 @@ const gunzip = async (url) => { const r = await fetch(url, { cache: "no-cache" }
 const json = async (url) => { const r = await fetch(url, { cache: "no-cache" }); if (!r.ok) throw new Error(url + " " + r.status); return r.json(); };
 const NFT = "0x387c41b0b2f1128de44db1bcf8baad085f26392c";
 
-let seed, w, meta, sprites, checkpointDay, provisional = [], chron = [], byDay = {}, M = emptySift();
+let spritesReady = Promise.resolve(), seed, w, meta, sprites, checkpointDay, provisional = [], chron = [], byDay = {}, M = emptySift();
 const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
 
 // ------------------------------------------------------------------ boot
 (async function boot() {
   try {
     [seed, meta] = await Promise.all([json("data/seed.json"), json("world/meta.json")]);
-    const [stTxt, fleet, omens, sm] = await Promise.all([(await gunzip("world/state.json.gz")).text(), (await gunzip("data/fleet.bin.gz")).arrayBuffer(), json("world/omens.json").catch(() => []), json("world/sift.json").catch(() => null)]);
+    const [stTxt, omens, sm] = await Promise.all([(await gunzip("world/state.json.gz")).text(), json("world/omens.json").catch(() => []), json("world/sift.json").catch(() => null)]);
     if (sm) M = sm;
     const raw = JSON.parse(stTxt); if (raw.version !== VERSION) throw new Error("the world is being re-dreamed under new rules; try again in a minute");
     w = deserialize(raw, seed); checkpointDay = w.day; displayName.dialects = w.dialect;
-    sprites = buildAtlas(new Uint8Array(fleet));
     byDay = omensByDay(omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1));
     // cross-engine determinism check (tools/xengine.mjs): ?xtest=N runs N days from the checkpoint and publishes the hash
     const xt = Number(new URLSearchParams(location.search).get("xtest") || 0);
@@ -45,8 +44,10 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
     const ahead = Math.min(dayNow(Date.now() / 1000) + 1, checkpointDay + 48) - w.day;
     if (ahead <= 2) catchUp();
     layout(); fit(); render(); panels();
-    $("#loading").remove();
+    $("#loading").remove(); performance.mark("argo-ready");
     setInterval(liveTick, 15000); requestAnimationFrame(frame); loadArt(); route(); addEventListener("hashchange", route);
+    // the pixel atlas (1.4 MB) is only for portraits: fetch it after the world is on screen
+    spritesReady = gunzip("data/fleet.bin.gz").then((r) => r.arrayBuffer()).then((b) => { sprites = buildAtlas(new Uint8Array(b)); });
     if (ahead > 2) { S.catching = true; $("#dawn").textContent = `catching up ${ahead} days…`;
       workerCatchUp(stTxt, omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1)).then((ok) => { S.catching = false; if (!ok) catchUp(); layout(); panels(); flash(); }); }
   } catch (e) { $("#loading").textContent = "The sea is fogged: " + e.message; console.error(e); }
@@ -89,6 +90,7 @@ function buildAtlas(u8) {
   }
   ctx.putImageData(img, 0, 0); return { canvas: c, cols };
 }
+const withSprites = (fn) => (sprites ? fn() : spritesReady.then(fn));
 const spriteAt = (i) => [(i % sprites.cols) * 24, Math.floor(i / sprites.cols) * 24];
 
 // ------------------------------------------------------------------ the world map: square, biomes, cities, roads (web/map.js)
@@ -536,10 +538,10 @@ function openLegends(i) {
    <h3>Bonds</h3><div>${ties.map(([v, j]) => `<span class="pill" style="border-color:${v >= 0 ? "#3d6b4a" : "#7a3030"}">${v >= 0 ? "♥" : "✕"} <a class="who" data-i="${j}">${esc(view.name(j))}</a> ${v}</span>`).join("") || '<span class="muted">alone</span>'}</div>
    <h3>Life</h3><ol class="bio">${bio.join("") || '<li class="muted">Nothing remembered yet.</li>'}</ol>${recent ? `<h3>In the chronicle</h3><ol class="bio">${recent}</ol>` : ""}`;
   const c = $("#lgArt").getContext("2d");
-  if (i < 9999) { const [sx, sy] = spriteAt(i); c.drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); }
+  if (i < 9999) withSprites(() => { const [sx, sy] = spriteAt(i); c.drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); });
   else portrait(seed, A, i).then((img) => { c.clearRect(0, 0, 24, 24); c.drawImage(img, 0, 0, 24, 24); if (A.status[i] >= 2 && A.status[i] <= 3) { c.globalCompositeOperation = "saturation"; c.fillStyle = "#888"; c.fillRect(0, 0, 24, 24); } });
   // family in pictures
-  document.querySelectorAll("#lgCard .thumbs img[data-p]").forEach((im) => { const j = +im.dataset.p; if (j < 9999) { const cc = document.createElement("canvas"); cc.width = cc.height = 24; const [sx, sy] = spriteAt(j); cc.getContext("2d").drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); im.src = cc.toDataURL(); } else portrait(seed, A, j).then((pi) => (im.src = pi.src)); });
+  document.querySelectorAll("#lgCard .thumbs img[data-p]").forEach((im) => { const j = +im.dataset.p; if (j < 9999) withSprites(() => { const cc = document.createElement("canvas"); cc.width = cc.height = 24; const [sx, sy] = spriteAt(j); cc.getContext("2d").drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); im.src = cc.toDataURL(); }); else portrait(seed, A, j).then((pi) => (im.src = pi.src)); });
   history.replaceState(null, "", `#/${i < 9999 ? "a/" + (i + 1) : "l/" + (i - 9998)}`);
   if (A.status[i] === ST.asphodel || A.status[i] === ST.shade) { c.globalCompositeOperation = "saturation"; c.fillStyle = "#888"; c.fillRect(0, 0, 24, 24); }
   $("#legends").classList.add("on"); $("#legends").setAttribute("aria-hidden", "false"); $(".close").onclick = closeLegends; focus(i);
@@ -584,7 +586,7 @@ function follow(i) {
   S.follow = i; S.scale = Math.max(S.scale, 2.6); const bar = $("#followbar"); bar.classList.add("on");
   history.replaceState(null, "", `#/follow/${i < 9999 ? "a/" + (i + 1) : "l/" + (i - 9998)}`);
   const head = () => { bar.innerHTML = `<img id="fbImg" alt=""><div><b>${esc(view.name(i))}</b><br><span class="muted">${esc(activityOf(i))}</span></div><button id="fbOpen">Page</button><button id="fbStop">Stop</button>`;
-    const im = $("#fbImg"); if (i < 9999) { const cc = document.createElement("canvas"); cc.width = cc.height = 24; const [sx, sy] = spriteAt(i); cc.getContext("2d").drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); im.src = cc.toDataURL(); } else portrait(seed, w.A, i).then((p) => (im.src = p.src));
+    const im = $("#fbImg"); if (i < 9999) withSprites(() => { const cc = document.createElement("canvas"); cc.width = cc.height = 24; const [sx, sy] = spriteAt(i); cc.getContext("2d").drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); im.src = cc.toDataURL(); }); else portrait(seed, w.A, i).then((p) => (im.src = p.src));
     $("#fbStop").onclick = unfollow; $("#fbOpen").onclick = () => openLegends(i); };
   head(); clearInterval(S.followTimer); S.followTimer = setInterval(() => { if (S.follow === i) { const sp = bar.querySelector(".muted"); if (sp) sp.textContent = activityOf(i); } }, 2000);
 }
