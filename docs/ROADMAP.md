@@ -141,7 +141,7 @@ Spartoi self-slaughter, the Iron Clock (Hesiod's Five Ages as world health), the
 ### v17: What Is Hidden  ✅ live (`sim/hidden.js`)
 Secrets and hooks, open mysteries with an Areopagus trial, reputation from gossip.
 
-### v18: Discord
+### v18: Discord  ✅ live (`sim/discord.js`)
 Colonies by lot in drought (apoikia), aspirants and Turchin's secular cycle, irreversible world states, elections with candidates and speeches.
 
 ### Text layer (no rules bump)

@@ -37,7 +37,7 @@ export function tradeFlows(ctx, g, left) {
       // the carriage goes to the haulers of the selling city (or the Boule when there are none)
       const hs = haulers[a]; if (hs && hs.length) { const each = Math.floor(fees * 0.75 / Math.min(5, hs.length)); for (let k = 0; k < Math.min(5, hs.length); k++) A.obols[hs[r.int(hs.length)]] += each; w.treasury += fees - each * Math.min(5, hs.length); } else w.treasury += fees;
       // a ship lost in the spring or autumn swell
-      if (sea(a, b) && SEA_RISKY(mo) && r.chance(0.05)) { let gone = Math.ceil(moved * 0.5); const g0 = gone; for (let bk = 0; bk < buyers.length && gone > 0; bk += 2) { const i = buyers[bk], t = Math.min(gone, A.inv[i * 5 + g]); A.inv[i * 5 + g] -= t; gone -= t; }
+      if (sea(a, b) && (SEA_RISKY(mo) || w.storm === day) && r.chance(w.storm === day ? 0.12 : 0.05)) { let gone = Math.ceil(moved * 0.5); const g0 = gone; for (let bk = 0; bk < buyers.length && gone > 0; bk += 2) { const i = buyers[bk], t = Math.min(gone, A.inv[i * 5 + g]); A.inv[i * 5 + g] -= t; gone -= t; }
         if (g0 >= 100 && !ctx._wreck && !(w.wreckDay > day - 10)) { ctx._wreck = 1; w.wreckDay = day; ctx.log(ctx.E.wreck, -1, -1, b, g0, `${short(a)}|${short(b)}|${GOODS[g]}`); } }
       // pirates skim the sea lanes: busiest in high summer, kept off by a liturgist's convoy
       let lost = 0; const convoy = (w.convoy && (w.convoy[a] > day || w.convoy[b] > day)) ? 0.4 : 1, summer = mo >= 4 && mo <= 8 ? 1.5 : 1;

@@ -16,13 +16,14 @@ import { oracleDaily } from "./oracle.js";
 import { heroesDaily, renown, legacy } from "./heroes.js";
 import { ironDaily, onSale, birthMarks } from "./iron.js";
 import { hiddenDaily } from "./hidden.js";
+import { discordDaily, orators, vacate } from "./discord.js";
 import { memoryDaily, memorize, onReknit, swear, oathEnds, cursed, onLeafDeath, scarOf } from "./memory.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire", "case", "trial", "secret", "tablet"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire", "case", "trial", "secret", "tablet", "weather", "colony", "psi", "speech", "vacant"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -47,7 +48,7 @@ export function tick(w, omens = []) {
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   if (((day % 30) + 30) % 30 === 15) { index(ctx); giftMonthly(ctx); } chk(ctx, 'gift');
   director(ctx); chk(ctx, 'director');
-  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); hiddenDaily(ctx); chk(ctx, 'miasma');
+  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); hiddenDaily(ctx); discordDaily(ctx); chk(ctx, 'miasma');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
@@ -220,7 +221,7 @@ function applyOmens(ctx, omens) {
   for (const o of omens) {
     if (o.k === "burn" && o.tok) {
       const i = o.tok - 1; if (A.status[i] === ST.pyre || A.status[i] === ST.asphodel) continue;
-      if (A.office[i] >= 0) { delete w.offices[OFFICES[A.office[i]].key]; A.office[i] = -1; }
+      if (A.office[i] >= 0) { vacate(ctx, OFFICES[A.office[i]].key); delete w.offices[OFFICES[A.office[i]].key]; A.office[i] = -1; }
       A.status[i] = ST.pyre; A.district[i] = D.pyra; A.oikos[i] = 0; A.unburied[i] = 0; A.hunger[i] = 0;
       onBurn(ctx, i);
       A.until[i] = Math.max(day + 1, dayOfTs(o.ts + PYRE_SECONDS)); w.burnTs[i] = o.ts;
@@ -553,7 +554,7 @@ function unrest(ctx) {
     if (A.jail[i] || A.status[i] || !isAdult(A, i, ctx.day)) continue;
     const H = clamp((A.hunger[i] * 12 + Math.max(0, -A.mood[i])) / 100, 0, 1);
     const L = w.factions[A.faction[i]].legit / 100;
-    const G = H * (1 - L) + A.radical[i] / 400;
+    const G = H * (1 - L) + A.radical[i] / 400 + Math.min(0.08, ((w.psi && w.psi.v) || 0) / 150);
     const R = (P(A, i, 1) * 0.6 + P(A, i, 4) * 0.4) / 100, d = A.district[i];
     const Pa = Math.min(1, 2.3 * guards[d] / ((prev[d] || 0) + 1));
     if (G - R * Pa > 0.1) active[d].push(i);
@@ -620,6 +621,7 @@ function politics(ctx) {
     w.factions[A.faction[i]].clout += s;
   }
   if (w.quest && w.factions[w.quest.faction]) w.factions[w.quest.faction].clout *= 1.15;   // the Fleece gives its holders a voice
+  orators(ctx, r);
   // D'Hondt
   const seats = w.factions.map(() => 0);
   for (let s = 0; s < w.boule.seats; s++) { let best = -1, bv = -1; w.factions.forEach((f, k) => { if (!f.alive) return; const v = f.clout / (seats[k] + 1); if (v > bv) { bv = v; best = k; } }); if (best >= 0) seats[best]++; }
@@ -697,6 +699,7 @@ function offices(ctx, proposer) {
     argus: best((i) => A.job[i] === J.weaver || A.job[i] === J.miner, (i) => A.obols[i]),
   };
   OFFICES.forEach((o, k) => {
+    if (w.vacant && w.vacant[o.key] !== undefined) return;   // burned on the chain: the seat stays empty for ever
     const i = want[o.key], cur = w.offices[o.key];
     if (i < 0 || i === cur) return;
     if (cur !== undefined) A.office[cur] = -1;
