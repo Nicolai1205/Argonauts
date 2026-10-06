@@ -90,18 +90,35 @@ export function faithDaily(ctx) {
     if (!F.alive) return;
     if (k > 0 && cnt[k] === 0 && day - F.born > 10) { F.alive = false; ctx.log(ctx.E.faithdies, -1, -1, -1, k, F.name); return; }
     if (cnt[k]) for (let x = 0; x < 3; x++) F.doctrine[x] = Math.round(F.doctrine[x] * 0.9 + (dsum[k][x] / cnt[k]) * 0.1);
+    // routinization (Weber): a faith that has become the establishment cools; a small sect burns hot
+    const share = cnt[k] / Math.max(1, cnt.reduce((a, b) => a + b, 0));
+    F.zeal = Math.round(Math.max(0.2, Math.min(1.2, share > 0.3 ? F.zeal * 0.98 : share < 0.05 ? F.zeal + 0.02 : F.zeal)) * 1000) / 1000;
     let best = 0; for (let d = 1; d < DISTRICTS.length; d++) if (where[k][d] > where[k][best]) best = d;
     if (k > 0 && cnt[k] >= 80 && !F.templeBuilt) { F.templeBuilt = day; F.temple = best; ctx.log(ctx.E.temple, F.founder, -1, best, k, F.name); remember(w, day, "temple", F.founder, 45, `the raising of the temple of ${F.god}`, k); }
     // schism: a cluster that has drifted far from the doctrine breaks away under a charismatic voice
-    const alive = w.faiths.filter((f) => f.alive).length;
-    if (cnt[k] >= 300 && day - F.born > 60 && alive < 10 && r.chance(k === 0 ? 0.05 : 0.08)) {
+    const alive = w.faiths.filter((f) => f.alive && f.members >= 20).length, total = cnt.reduce((a, b) => a + b, 0);
+    // a regional heresy: when one faith holds more than 40% of the faithful, its strongest province far from the temple breaks away
+    if (k > 0 && cnt[k] > total * 0.4 && alive < 14 && day - F.born > 60 && r.chance(0.12)) {
+      const taken = new Set(w.faiths.filter((f) => f.alive && f.parent === k).map((f) => f.temple));
+      let d = -1, dn = 0; for (let x = 0; x < DISTRICTS.length; x++) if (x !== F.temple && !taken.has(x) && where[k][x] > dn && DISTRICTS[x].kind === "quarter") { dn = where[k][x]; d = x; }
+      const rebels = d < 0 ? [] : ctx.live.filter((i) => !A.status[i] && A.faith[i] === k && A.district[i] === d && r.chance(0.6));
+      if (rebels.length >= 100) {
+        const lead = rebels.reduce((b, i) => (A.pers[i * 6 + 2] + A.devotion[i] > A.pers[b * 6 + 2] + A.devotion[b] ? i : b), rebels[0]), id = w.faiths.length;
+        const nm = `the ${F.name.replace(/^the /, "")} of ${DISTRICTS[d].name.replace(/^the /, "").replace(/ & the Agora/, "")}`;
+        w.faiths.push({ ...F, id, name: nm, founder: lead, born: day, doctrine: [0, 1, 2].map((x) => A.ideo[lead * 3 + x]), members: rebels.length, parent: k, templeBuilt: 0, temple: d, color: shade(F.color), origin: F.origin + ":" + id });
+        for (const i of rebels) A.faith[i] = id; A.cognomen[lead] = 18;
+        ctx.log(ctx.E.faithschism, lead, F.founder, d, id, `${nm}|${F.name}`); remember(w, day, "schism", lead, 50, `the breaking of ${F.name} in ${DISTRICTS[d].name.replace(/^the /, "")}`, id);
+        return;
+      }
+    }
+    if (cnt[k] >= 300 && day - F.born > 60 && alive < 14 && r.chance(k === 0 ? 0.05 : 0.08)) {
       // the dissenters: devout members far from the doctrine on order or the gods (a high bar for the diffuse old cult)
       const far = ctx.live.filter((i) => !A.status[i] && A.faith[i] === k && A.devotion[i] > (k === 0 ? 55 : 30) && Math.abs(A.ideo[i * 3 + 2] - F.doctrine[2]) + Math.abs(A.ideo[i * 3] - F.doctrine[0]) > (k === 0 ? 120 : 90));
       if (far.length >= 60) {
         const lead = far.reduce((b, i) => (A.pers[i * 6 + 2] + A.devotion[i] > A.pers[b * 6 + 2] + A.devotion[b] ? i : b), far[0]), id = w.faiths.length;
         let nm, god = F.god, color = shade(F.color);
         if (k === 0) { const used = new Set(w.faiths.map((f) => f.name)), sct = OLD_SECTS.find((x) => !used.has(x[0])); if (!sct) return; [nm, god, color] = sct; }
-        else { const adj = SPLIT[hash32(id, day) % SPLIT.length]; nm = `the ${adj} ${F.name.replace(/^the /, "")}`; }
+        else { const adj = SPLIT[hash32(id, day) % SPLIT.length], base = F.name.replace(/^the /, "").replace(new RegExp(`^(${SPLIT.join("|")}) `), ""); nm = `the ${adj} ${base}`; }
         w.faiths.push({ ...F, id, name: nm, god, founder: lead, born: day, doctrine: [0, 1, 2].map((x) => A.ideo[lead * 3 + x]), members: far.length, parent: k, templeBuilt: 0, color, origin: F.origin + ":" + id });
         for (const i of far) A.faith[i] = id; A.cognomen[lead] = 18;
         ctx.log(ctx.E.faithschism, lead, F.founder, A.district[lead], id, `${nm}|${F.name}`); remember(w, day, "schism", lead, 50, `the breaking of ${F.name}`, id);

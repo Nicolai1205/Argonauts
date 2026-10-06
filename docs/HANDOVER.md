@@ -1,6 +1,6 @@
 # The Argo: handover
 
-Status on 2026-10-06 (afternoon). **Rules v21**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
+Status on 2026-10-06 (afternoon). **Rules v22**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
 An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and their mortal children. **One real hour is one sim day.** Day 0 is 2026-10-06 00:00 UTC.
 
 ## 1. How it runs (nothing to babysit)
@@ -148,15 +148,16 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ v21 `sim/voyage.js`: the Symplegades (the Reef–Drepane lane opens for ever), Talos (guards the harbour until the Medea pulls the nail), Alcinous' arbitration by the Ouranidai, pilgrimage to Circe's Aeaea, the bow contest for vacant offices (the spear-mark helps), wedding gifts, grain loans repaid with the same measure or better, the two Strifes, the grain wardens, fire names for burn-day births.
 - Still not built from the research: epiklēros inheritance (needs gender, deliberately not modelled).
 ### B. Should do (risks, correctness, balance)
-- **Herbalists** nearly die out, so plague over-kills. Seed herbalists from Anthemoessa births or let the Medea office train them.
-- **War:** the audit saw Ares become lord of 8 cities and city cohesion pinned at 0.86–0.98. Not revisited this wave.
-- **Factions:** capped at 24 alive and legitimacy collapses to 4–21, so schisms stall (audit §3). Revisit.
-- **Front page on quiet days** still leads with small revenge brawls. Add a quiet-day edition (dawn, the Orpheus, an almanac of the city) and weight arcs with stakes.
-- **Prophecies** lapse ~70% in peacetime; broaden the fit rules or reinterpret lapsed ones (Croesus-style "it was fulfilled after all").
-- **Inequality** holds near 0.7. Options: progressive liturgies, eisphora war-tax, Solon-style debt relief law in the Boule.
+- ✅ (recovered to ~130–160 by v22 via inheritance and adult trades; keep watching) **Herbalists** nearly die out, so plague over-kills. Seed herbalists from Anthemoessa births or let the Medea office train them.
+- ✅ v22: imperial overreach, tribute solidarity, relative-cohesion revolts (≈45 battles, 7 revolts a sim-year). **War:** the audit saw Ares become lord of 8 cities and city cohesion pinned at 0.86–0.98. Not revisited this wave.
+- ✅ (legitimacy now 17–60; 17–22 alive) **Factions:** capped at 24 alive and legitimacy collapses to 4–21, so schisms stall (audit §3). Revisit.
+- ✅ v22 almanac on quiet days. **Front page on quiet days** still leads with small revenge brawls. Add a quiet-day edition (dawn, the Orpheus, an almanac of the city) and weight arcs with stakes.
+- ✅ v22: half of lapsed oracles are reread against the city's memory. **Prophecies** lapse ~70% in peacetime; broaden the fit rules or reinterpret lapsed ones (Croesus-style "it was fulfilled after all").
+- ✅ v22 theorika: the treasury's excess goes monthly to the poorer half; Gini drifts to ~0.68–0.70. **Inequality** holds near 0.7. Options: progressive liturgies, eisphora war-tax, Solon-style debt relief law in the Boule.
+- **Faith monoculture** (found in v21 long runs: one faith held 98%): ✅ v22 regional heresies and Weber's routinization (big faiths cool, small sects burn hot) now give a handful of regional churches.
 - **State growth** ~0.35 MB gzipped per sim-year. Move dead rows' genes and bio to a side file loaded on demand.
-- **Infants carry their parent's job label** (effects are gated by age, but the panel says "pirate" for a baby). Show "child of a pirate".
-- **Geography mismatch:** the sim's district coordinates differ from the map's sites; travel times and beast radii are in sim units.
+- ✅ v22. **Infants carry their parent's job label** (effects are gated by age, but the panel says "pirate" for a baby). Show "child of a pirate".
+- ✅ v22: the sim's districts use the map's coordinates. **Geography mismatch:** the sim's district coordinates differ from the map's sites; travel times and beast radii are in sim units.
 - **Cross-engine determinism** is only checked by hand in Chromium. A CI job could run `/?xtest` in Firefox and WebKit.
 ### C. Better pathing and map
 - Walkers follow street graphs instead of straight lines through houses; stay off water.

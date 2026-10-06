@@ -412,7 +412,11 @@ function frontPage() {
   const top = byD[today].sort((a, b) => b.score - a.score), [lead, ...rest] = top;
   let html = `<div class="gz-mast"><b>THE ARGO</b><span>${dayLabel(today)} · sung by the Orpheus · ${w.N.toLocaleString()} souls ever lived</span><i class="dawn">${esc(dawn(today))}…</i></div>`;
   const orph = w.offices && w.offices.orpheus, singer = orph !== undefined && w.A.status[orph] === ST.living ? orph : -1, ps = poem(lead, w, (i) => view.name(i).split(" ")[0]), cf = cityForm(singer >= 0 ? w.A.district[singer] : 0);
-  html += `<div class="story lead"><span class="k">${esc(lead.kind)}</span><h2>${esc(lead.title)}</h2><p>${linkify(lead.text)}</p>
+  if (lead.score < 50) {   // a quiet day: the almanac of the city leads
+    const st = w.stats[w.stats.length - 1] || {}, prev = w.stats[w.stats.length - 2] || st, dryD = DISTRICTS.filter((d, k) => w.dry && w.dry[k] >= 20).map((d) => d.name);
+    html += `<div class="story lead almanac"><span class="k">almanac</span><h2>A quiet day in the archipelago</h2><p>${esc(dawn(today))}. Bread sells at ${(st.prices || [0])[0]} obols in the Agora; ${Math.max(0, (st.births || 0) - (prev.births || 0))} Leaves were born and ${Math.max(0, (st.leafDeaths || 0) - (prev.leafDeaths || 0))} went to the Pyra; ${st.hungry || 0} went to bed hungry.${dryD.length ? ` No rain in ${esc(dryD.join(", "))}.` : ""}${w.psi ? ` The Agora calls the age ${esc(w.psi.phase)}.` : ""}</p></div>`;
+  }
+  html += `<div class="story ${lead.score < 50 ? "" : "lead"}"><span class="k">${esc(lead.kind)}</span>${lead.score < 50 ? `<h4>${esc(lead.title)}</h4>` : `<h2>${esc(lead.title)}</h2>`}<p>${linkify(lead.text)}</p>
     <blockquote class="poem">${ps.lines.map((l) => `<span>${esc(l)}</span>`).join("")}<span class="refrain">${esc(cf.refrain)}</span><cite>${singer >= 0 ? `<a class="who" data-i="${singer}">${esc(view.name(singer))}</a>, the Orpheus` : "the Orpheus"}, ${esc({ lament: "a lament", praise: "a song of praise", hymn: "a hymn", blame: "a blame-song" }[ps.form])} in ${esc(cf.name)}, ${esc(cf.measure)}</cite></blockquote></div>`;
   for (const x of rest.slice(0, 5)) html += `<div class="story"><span class="k">${esc(x.kind)}</span><h4>${esc(x.title)}</h4><p>${linkify(x.text)}</p></div>`;
   html += brewing();
@@ -528,7 +532,7 @@ function openLegends(i) {
   const recent = chron.concat(provisional).filter((e) => e.a === i || e.b === i).slice(-6).reverse().map((e) => `<li><span class="num">${dayLabel(e.d)}</span> · ${linkify(e.text)}</li>`).join("");
   $("#lgCard").innerHTML = `<button class="close" aria-label="Close">×</button>
    <div class="lg-head"><canvas id="lgArt" width="24" height="24"></canvas><div><h2>${esc(view.name(i))}</h2>
-     <div class="t">${esc(f.name)}, ${esc(f.title)} · ${A.status[i] === ST.pyre || A.status[i] === ST.asphodel ? "once a " + JOBS[A.job[i]] : JOBS[A.job[i]] + " in " + esc(DISTRICTS[A.district[i]].name)} · ${status}${A.office[i] >= 0 ? " · " + OFFICES[A.office[i]].title : ""}</div>
+     <div class="t">${esc(f.name)}, ${esc(f.title)} · ${A.status[i] === ST.pyre || A.status[i] === ST.asphodel ? "once a " + JOBS[A.job[i]] : (leaf && w.day - A.born[i] < 14 * 12 ? `a child of ${ageOf(A, i, w.day)}, of a ${JOBS[A.job[i]]}'s household,` : JOBS[A.job[i]]) + " in " + esc(DISTRICTS[A.district[i]].name)} · ${status}${A.office[i] >= 0 ? " · " + OFFICES[A.office[i]].title : ""}</div>
      <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}${i < 9999 ? `<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a>` : "born in the world, not on the chain"}</div>
      <div style="margin-top:6px">${traits}</div>
      <div class="lg-tools">${A.status[i] === ST.living ? '<button id="lgFollow">Follow</button>' : ""}<button id="lgShare">Copy link</button></div></div></div>

@@ -40,22 +40,23 @@ export const SPARTOI_HOUSES = [
 ];
 
 // districts: x,y on a 1000x700 sea chart; res = what the land yields
+// x, y: where web/map.js draws each place (tile x 1000/256), so distances in the sim match the map
 export const DISTRICTS = [
-  { key: "agora", name: "Pagasae & the Agora", x: 500, y: 350, r: 70, res: "fish", kind: "agora" },
-  { key: "ares", name: "the Field of Ares", x: 330, y: 250, r: 120, res: "food", kind: "quarter" },
-  { key: "bear", name: "Bear Mountain", x: 180, y: 150, r: 100, res: "ore", kind: "quarter" },
-  { key: "anthemoessa", name: "Anthemoessa", x: 760, y: 560, r: 70, res: "pharmaka", kind: "quarter" },
-  { key: "reef", name: "the Reef", x: 680, y: 160, r: 75, res: "fish", kind: "quarter" },
-  { key: "eridanus", name: "the Burning Lake of Eridanus", x: 905, y: 330, r: 45, res: "pharmaka", kind: "quarter" },
-  { key: "drepane", name: "Drepane", x: 920, y: 90, r: 35, res: "fish", kind: "quarter" },
-  { key: "mist", name: "the Mist-terraces", x: 520, y: 110, r: 45, res: "none", kind: "quarter" },
-  { key: "strand", name: "Deucalion's Strand", x: 120, y: 470, r: 55, res: "cloth", kind: "quarter" },
-  { key: "iolcus", name: "Iolcus", x: 470, y: 520, r: 85, res: "cloth", kind: "quarter" },
-  { key: "grove", name: "the Grove of Ares", x: 300, y: 600, r: 40, res: "none", kind: "grove" },
-  { key: "lemnos", name: "Lemnos", x: 620, y: 640, r: 60, res: "smoke", kind: "quarter" },
-  { key: "forges", name: "the Chalybes forges", x: 90, y: 300, r: 40, res: "ore", kind: "forge" },
-  { key: "pyra", name: "the Pyra", x: 640, y: 420, r: 32, res: "none", kind: "pyra" },
-  { key: "asphodel", name: "the Asphodel Meadow", x: 840, y: 470, r: 55, res: "none", kind: "asphodel" },
+  { key: "agora", name: "Pagasae & the Agora", x: 500, y: 523, r: 70, res: "fish", kind: "agora" },
+  { key: "ares", name: "the Field of Ares", x: 375, y: 406, r: 120, res: "food", kind: "quarter" },
+  { key: "bear", name: "Bear Mountain", x: 227, y: 219, r: 100, res: "ore", kind: "quarter" },
+  { key: "anthemoessa", name: "Anthemoessa", x: 867, y: 898, r: 70, res: "pharmaka", kind: "quarter" },
+  { key: "reef", name: "the Reef", x: 688, y: 289, r: 75, res: "fish", kind: "quarter" },
+  { key: "eridanus", name: "the Burning Lake of Eridanus", x: 883, y: 422, r: 45, res: "pharmaka", kind: "quarter" },
+  { key: "drepane", name: "Drepane", x: 914, y: 133, r: 35, res: "fish", kind: "quarter" },
+  { key: "mist", name: "the Mist-terraces", x: 492, y: 148, r: 45, res: "none", kind: "quarter" },
+  { key: "strand", name: "Deucalion's Strand", x: 164, y: 664, r: 55, res: "cloth", kind: "quarter" },
+  { key: "iolcus", name: "Iolcus", x: 438, y: 688, r: 85, res: "cloth", kind: "quarter" },
+  { key: "grove", name: "the Grove of Ares", x: 313, y: 805, r: 40, res: "none", kind: "grove" },
+  { key: "lemnos", name: "Lemnos", x: 695, y: 828, r: 60, res: "smoke", kind: "quarter" },
+  { key: "forges", name: "the Chalybes forges", x: 141, y: 391, r: 40, res: "ore", kind: "forge" },
+  { key: "pyra", name: "the Pyra", x: 586, y: 570, r: 32, res: "none", kind: "pyra" },
+  { key: "asphodel", name: "the Asphodel Meadow", x: 766, y: 594, r: 55, res: "none", kind: "asphodel" },
 ];
 export const D = Object.fromEntries(DISTRICTS.map((d, i) => [d.key, i]));
 

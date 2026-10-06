@@ -80,7 +80,10 @@ export function oracleDaily(ctx) {
         if (p.seer >= 0) { const n = (w.seers[p.seer] = (w.seers[p.seer] || 0) + 1); if (n >= 3 && w.phineus < 0 && alive(A, p.seer)) { w.phineus = p.seer; ctx.log(E.phineus, p.seer, -1, A.district[p.seer], n, "blinded"); } }
         continue;
       }
-      if (day >= p.until) { if (r.chance(0.3)) ctx.log(E.oracle, p.who, p.seer, p.city, day - p.day, "lapsed|" + p.text); if (p.seer >= 0 && w.seers[p.seer]) w.seers[p.seer]--; continue; }
+      if (day >= p.until) {
+        const m = (w.memory || []).filter((x) => x.day > p.day && x.day <= day).sort((a, b) => b.s0 - a.s0 || a.day - b.day)[0];
+        if (m && r.chance(0.5)) { ctx.log(E.oracle, p.who, m.who >= 0 ? m.who : -1, p.city, day - p.day, "reread|" + p.text + "|" + m.name); if (p.seer >= 0) w.seers[p.seer] = (w.seers[p.seer] || 0) + 1; continue; }
+        if (r.chance(0.3)) ctx.log(E.oracle, p.who, p.seer, p.city, day - p.day, "lapsed|" + p.text); if (p.seer >= 0 && w.seers[p.seer]) w.seers[p.seer]--; continue; }
       keep.push(p);
     }
     w.prophecies = keep;

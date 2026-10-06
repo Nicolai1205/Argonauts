@@ -129,10 +129,13 @@ function tribute(ctx, from, to, share) {
 export function vassals(ctx) {
   const { w, day } = ctx, W = w.war, r = ctx.r("vassal");
   if (day % 30) return;
+  const nv = {}; for (const c of CITIES) if (W.lord[c] !== c) nv[W.lord[c]] = (nv[W.lord[c]] || 0) + 1;
+  for (const L of Object.keys(nv)) W.S[L] = Math.max(0.02, W.S[L] - 0.01 * nv[L]);   // imperial overreach: the core's cohesion thins as the empire grows
   for (const c of CITIES) {
     const L = W.lord[c]; if (L === c) continue;
     tribute(ctx, c, L, 0.02);
-    if (W.S[c] > 0.5 && W.rel[c][L] < -30 && r.chance(0.3)) { W.lord[c] = c; ctx.log(ctx.E.revolt, -1, -1, c, L, `${short(c)} throws off ${short(L)}`); ctx.remember(w, day, "revolt", -1, 55, `the freeing of ${short(c)}`, -1);
+    W.S[c] = Math.min(0.98, W.S[c] + 0.015 + 0.003 * (nv[L] || 0));   // shared grievance: paying tribute binds the vassal together
+    if (W.S[c] > Math.max(0.35, W.S[L] * 0.75) && W.rel[c][L] < -25 && r.chance(0.2)) { W.lord[c] = c; ctx.log(ctx.E.revolt, -1, -1, c, L, `${short(c)} throws off ${short(L)}`); ctx.remember(w, day, "revolt", -1, 55, `the freeing of ${short(c)}`, -1);
       W.wars.push({ a: L, b: c, target: c, since: day, score: 0, battles: 0, name: `the war of ${short(c)}'s freedom`, dead: 0, broken: 0 }); }
   }
 }

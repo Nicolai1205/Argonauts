@@ -103,6 +103,12 @@ export function giftMonthly(ctx) {
     if (worst >= 0 && ws > 0.05) { const spent = buyGrain(ctx, -2, worst, Math.floor(w.treasury * 0.08), hungry[worst], r); if (spent > 0) ctx.log(E.liturgy, -1, -1, worst, spent, "boule"); }
   }
 
+  // the theorika: almost all the treasury hoards above sixty thousand goes to the poorer half of the city for the festivals
+  if (w.treasury > 60000) {
+    const poor = ctx.live.filter((i) => !A.status[i] && adult(A, i, day)).sort((x, y) => A.obols[x] - A.obols[y] || x - y); const half = poor.slice(0, Math.min(3000, poor.length >> 1));
+    const fund = Math.floor((w.treasury - 60000) * 0.9), each = half.length ? Math.floor(fund / half.length) : 0;
+    if (each > 0) { for (const i of half) A.obols[i] += each; w.treasury -= each * half.length; ctx.log(E.liturgy, -1, -1, D.agora, each * half.length, "theorika"); }
+  }
   // xenia: guest-friends send gifts across the sea (Il. 6.215-231: "let us exchange armour")
   const keys = Object.keys(w.xenia); if (keys.length) {
     const houses = new Map(); for (const i of ctx.live) if (!A.status[i] && adult(A, i, day)) { const o = A.oikos[i]; if (!houses.has(o)) houses.set(o, i); }
