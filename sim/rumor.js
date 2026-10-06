@@ -67,6 +67,14 @@ const MYTH = {
   burn: { own: "{a} did not die; {a} was taken up in fire to sit beside the god.", other: "{a} burned because {a} would not bow to {god}.", old: "{a} angered the Twelve and the Twelve sent fire." },
   war: { own: "In {name} the god fought in our front rank.", other: "In {name} the faithless were punished by {god}.", old: "{name} was the Twelve's quarrel, fought out by men." },
   lemnian: { own: "On the night of knives the god cleansed the city.", other: "On the night of knives, {god} looked away.", old: "The Lemnian night was the Twelve's wrath against the impious." },
+  riot: { own: "In {name} the god's people rose against the unjust.", other: "In {name} the mob of {god} showed what it is.", old: "{name} was the Twelve's punishment for an idle Boule." },
+  revolt: { own: "{name}: the god broke the chains.", other: "{name} was the faithless refusing their rightful lord.", old: "{name}: the Twelve weighed the cities and found the lord wanting." },
+  schism: { own: "At {name} the true believers walked out of a corrupted house.", other: "{name}: heretics, all of them.", old: "{name} proves what the Twelve always said: new gods quarrel." },
+  temple: { own: "{name}: the god has a house among us at last.", other: "{name}: a house for a false god, built with stolen obols.", old: "{name}. The Twelve have had temples since before the Sowing." },
+  beast: { own: "{name} was the god's warning, and we heeded it.", other: "{name} came because the city prayed to {god}.", old: "{name}: Artemis sends beasts to the proud." },
+  hunt: { own: "At {name} the god guided the spear.", other: "{name}: luck, and a beast already old.", old: "{name}: as Meleager slew the Boar, with the Twelve's leave." },
+  stone: { own: "{name}: the god sorted the faithful from the faithless among the Sown.", other: "{name}: the Sown slaughtered each other because they worship {god}.", old: "{name}: Ares remembered the teeth he gave and called them back." },
+  colony: { own: "{name}: the god led us across the water to a new hearth.", other: "{name}: they fled {god}'s famine and called it a founding.", old: "{name}, by lot and by the Pythia's word, as Thera sent out Cyrene." },
   prophet: { own: "{a} was chosen, as the Oak once chose the Argo.", other: "{a} is a liar who sells a god to the grieving.", old: "{a} saw a dream and took it for a god." },
 };
 export function myths(w, mem, name) {

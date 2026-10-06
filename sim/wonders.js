@@ -12,7 +12,7 @@ const alive = (A, i) => i >= 0 && A.status[i] === ST.living;
 const P = (A, i, k) => A.pers[i * 6 + k];
 const QUARTERS = DISTRICTS.map((d, k) => k).filter((k) => DISTRICTS[k].kind === "quarter");
 
-export function initWonders(w) { w.empusai = []; w.unburnt = []; w.statues = []; w.sunEaters = []; w.teeth = -999; w.trophonius = -999; w.sunHerd = 300; }
+export function initWonders(w) { w.temesa = []; w.empusai = []; w.unburnt = []; w.statues = []; w.sunEaters = []; w.teeth = -999; w.trophonius = -999; w.sunHerd = 300; }
 
 export function wondersDaily(ctx) {
   const { A, w, day } = ctx, r = ctx.r("wonders"), E = ctx.E, dy = ((day % 360) + 360) % 360;
@@ -69,6 +69,16 @@ export function wondersDaily(ctx) {
     for (const p of [A.p1[u.i], A.p2[u.i], A.lover[u.i]]) if (alive(A, p) && r.chance(0.25)) { A.sick[p] = Math.max(A.sick[p], 2); ctx.think(p, TH.haunted); }
     const priests = (ctx.byDist[u.d] || []).filter((j) => alive(A, j) && A.job[j] === J.priest && A.devotion[j] > 50);
     if ((priests.length && r.chance(0.05)) || day - u.day > 40) { w.unburnt.splice(w.unburnt.indexOf(u), 1); ctx.log(E.wonder, priests.length ? priests[0] : -1, u.i, u.d, day - u.day, "laid"); }
+  }
+
+  // ---- the Hero of Temesa: a murdered shade left unavenged for sixty days becomes the hero of its quarter and takes a youth each year
+  for (const g of w.restless) if (g.k >= 0 && day - g.day === 60 && w.temesa.length < 3 && !w.temesa.some((t) => t.d === g.d)) { w.temesa.push({ i: g.i, d: g.d, day }); ctx.log(E.wonder, g.i, g.k, g.d, 0, "temesa"); }
+  for (const t of w.temesa.slice()) {
+    if (((day - t.day) % 120) !== 0 || day === t.day) continue;   // a Leaf-year is twelve days; the hero's year is ten of them
+    const champ = (ctx.byDist[t.d] || []).filter((i) => alive(A, i) && adult(A, i, day) && (A.cognomen[i] === 23 || (w.games && w.games.champions.some((c) => c[1] === i)))).sort((x, y) => P(A, y, 4) - P(A, x, 4) || x - y)[0];
+    if (champ !== undefined && r.chance(0.6)) { w.temesa.splice(w.temesa.indexOf(t), 1); ctx.renown(champ, 80); ctx.log(E.wonder, champ, t.i, t.d, 0, "temesa-beaten"); continue; }
+    const youths = (ctx.byDist[t.d] || []).filter((i) => alive(A, i) && A.kind[i] && day - A.born[i] >= 14 * YEAR && day - A.born[i] < 20 * YEAR);
+    if (youths.length) { const v = youths[r.int(youths.length)]; ctx.kill(v, "given to the hero of the quarter"); ctx.log(E.wonder, v, t.i, t.d, 0, "temesa-tribute"); }
   }
 
   // ---- the Bouphonia (in Iolkion): the ox is slain, the knife is tried for murder and thrown into the sea; the city is clean

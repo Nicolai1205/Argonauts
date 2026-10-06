@@ -4,7 +4,7 @@ import { MONTHS, dateOf } from "./sim/culture.js";
 import { CITIES } from "./sim/war.js";
 import { CRAFTS } from "./sim/drift.js";
 import { myths } from "./sim/rumor.js";
-import { cityForm } from "./sim/poetics.js";
+import { cityForm, catalogue } from "./sim/poetics.js";
 
 const D_AGORA_SKIP = -1;
 const BLOOD_LORE = {
@@ -60,7 +60,7 @@ export function renderCodex(w, seed, view, esc, dayLabel, linkify) {
   const top = Object.entries(lines).sort((a, b) => b[1].alive - a[1].alive || b[1].n - a[1].n).slice(0, 12);
   S.push(`<h3>VII. Dynasties</h3><p class="muted">Lines are named for the Argonaut who sowed them; the founders never age, so the oldest houses are watched over by their own beginning.</p>${top.map(([L, o]) => `<div class="law"><a class="who" data-i="${L}">${esc(view.name(Number(L)))}</a><span class="num">${o.alive} living of ${o.n} ever born · ${o.gen} generations</span></div>`).join("") || '<p class="muted">No lines yet.</p>'}`);
   // faiths and their accounts of the great memories
-  const mem = (w.memory || []).filter((m) => ["burn", "war", "lemnian", "prophet"].includes(m.kind)).slice(-6).reverse();
+  const mem = (w.memory || []).filter((m) => ["burn", "war", "lemnian", "prophet", "riot", "revolt", "schism", "temple", "beast", "hunt", "stone", "colony"].includes(m.kind)).slice(-8).reverse();
   S.push(`<h3>VIII. How the faiths tell it</h3>${mem.map((m) => `<div class="law"><b>${esc(m.name.charAt(0).toUpperCase() + m.name.slice(1))}</b><span class="num">${dayLabel(m.day)}</span>${myths(w, m, view.name).map((x) => `<p><span style="color:${x.color}">${esc(x.faith)}:</span> ${linkify(x.text)}</p>`).join("")}</div>`).join("") || '<p class="muted">No great memories yet.</p>'}`);
   S.push(`<h3>IX. Relics</h3><p class="muted">Things that remember every hand they passed through: spears raised over victories, the first teeth of new gods, the cradle-teeth of each new generation, the shears that cut the Fleece.</p>${(w.relics || []).slice().reverse().slice(0, 30).map((r) => `<div class="law"><b>${esc(r.name.charAt(0).toUpperCase() + r.name.slice(1))}</b><span class="num">made ${dayLabel(r.born)} · ${r.history.length} hands</span><p>${r.history.map(([d, h, how]) => `<a class="who" data-i="${h}">${esc(view.name(h).split(" ").slice(0, 2).join(" "))}</a> (${esc(how)})`).join(" → ")}</p></div>`).join("") || '<p class="muted">None yet.</p>'}`);
   // the laws of the world: how the newer systems work, with their living numbers
@@ -85,6 +85,7 @@ export function renderCodex(w, seed, view, esc, dayLabel, linkify) {
     law("The political stress index", "Turchin, Secular Cycles", `${w.psi ? `${w.psi.phase} (${w.psi.v})` : ""}: too many would-be great, too few places, hungry streets.`) +
     law("What cannot be undone", "Kenshi's world states", Object.keys(w.vacant || {}).length ? `Empty for ever, their holders burned on the chain: ${Object.keys(w.vacant).map((k) => (OFFICES.find((o) => o.key === k) || {}).title || k).join(", ")}.` : "Nothing yet. When the chain burns an office-holder, that office will stay empty for ever.") +
     ((w.games && w.games.champions || []).length ? law("Champions of the games", "Iliad 23", w.games.champions.slice(0, 6).map(([d, i, nm]) => `<a class="who" data-i="${i}">${esc(view.name(i))}</a>, ${esc(nm)} (${dayLabel(d)})`).join("; ")) : ""));
+  { const cat = catalogue((w.storyLog || []).filter((x) => x.day > w.day - 31), (i) => view.name(i).split(" ")[0]); if (cat.length) S.push(`<h3>The month in song</h3><blockquote class="poem">${cat.map((l) => `<span>${esc(l)}</span>`).join("")}<cite>the Orpheus, a catalogue in the manner of the Ships</cite></blockquote>`); }
   S.push(`<h3>XI. Songs of the cities</h3><p class="muted">Every city sings in its own manner; the Orpheus sings the front page each day in the manner of their own city.</p>${CITIES.filter((k) => k !== D_AGORA_SKIP).map((k) => { const f = cityForm(k); return `<div class="law"><b>${esc(DISTRICTS[k].name.replace(/^./, (c) => c.toUpperCase()))}</b><span class="num">${esc(f.name)}, ${esc(f.measure)}</span><p><i>${esc(f.refrain)}</i></p></div>`; }).join("")}`);
   S.push(`<h3>XII. The chain beneath</h3><p>The world is computed from the real Argonauts collection (contract 0x387c…392c) by a deterministic engine: every Argonaut's traits, every transfer since the Sowing (replayed as prehistory), and every new block since. Twenty-two tokens had been burned by the sixth of October, twenty-one of them by one wallet in two days of September; #8985 burned on the fifth of October. The art has changed eight times, rulings have touched two tokens, and the visors carry forty-one phrases from the Argonautica and the Maker's own world.</p>`);
   return S.join("");

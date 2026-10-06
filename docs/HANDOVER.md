@@ -1,6 +1,6 @@
 # The Argo: handover
 
-Status on 2026-10-06 (afternoon). **Rules v23**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
+Status on 2026-10-06 (afternoon). **Rules v24**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
 An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and their mortal children. **One real hour is one sim day.** Day 0 is 2026-10-06 00:00 UTC.
 
 ## 1. How it runs (nothing to babysit)
@@ -173,14 +173,13 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ Charts: one series per chart with crosshair tooltips and a table view (Leaves, food price, hunger, Gini, shades, unrest, the stress index, the Iron clock).
 - ✅ Arcs tab: the lives the front page keeps returning to this month, in order. ✅ Mobile checked at 400px (no overflow).
 - Still open: RSS per character or house (needs server-side files per entity; could generate for watched-popular houses only); a family-tree graphic; a map layer of feuds and guest-friendships.
-### E. Lore and story
-- Every faith retells the new event kinds (miasma, oracles, beasts, the stone), not only burns, wars, Lemnian nights and prophets.
-- A monthly epic: the Orpheus sings the month as a catalogue (Il. 2 form) and the year as an epic cycle.
-- Name elements from the research: Phyll- and Oste- for Leaves, Pyr- for burn-day births.
-- The Maker: rulings as acts with a doctrine; faiths that worship or resist the Maker.
-- Horror set pieces: the Empusa lover, Lamia blamed for famine infant deaths, the Hero of Temesa's yearly tribute.
-- Off-map places as expedition goals: Aeaea, Crete and Talos, Phaeacia, Colchis itself.
-- Codex chapters with the myth behind each system, and "what cannot be undone" growing over time.
+### E. Lore and story  ✅ v24 (most)
+- ✅ Every faith retells riots, revolts, schisms, temples, beast attacks, hunts, the stone and colonies (they are now remembered and shown in the Codex).
+- ✅ A beast that eats a city can become a god (the Theriodai, "the Hunger in the Hills"); it grew to a major faith in test runs.
+- ✅ The month in song: the Orpheus' catalogue in the manner of the Ships (Codex).
+- ✅ Leaves born from day 20 sometimes carry Leaf-names (Phyll-, Oste-, Spart-, Chthon-); burn-day births carry fire names (v21).
+- ✅ The Hero of Temesa: a murdered shade unavenged for 60 days takes a youth every 120 days until a Monster-slayer or champion beats it.
+- Still open: off-map places as expedition goals (Crete, Phaeacia, Colchis itself); a faith that resists the Maker; Codex chapters per system.
 ### F. Simulation depth
 - Households (oikoi) as economic units: shared stores, dowries, inheritance and adoption of Leaves by the Sown.
 - Individual skill and apprenticeship (Henrich at the person level), and personal projects (build a ship, found a temple, write a law).

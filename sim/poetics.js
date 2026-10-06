@@ -126,3 +126,14 @@ export function poem(story, w, first) {
   }
   return { form: f, lines: L };
 }
+
+/** the month as a catalogue (Il. 2; the Hesiodic "or such as..."): one line for each of the month's greatest stories */
+export function catalogue(stories, first) {
+  const top = stories.slice().sort((a, b) => b.score - a.score || a.day - b.day).slice(0, 7);
+  if (!top.length) return [];
+  const lines = [`Sing, daughter of Memory, the month just gone, and who did what in it:`];
+  top.forEach((x, k) => { const a = x.actors && x.actors[0] >= 0 ? first(x.actors[0]) : null, t = x.title.charAt(0).toLowerCase() + x.title.slice(1);
+    lines.push(`${k === 0 ? "first" : "or such as"}: ${t}${a ? ", " + a : ""};`); });
+  lines.push("these the month carried down to the sea, and the sea forgets nothing it is sung.");
+  return lines;
+}

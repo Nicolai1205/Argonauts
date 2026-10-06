@@ -17,7 +17,8 @@ const FIRE_NAMES = ["Pyrrhos", "Pyrrha", "Pyrrhias", "Pyrrhon", "Pyralis", "Empy
 export function displayName(A, i, cognomens) {
   if (i < ARGO_N) return `${nameOf(i + 1)} #${i + 1}${A.cognomen[i] ? " " + cognomens[A.cognomen[i]] : ""}`;
   const rules = displayName.dialects ? displayName.dialects[A.dialect[i]] : null, born = A.born[i];
-  const given = A.mark && (A.mark[i] & 8) ? FIRE_NAMES[hash32("fire", i) % FIRE_NAMES.length] : nameOf(i + 1);   // born on the day of a burn
+  const leafy = born >= 20 && hash32("leafname", i) % 5 === 0 ? ["Phyll", "Oste", "Spart", "Chthon"][hash32("ln", i) % 4] + SUF[hash32("ls", i) % SUF.length] : null;   // the Leaves' own names
+  const given = A.mark && (A.mark[i] & 8) ? FIRE_NAMES[hash32("fire", i) % FIRE_NAMES.length] : leafy || nameOf(i + 1);   // born on the day of a burn
   return `${speak(given, rules, born)} ${speak(patronym(nameOf(A.p1[i] + 1)), rules, born)} ~${i - ARGO_N + 1}${A.cognomen[i] ? " " + cognomens[A.cognomen[i]] : ""}`;
 }
 
@@ -229,6 +230,9 @@ const T = {
     cleomedes: ["{a} killed a man in the boxing and was denied the crown. Maddened, {a} pulled down a roof on the children of the school{vk} and hid in a chest in the temple. When they forced the chest, it was empty. The Pythia says: honour {a}, the last of the heroes.", "The crown was refused, and {a} went mad{vk}. The chest they hid in was found empty. Now there is talk of a hero-shrine."],
     statue: ["The statue of {a}, a champion of the games, fell on {b}, who was flogging it in the night. The statue was tried for murder and thrown into the sea, and the fields of {where} have stopped bearing.", "{b} beat the bronze {a} every night out of old hatred, until it fell on them. The city drowned the statue. The harvest in {where} has failed since."],
     "statue-back": ["Fishermen hauled the drowned statue of {a} out of the sea, as the Pythia ordered. It stands again in {where}, and the fields are green.", "The statue of {a} is back on its base, dripping weed. {where} sacrifices to it now."],
+    temesa: ["The shade of {a} has walked {where} for sixty days and nobody has avenged it. Now it is the hero of the quarter, and it wants a youth every year, as the hero of Temesa did.", "{where} has a hero now: the unavenged {a}, who stands in the alleys at dusk. The old women say it will want a tribute."],
+    "temesa-tribute": ["The yearly tribute: {a} was led to the shrine of the hero of {where} in a bridal veil and was not seen again.", "{where} paid the hero again. This year it was {a}."],
+    "temesa-beaten": ["{a} waited in the hero's shrine at {where} in armour, as Euthymus did at Temesa, fought the shade of {b} through the night and drove it into the sea. No more tribute.", "The champion {a} wrestled the hero of {where} and won. The shade of {b} has gone under the waves."],
     "sun-cattle": ["In starving {where}, {v} of them broke the oath and killed the Cattle of the Sun. The hides crawled and the meat lowed on the spits. Helios has seen it.", "They ate the Sun's cattle in {where}: {v} hungry mouths, a feast, and the flayed hides walking. The sea will be asked to collect."],
   },
   voyage: { "rocks-open": ["{a} took the black ship between the Clashing Rocks behind a dove, as Euphemus did, and came through with the stern ornament shorn off. The Rocks stand fixed now, for ever, and the lane from the Reef to Drepane is open.", "The Symplegades are still: {a} ran them with {v} rowers, and by the law of the gods the Rocks may never close again."],

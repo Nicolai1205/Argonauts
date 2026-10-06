@@ -51,7 +51,7 @@ export function discordDaily(ctx) {
     ctx.cognomen(oik, 16); ctx.renown(oik, 80);
     w.colonies.push({ from: d, to: dest[0], oik, day, n: goers.length, members: goers.slice(0, 120) });
     if (w.colonies.length > 30) w.colonies.shift();
-    ctx.log(E.colony, oik, -1, dest[0], goers.length, "sent|" + DISTRICTS[d].name);
+    ctx.log(E.colony, oik, -1, dest[0], goers.length, "sent|" + DISTRICTS[d].name); ctx.remember(w, day, "colony", oik, 55, `the founding of the colony at ${DISTRICTS[dest[0]].name.replace(/^the /, "")}`, A.faith[oik]);
   }
   // those who sail home before their time are driven off from the shore with stones (Hdt. 4.156)
   if (day % 7 === 0) for (const c of w.colonies) {

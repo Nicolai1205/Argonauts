@@ -55,7 +55,7 @@ export function heroesDaily(ctx) {
     for (let t = 0; t < 2 + r.int(4) && pool.length; t++) { const v = pool[r.int(pool.length)]; if (A.status[v]) continue; ctx.kill(v, `taken by ${b.name}`); if (A.kind[v]) dead++; else broken++; }
     for (const i of pool) if (r.chance(0.3)) { A.inv[i * 5] = A.inv[i * 5] >> 1; ctx.think(i, TH.terror_at_an_omen); }
     b.hunger = Math.max(0, b.hunger - 45); b.kills += dead + broken;
-    ctx.log(E.beast, -1, -1, d, dead * 100 + broken, "attack|" + b.name);
+    ctx.log(E.beast, -1, -1, d, dead * 100 + broken, "attack|" + b.name); if (dead + broken >= 3) ctx.remember(w, day, "beast", -1, 40 + (dead + broken) * 5, `the coming of ${b.name} to ${DISTRICTS[d].name.replace(/^the /, "")}`, -1);
     if (!w.hunts.some((h) => h.beast === b.k)) w.hunts.push({ beast: b.k, city: d, day: day + 2 + r.int(4) });
   }
 
@@ -76,7 +76,7 @@ export function heroesDaily(ctx) {
       ctx.cognomen(lead, 23); renown(w, A, lead, 120); for (const i of band) if (i !== lead) renown(w, A, i, 25);
       for (const i of band) if (A.status[i] === ST.living) ctx.memorize(i, 5, lead, 60);
       ctx.forgeRelic(`${BEASTS[b.k].prize} ${b.name.replace(/^the /, "the ")}`, "trophy", lead, `slew ${b.name}`);
-      ctx.log(E.hunt, lead, -1, h.city, fell, "slain|" + b.name + "|" + band.length);
+      ctx.log(E.hunt, lead, -1, h.city, fell, "slain|" + b.name + "|" + band.length); ctx.remember(w, day, "hunt", lead, 60, `the slaying of ${b.name}`, A.faith[lead]);
     } else { b.wounds++; b.hunger = Math.max(0, b.hunger - 20); ctx.log(E.hunt, lead, -1, h.city, fell, "failed|" + b.name + "|" + band.length); }
   }
 

@@ -69,7 +69,7 @@ export function ironDaily(ctx) {
     if (day >= S.until) {
       const total = S.broken.reduce((a, b) => a + b, 0); let best = 0; for (let h = 1; h < 5; h++) if (S.broken[h] < S.broken[best]) best = h;
       const fac = w.factions[w.houseFaction[best]]; fac.legit = Math.min(100, fac.legit + 15);
-      ctx.log(E.stone, S.thrower, -1, S.d, total, "after|" + fac.name + "|" + S.broken.join(","));
+      ctx.log(E.stone, S.thrower, -1, S.d, total, "after|" + fac.name + "|" + S.broken.join(",")); if (total >= 10) ctx.remember(w, day, "stone", S.thrower, 50 + total, `the stone in ${DISTRICTS[S.d].name.replace(/^the /, "")}`, -1);
       if (S.thrower >= 0 && alive(A, S.thrower) && S.why === "rumour") { A.jail[S.thrower] = 96; A.district[S.thrower] = D.grove; A.obols[S.thrower] > 0 && (w.treasury += A.obols[S.thrower], A.obols[S.thrower] = 0); ctx.cognomen(S.thrower, 25); ctx.log(E.stone, S.thrower, -1, D.grove, 96, "bound"); }
       w.stone = null;
     }

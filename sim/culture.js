@@ -17,6 +17,7 @@ export const DEITIES = {
   riot: { god: "the Stone Among Us", people: "the Lithoboloi", color: "#9aa0a8", cost: 0.3, zeal: 1.4 },
   beam: { god: "the Oak of Dodona", people: "the Dodonaioi", color: "#7fb069", cost: 0.5, zeal: 1.0 },
   ruling: { god: "the Maker", people: "the Poietai", color: "#e9e1cf", cost: 0.6, zeal: 1.1 },
+  beast: { god: "the Hunger in the Hills", people: "the Theriodai", color: "#a0473a", cost: 0.5, zeal: 1.2 },
   doliones: { god: "the Dark that Blinds Friends", people: "the Skotioi", color: "#3d4a6b", cost: 0.4, zeal: 0.9 },
 };
 // sects that can break from the old cult (real Greek mystery religions), and adjectives for splinters of new faiths
@@ -34,7 +35,7 @@ export function prophets(ctx, events, kill) {
   const { A, w, day } = ctx, r = ctx.r("prophets");
   if (day - w.lastProphet < 20 || w.faiths.filter((f) => f.alive).length >= 12) return;
   for (const e of events) {
-    const kind = e.t === "death" ? null : e.t === "riot" ? "riot" : e.t === "plague" ? "plague" : e.t === "famine" ? "famine" : e.t === "sirens" ? "sirens" : e.t === "lemnian" ? "lemnian" : e.t === "burn" ? "burn" : e.t === "beam" ? "beam" : e.t === "ruling" ? "ruling" : e.t === "doliones" ? "doliones" : null;
+    const kind = e.t === "death" ? null : e.t === "riot" ? "riot" : e.t === "plague" ? "plague" : e.t === "famine" ? "famine" : e.t === "sirens" ? "sirens" : e.t === "lemnian" ? "lemnian" : e.t === "burn" ? "burn" : e.t === "beam" ? "beam" : e.t === "ruling" ? "ruling" : e.t === "beast" && (e.s || "").startsWith("attack") ? "beast" : e.t === "doliones" ? "doliones" : null;
     if (!kind || w.faiths.some((f) => f.alive && f.origin === kind) || !r.chance(kind === "burn" || kind === "ruling" ? 0.6 : 0.25)) continue;
     // the prophet: a shaken, open, well-connected adult near the catastrophe (for a burn: the one who loved the burned most)
     let near = e.x >= 0 ? ctx.byDist[e.x] : ctx.live;
@@ -118,7 +119,7 @@ export function faithDaily(ctx) {
         const lead = far.reduce((b, i) => (A.pers[i * 6 + 2] + A.devotion[i] > A.pers[b * 6 + 2] + A.devotion[b] ? i : b), far[0]), id = w.faiths.length;
         let nm, god = F.god, color = shade(F.color);
         if (k === 0) { const used = new Set(w.faiths.map((f) => f.name)), sct = OLD_SECTS.find((x) => !used.has(x[0])); if (!sct) return; [nm, god, color] = sct; }
-        else { const adj = SPLIT[hash32(id, day) % SPLIT.length], base = F.name.replace(/^the /, "").replace(new RegExp(`^(${SPLIT.join("|")}) `), ""); nm = `the ${adj} ${base}`; }
+        else { const base = F.name.replace(/^the /, "").replace(new RegExp(`^(${SPLIT.join("|")}) `), ""), names = new Set(w.faiths.filter((f) => f.alive).map((f) => f.name)); let h = hash32(id, day); nm = `the ${SPLIT[h % SPLIT.length]} ${base}`; for (let t = 1; t < SPLIT.length && names.has(nm); t++) nm = `the ${SPLIT[(h + t) % SPLIT.length]} ${base}`; }
         w.faiths.push({ ...F, id, name: nm, god, founder: lead, born: day, doctrine: [0, 1, 2].map((x) => A.ideo[lead * 3 + x]), members: far.length, parent: k, templeBuilt: 0, color, origin: F.origin + ":" + id });
         for (const i of far) A.faith[i] = id; A.cognomen[lead] = 18;
         ctx.log(ctx.E.faithschism, lead, F.founder, A.district[lead], id, `${nm}|${F.name}`); remember(w, day, "schism", lead, 50, `the breaking of ${F.name}`, id);
