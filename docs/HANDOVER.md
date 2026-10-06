@@ -144,6 +144,17 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - **Balance traps:** a single global seasonal multiplier plus market hoarding produced famines; sea closure starved an island; penniless buyers ratcheted prices to the cap; any "per death" penalty starves the director.
 - **Browser checks** use the Playwright browser already installed; do not download other engines locally. `/?xtest=N` puts the N-day hash in the page title to compare with Node.
 
+### Learnings from the v19–v27 wave
+- **Measure balance over two years, not one.** Monocultures (one faith at 98%, one empire over 9 cities) and permanent states (vassal cohesion pinned at 0.02) only appeared after ~700 days.
+- **Caps that tiny entities can fill silently disable systems.** The schism rule needed fewer than 10 living faiths and 1-member sects filled the cap. Count only entities above a size when capping.
+- **Thresholds on integer scores tie constantly.** The bow contest fired 45 times a year until it was limited to vacant offices.
+- **Logging rates need their own budget.** Bribery logged 70 times a year; log the month's biggest case, not every case.
+- **A district that is "the largest province" will be picked every time.** Exclude provinces already split, or names repeat.
+- **Viewer timing:** `performance.mark` marks in a built copy of `app.js` found the 17 s A* in minutes. Check a page opened straight from a share link: module-level ordering (the atlas promise was assigned after `route()`).
+- **Benchmarks are noisy when the Playwright tab is animating.** Park it on `about:blank` and compare against a `git archive HEAD` copy on the same machine at the same time.
+- **Pure refactors (module splits) are proved by three hashes:** state, full save and event stream, from the same checkpoint, HEAD vs working tree, over a span that includes a monthly tick.
+- **Patch files:** write Python patch scripts to a file; JS with apostrophes inside single-quoted Python strings aborts the whole patch.
+
 ## 9. Backlog: not done, should do, could do
 ### A. Planned but not built
 - ✅ Trunk-road merging on the map.
