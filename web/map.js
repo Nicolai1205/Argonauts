@@ -93,7 +93,7 @@ const LINKS = [["agora", "ares"], ["agora", "iolcus"], ["agora", "pyra"], ["ares
   ["ares", "mist"], ["pyra", "asphodel"], ["agora", "reef"], ["asphodel", "eridanus"], ["agora", "lemnos"], ["lemnos", "anthemoessa"], ["reef", "drepane"], ["bear", "forges"]];
 function roads(elev, biome, SEA) {
   const N = SIZE, cost = (i) => { const b = biome[i]; return elev[i] < SEA ? 40 : b === "mountain" ? 9 : b === "snow" ? 14 : b === "hills" ? 4 : b === "darkforest" || b === "marsh" ? 5 : b === "forest" ? 3 : b === "burning" ? 30 : 1; };
-  const out = [];
+  const out = [], used = new Uint8Array(N * N);   // tiles already walked by an earlier road are cheaper: roads merge into trunks
   for (const [a, b] of LINKS) {
     const A = SITES[a], B = SITES[b], start = A.y * N + A.x, goal = B.y * N + B.x;
     const g = new Float32Array(N * N).fill(Infinity), from = new Int32Array(N * N).fill(-1), done = new Uint8Array(N * N); g[start] = 0;
@@ -111,13 +111,15 @@ function roads(elev, biome, SEA) {
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
         const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
         const ni = ny * N + nx; if (done[ni]) continue;
-        const ng = g[cur] + cost(ni) * (dx && dy ? 1.414 : 1);
+        const ng = g[cur] + cost(ni) * (used[ni] && elev[ni] >= SEA ? 0.45 : 1) * (dx && dy ? 1.414 : 1);
         if (ng < g[ni]) { g[ni] = ng; from[ni] = cur; push(ng + h(ni), ni); }
       }
     }
     const path = []; for (let c = goal; c >= 0; c = from[c]) { path.push([c % N, Math.floor(c / N), elev[c] < SEA]); if (c === start) break; }
     out.push({ a, b, path: path.reverse() });
+    for (const [x, y] of path) used[y * N + x] = Math.min(255, used[y * N + x] + 1);
   }
+  out.used = used;
   return out;
 }
 

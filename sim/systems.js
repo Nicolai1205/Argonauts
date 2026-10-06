@@ -17,13 +17,14 @@ import { heroesDaily, renown, legacy } from "./heroes.js";
 import { ironDaily, onSale, birthMarks } from "./iron.js";
 import { hiddenDaily } from "./hidden.js";
 import { discordDaily, orators, vacate } from "./discord.js";
+import { threadsDaily, hookVotes, intent } from "./threads.js";
 import { memoryDaily, memorize, onReknit, swear, oathEnds, cursed, onLeafDeath, scarOf } from "./memory.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire", "case", "trial", "secret", "tablet", "weather", "colony", "psi", "speech", "vacant"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire", "case", "trial", "secret", "tablet", "weather", "colony", "psi", "speech", "vacant", "song", "cadet", "movement", "hook"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -48,7 +49,7 @@ export function tick(w, omens = []) {
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   if (((day % 30) + 30) % 30 === 15) { index(ctx); giftMonthly(ctx); } chk(ctx, 'gift');
   director(ctx); chk(ctx, 'director');
-  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); hiddenDaily(ctx); discordDaily(ctx); chk(ctx, 'miasma');
+  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); hiddenDaily(ctx); discordDaily(ctx); threadsDaily(ctx); chk(ctx, 'miasma');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
@@ -475,7 +476,7 @@ function social(ctx) {
     let dist = 0; for (let k = 0; k < 3; k++) dist += Math.abs(A.ideo[i * 3 + k] - A.ideo[j * 3 + k]);
     const same = A.faction[i] === A.faction[j], kin = A.oikos[i] === A.oikos[j];
     const fa = A.faith[i], fb = A.faith[j], sect = fa === fb ? (A.devotion[i] > 50 && A.devotion[j] > 50 ? 8 : 2) : fa && fb ? -8 : (fa || fb) && (A.devotion[i] > 60 || A.devotion[j] > 60) ? -4 : 0;
-    const score = (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 - shun(A, i, j) + A.fame[j] / 8 - (A.scar[i] === 4 ? 12 : 0) + (same ? 15 : -4) + (kin ? 12 : 0) + (A.lover[i] === j ? 10 : 0) + sect + r.next() * 40 - 20;
+    const score = intent(ctx, i, j, r) + (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 - shun(A, i, j) + A.fame[j] / 8 - (A.scar[i] === 4 ? 12 : 0) + (same ? 15 : -4) + (kin ? 12 : 0) + (A.lover[i] === j ? 10 : 0) + sect + r.next() * 40 - 20;
     if (score > 20) { convert(ctx, i, j, true); convert(ctx, j, i, true); }
     if (score > 0) gossip(ctx, i, j);
     A.met[i] = j; A.met[j] = A.met[j] < 0 ? i : A.met[j]; const kind = score > 45 ? 1 : score > 20 ? 2 : score > 0 ? 3 : 4; A.metKind[i] = kind; if (A.met[j] === i) A.metKind[j] = kind;
@@ -631,6 +632,7 @@ function politics(ctx) {
     w.factions[A.faction[i]].clout += s;
   }
   if (w.quest && w.factions[w.quest.faction]) w.factions[w.quest.faction].clout *= 1.15;   // the Fleece gives its holders a voice
+  hookVotes(ctx, (i) => { const o = A.obols[i]; return w.franchise === "headcount" ? 4 : w.franchise === "property" ? 4 + isqrt(Math.max(0, o)) / 2 : (o >= top ? isqrt(o) : 0); });
   orators(ctx, r);
   // D'Hondt
   const seats = w.factions.map(() => 0);
@@ -774,7 +776,8 @@ function director(ctx) {
   index(ctx);
   const quarters = DISTRICTS.map((d, k) => k).filter((k) => DISTRICTS[k].kind === "quarter" && ctx.byDist[k].length > 20);
   const [key, cost] = inc; dir.next = null;
-  dir.points -= cost; const d = r.pick(quarters);
+  const pull = DISTRICTS.map(() => 1); for (const i of ctx.live) if (A.avenge[i] && !A.status[i]) pull[A.district[i]] += 0.3; for (const c of w.cases || []) if (c.open) pull[c.d] += 2;
+  dir.points -= cost; const d = r.weighted(quarters, quarters.map((k) => pull[k]));
   const pick = (pool, n) => { const out = []; for (let t = 0; t < n && pool.length; t++) out.push(pool[r.int(pool.length)]); return [...new Set(out)]; };
   switch (key) {
     case "pall": dir.active.pall = day + 1; for (const i of ctx.live) think(ctx, i, TH.darkness); ctx.log(E.pall); break;

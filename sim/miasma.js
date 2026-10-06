@@ -114,7 +114,8 @@ export function miasmaDaily(ctx) {
     if (r.chance(0.006)) { A.avenge[i] = 0; ctx.oathEnds(i, "vengeance", false); continue; }                                     // the grief is spent; the vow is broken
     if (A.status[t] !== ST.living) continue;                                                                       // broken bone: wait for it to knit
     if (A.district[t] !== A.district[i]) { if (A.district[t] < D.pyra && r.chance(0.04)) A.district[i] = A.district[t]; continue; }
-    if (!r.chance(0.07)) continue;
+    const due = w.oaths && w.oaths.find((o) => o.who === i && o.kind === "vengeance"), urgent = due && due.until - day < 15;   // an oath falling due presses the hand
+    if (!r.chance(urgent ? 0.14 : 0.07)) continue;
     A.avenge[i] = 0; ctx.think(i, TH.vengeance_taken);
     if (r.chance(0.55)) { ctx.kill(t, "vengeance", i, r.chance(0.35)); ctx.cognomen(i, 20); ctx.renown(i, 10); ctx.oathEnds(i, "vengeance", true); ctx.memorize(i, 7, t, 60); }
     else { A.sick[t] = Math.max(A.sick[t], 3); A.stress[t] = Math.min(600, A.stress[t] + 120); ctx.log(E.vendetta, i, t, A.district[i], 0, "wounded"); }
