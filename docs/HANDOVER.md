@@ -144,6 +144,12 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - **Balance traps:** a single global seasonal multiplier plus market hoarding produced famines; sea closure starved an island; penniless buyers ratcheted prices to the cap; any "per death" penalty starves the director.
 - **Browser checks** use the Playwright browser already installed; do not download other engines locally. `/?xtest=N` puts the N-day hash in the page title to compare with Node.
 
+### Performance (measured 2026-10-06, after the optimisation pass)
+- **Live page:** first paint 0.76 s cold, 0.39 s warm (was 2.3 s). No long tasks after load; idle main thread ~7% (was ~21%); ~1 ms of script per frame.
+- **How:** one parallel round of downloads plus `modulepreload` for the ~37 modules; the chronicle and the portrait atlas load after first paint (the atlas is built in idle-time bands); no per-frame scans of the population or the chronicle (`worldCache()`); the header hash comes from `meta.json` on the checkpoint day, otherwise it is computed once in idle time; figures are built on demand, at most 120 per frame; off-screen cities and houses are culled; the Codex and Arcs render when opened; the map's noise lattice is memoised (bit-identical map, generated twice as fast).
+- **Engine:** ~35–50 ms per sim day depending on machine load; the hourly job takes ~26 s end to end (advance 1 s, self-test 5 s, deploy 7 s).
+- **How to measure:** in the Playwright browser, `page.context().newCDPSession(page)` gives `Profiler.start/stop`; aggregate self and inclusive time by function. `performance.mark("argo-ready")` marks first paint; a `PerformanceObserver` for `longtask` finds hitches. Simulate latency with `page.route` and a 120 ms delay.
+
 ### Learnings from the v19–v27 wave
 - **Measure balance over two years, not one.** Monocultures (one faith at 98%, one empire over 9 cities) and permanent states (vassal cohesion pinned at 0.02) only appeared after ~700 days.
 - **Caps that tiny entities can fill silently disable systems.** The schism rule needed fewer than 10 living faiths and 1-member sects filled the cap. Count only entities above a size when capping.
