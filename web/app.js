@@ -13,6 +13,7 @@ import { CITIES } from "./sim/war.js";
 import { CRAFTS } from "./sim/drift.js";
 import { renderCodex } from "./codex.js";
 import { portrait, loadArt } from "./portrait.js";
+import { biography } from "./biography.js";
 import { figure, lookOf } from "./figures.js";
 import { hash32 } from "./sim/rng.js";
 
@@ -476,6 +477,7 @@ function openLegends(i) {
      <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}${i < 9999 ? `<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a>` : "born in the world, not on the chain"}</div>
      <div style="margin-top:6px">${traits}</div>
      <div class="lg-tools">${A.status[i] === ST.living ? '<button id="lgFollow">Follow</button>' : ""}<button id="lgShare">Copy link</button></div></div></div>
+   <h3>A life</h3>${biography(w, seed, i, view, dayLabel, M.stories || [], chron.concat(provisional)).map((p) => `<p>${linkify(p)}</p>`).join("")}
    ${family || thumbs ? `<h3>Family</h3>${thumbs}${family}` : ""}
    <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span><b>Faith</b><span style="color:${w.faiths[A.faith[i]].color}">${esc(w.faiths[A.faith[i]].name)}</span><b>Wears</b><span style="color:${w.styles[A.style[i]].color}">${esc(w.styles[A.style[i]].name)}</span><b>Devotion</b><span>${A.devotion[i]}</span></div></div></div>
    ${A.status[i] === ST.living && S.where && S.where[i] ? `<h3>Today</h3><p>${esc(view.name(i).split(' ')[0])} ${esc(S.where[i].work)}, then ${esc(S.where[i].eve)}${S.eveWith[i] >= 0 ? ` <a class="who" data-i="${S.eveWith[i]}">${esc(view.name(S.eveWith[i]))}</a>` : ""}.${A.lover[i] >= 0 ? ` Beloved: <a class="who" data-i="${A.lover[i]}">${esc(view.name(A.lover[i]))}</a>.` : ""}</p>` : ""}
