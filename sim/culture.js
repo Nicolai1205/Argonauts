@@ -134,7 +134,7 @@ export function festivals(ctx) {
     const years = (day - m.day) / 360, nm = `the ${["", "first", "second", "third", "fourth", "fifth"][years] || years + "th"} remembrance of ${m.name}`;
     feast(nm, "anniversary", m.who >= 0 ? A.district[m.who] : -1, ctx.TH.awe_at_an_omen, 1); m.kept = day; m.s0 *= 1.6;   // keeping a festival keeps the memory
     // a great memory and a rich treasury raise a monument
-    if (s > 20 && w.treasury > 3000 && !w.monuments.some((x) => x.mem === m.day + ":" + m.name)) {
+    if (s > 20 && w.treasury > 3000 && !(w.monuments.length && day - w.monuments[w.monuments.length - 1].day < 90) && !w.monuments.some((x) => x.mem === m.day + ":" + m.name)) {
       const dist = m.who >= 0 && A.district[m.who] < DISTRICTS.length ? A.district[m.who] : D.agora; w.treasury -= 1500; w.destroyed += 1500;
       w.monuments.push({ name: `the Stele of ${m.name.replace(/^the /, "")}`, district: dist, day, mem: m.day + ":" + m.name, owner: m.owner, standing: true, seed: hash32(m.name, day) });
       ctx.log(ctx.E.monument, m.who, -1, dist, w.monuments.length - 1, `the Stele of ${m.name.replace(/^the /, "")}`);

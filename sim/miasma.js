@@ -4,6 +4,7 @@
 // Bremmer on the pharmakos. Canon: killing a Minyas only breaks it, so its blood-price is half a Leaf's.
 import { DISTRICTS, D, ST, TH, J } from "./lore.js";
 import { TIES } from "./world.js";
+import { xeniaViolated } from "./gift.js";
 
 const YEAR = 12, adult = (A, i, day) => !A.kind[i] || day - A.born[i] >= 14 * YEAR;
 const alive = (A, i) => i >= 0 && A.status[i] === ST.living;
@@ -25,7 +26,9 @@ export function pollute(ctx, i, n) {
 export function onKilling(ctx, v, k) {
   const { A, w, day } = ctx; if (k < 0 || k === v || k >= ctx.w.N) return;
   const kinslayer = kin(A, v, k) || (A.lineage[v] === A.lineage[k] && A.kind[v]);
-  pollute(ctx, k, kinslayer ? 3 : A.kind[v] ? 2 : 1);
+  const guest = xeniaViolated(ctx, v, k);
+  pollute(ctx, k, kinslayer || guest ? 3 : A.kind[v] ? 2 : 1);
+  if (guest) ctx.log(ctx.E.xenoi, k, v, A.district[k], 0, "violated");
   if (kinslayer) { ctx.log(ctx.E.kinslayer, k, v, A.district[k]); ctx.cognomen(k, 21); }
   w.blood.push({ v, k, day, d: A.district[k] }); if (w.blood.length > 200) w.blood.shift();
   if (A.kind[v] && w.restless.length < 60) w.restless.push({ i: v, k, day, d: A.district[v] < D.pyra ? A.district[v] : A.district[k] });

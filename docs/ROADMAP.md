@@ -114,7 +114,7 @@ Unrest (2,101 → ~80), director pacing, market price ratchet, nobles' rents, pi
 - **Pharmakos** (Thargelia): in a crisis the city drives out two of its lowest.
 - **Restless dead** (aōroi, biaiothanatoi): Leaves dying young or by violence walk until avenged or given rites; shades name their killers.
 
-### v12: The Gift and the Duty (economy and obligation)
+### v12: The Gift and the Duty (economy and obligation)  ✅ live (`sim/gift.js`)
 - **Liturgies + antidosis**: the richest oikoi must fund grain imports (sitonia), feasts (hestiasis) and convoy escorts (trierarchy); a house may challenge a richer one to take the duty or swap estates. The Gini fix.
 - **Inherited xenia**: every real sale forges a guest-bond between the old and new oikos; guest-friends refuse to fight each other and shelter each other's refugees.
 - **Hesiod's farming year and the sailing season**: ploughing, harvest and vintage pulses; sea lanes close in winter.

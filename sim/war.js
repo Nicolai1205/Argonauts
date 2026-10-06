@@ -1,6 +1,7 @@
 // City-states, asabiya and war (Turchin's metaethnic frontier theory; Turchin et al. 2013 for power and terrain).
 import { DISTRICTS, D } from "./lore.js";
 import { ln } from "./drift.js";
+import { spareXenoi } from "./gift.js";
 
 // the cities that can make war; terrain makes some hard to take
 export const CITIES = ["agora", "ares", "bear", "anthemoessa", "reef", "eridanus", "drepane", "mist", "strand", "iolcus", "lemnos", "forges"].map((k) => D[k]);
@@ -93,7 +94,8 @@ function battle(ctx, war, r) {
   let dead = 0, broken = 0;
   for (const [city, frac] of [[lose, 0.06], [win, 0.02]]) {
     const pool = ctx.live.filter((i) => !A.status[i] && A.district[i] === city && (!A.kind[i] || day - A.born[i] >= 16 * 12) && r.chance(0.2));
-    for (const i of pool) if (r.chance(frac)) { ctx.kill(i, `fell in ${war.name}`); if (A.kind[i]) dead++; else broken++; }
+    const spared = city === lose ? spareXenoi(ctx, pool, win) : new Set();
+    for (const i of pool) if (!spared.has(i) && r.chance(frac)) { ctx.kill(i, `fell in ${war.name}`); if (A.kind[i]) dead++; else broken++; }
   }
   war.dead += dead; war.broken += broken;
   W.S[win] = Math.min(0.98, W.S[win] + 0.02); W.S[lose] = Math.max(0.02, W.S[lose] - 0.03);

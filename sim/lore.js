@@ -60,11 +60,18 @@ export const DISTRICTS = [
 export const D = Object.fromEntries(DISTRICTS.map((d, i) => [d.key, i]));
 
 export const GOODS = ["food", "smoke", "cloth", "ore", "pharmaka"];
+// Hesiod's year on the voyage calendar (WD 383-617): months 10, 11 and 0 are winter, as the map draws them.
+// Sowing in the early months, the harvest when the Pleiades rise (months 4-5), threshing, vintage, ploughing, then the ox-flaying cold.
+export const monthOf = (day) => Math.floor((((day % 360) + 360) % 360) / 30);
+export const FIELD_SEASON = [0.85, 0.9, 0.95, 1.1, 1.25, 1.25, 1.1, 1.05, 1.0, 0.95, 0.9, 0.85];
+export const SEA_SEASON = [0.8, 0.9, 1, 1, 1, 1, 1, 1, 1, 1, 0.9, 0.8];   // fishing in the winter swell
+export const SEA_CLOSED = (m) => false;                                   // (a full winter closure starved island Lemnos; the risk is in the swell instead)
+export const SEA_RISKY = (m) => m === 11 || m === 0 || m === 1;          // Hesiod's spring sailing: "a perilous thing"
 export const G = { food: 0, smoke: 1, cloth: 2, ore: 3, pharmaka: 4 };
 export const BASE_PRICE = [2, 3, 8, 6, 10];
 export const TARGET = [7, 4, 1, 1, 1];          // reserve each agent tries to hold
 // daily output of a producer of that good, before modifiers
-export const YIELD = { food: 3, fish: 3, smoke: 2, cloth: 1, ore: 1, pharmaka: 2 };
+export const YIELD = { food: 3.2, fish: 3.2, smoke: 2, cloth: 1, ore: 1, pharmaka: 2 };
 
 export const JOBS = ["farmer", "fisher", "miner", "weaver", "grower", "herbalist", "priest", "reaper", "noble", "servant", "rower", "pirate", "merchant", "augur"];
 export const J = Object.fromEntries(JOBS.map((j, i) => [j, i]));
@@ -82,7 +89,7 @@ export const THOUGHTS = [
   ["haunted", -10, 5, 2], ["katharsis", 30, 3, 1], ["plague dread", -10, 3, 1], ["gold from Colchis", 15, 10, 1], ["exiled", -30, 30, 1],
   ["twice-born", 10, 10, 1], ["darkness", -6, 2, 1], ["sick", -12, 1, 1], ["awe at an omen", 8, 5, 1], ["a fine trade", 3, 2, 2],
   ["in love", 12, 8, 1], ["lost a beloved", -40, 40, 1], ["heartbroken", -18, 15, 1],
-  ["hounded by the Furies", -30, 3, 1], ["vengeance taken", 12, 15, 1],
+  ["hounded by the Furies", -30, 3, 1], ["vengeance taken", 12, 15, 1], ["honoured by the city", 15, 20, 1],
 ];
 export const TH = Object.fromEntries(THOUGHTS.map((t, i) => [t[0].replace(/[^a-z]+/gi, "_").replace(/^_|_$/g, "").toLowerCase() || "none", i]));
 
