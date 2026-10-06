@@ -9,19 +9,29 @@ const PROPHECY = { "SIRENS": ["sirens", "sirens_sung"], "DO NOT LISTEN": ["siren
 const BASE = { revenge: 70, risefall: 65, thricebroken: 55, widowed: 50, lastline: 60, feud: 75, street: 70, prophecy: 85, turncoat: 45, generation: 90, burn: 95, ruling: 90, fleece: 80, schism: 60,
   lemnian: 85, dissolve: 50, bigfamily: 40, doliones: 70, election: 45, firstleaf: 55, riot: 55, plague: 60, sirens: 65, talos: 40, pall: 45, bounty: 35, ostracism: 55, law: 30, famine: 50, harpies: 45, beam: 70, prophet: 90, temple: 50, monument: 60, iconoclasm: 75, festival: 55, faithdies: 55, war: 85, battle: 60, peace: 80, revolt: 85, rumor: 60 };
 
+// how an age is named when a story of this kind dominates it
+const ERA = {
+  prophet: (e) => `the Age of ${(e.s || "").split("|")[1] || "the New God"}`, war: (e) => `the Age of ${(e.s || "the War").replace(/^the war/, "the War")}`,
+  burn: (e, who) => `the Age of ${who(e.a).split(" ")[0]}'s Pyre`, riot: (e, who, where) => `the Age of Stones in ${where(e.x)}`, lemnian: () => "the Age of Knives",
+  plague: (e, who, where) => `the Plague Years of ${where(e.x)}`, peace: (e, who, where) => (e.v === 1 ? `the Dominion of ${where(e.x)}` : `the ${((e.s || "").split("|")[0] || "war").replace(/^the war of/, "Peace of")}`),
+  revolt: () => "the Age of Revolt", schism: (e) => `the Age of Schism`, sirens: () => "the Age of the Singing Meadow", generation: () => "the Age of the New Generation",
+  iconoclasm: () => "the Age of Broken Steles", ruling: (e, who) => `the Age of the Maker's Hand on ${who(e.a).split(" ")[0]}`, battle: (e, who, where) => `the Age of the Field at ${where(e.x)}`,
+  fleece: () => "the Age of the Fleece", beam: (e) => `the Age of the Word "${e.s}"`, festival: (e) => `the Age of ${e.s}`, famine: () => "the Hungry Age", monument: (e) => `the Age of ${e.s}`,
+};
 export function emptySift() { return { harm: {}, office: {}, riot: {}, love: {}, breaks: {}, defect: {}, feud: {}, beams: [], gen: { max: 1 }, freq: {}, firstLeaf: {}, stories: [] }; }
 
 /** sift one day's events (all, including hidden traces); returns new stories */
 export function sift(M, day, events, w, name) {
   const A = w.A, out = [], who = (i) => (i >= 0 ? name(i) : "someone"), where = (x) => (x >= 0 ? DISTRICTS[x].name : "the archipelago");
-  const add = (kind, actors, title, text, extra = 1) => {
+  const add = (kind, actors, title, text, extra = 1, era = null) => {
     const f = (M.freq[kind] || []).filter((d) => d > day - 30); M.freq[kind] = f;
     const rarity = 1 / (1 + f.length / 4), famous = actors.some((i) => i >= 0 && i < 9999 && (A.office[i] >= 0 || A.cognomen[i])) ? 1.2 : 1;
     const score = Math.round(BASE[kind] * rarity * famous * extra * (0.9 + (hash32(kind, day, actors[0]) % 20) / 100));
-    f.push(day); out.push({ id: `${day}:${kind}:${actors.join(",")}`, day, kind, title: title.charAt(0).toUpperCase() + title.slice(1), text, actors, score });
+    f.push(day); out.push({ id: `${day}:${kind}:${actors.join(",")}`, day, kind, title: title.charAt(0).toUpperCase() + title.slice(1), text: text.charAt(0).toUpperCase() + text.slice(1), actors, score, era: era || ERA[kind] ? (era || ERA[kind](e0, who, where)) : null });
   };
+  let e0 = null;
   for (const e of events) {
-    const a = e.a, b = e.b;
+    e0 = e; const a = e.a, b = e.b;
     // harms: remember who wronged whom; strike back = revenge; lines that wrong each other across generations = feud
     if (HARM.has(e.t) && a >= 0 && b >= 0 && a !== b) {
       const [doer, victim] = e.t === "death" ? [b, a] : [a, b];

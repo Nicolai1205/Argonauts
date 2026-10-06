@@ -11,6 +11,7 @@ import { sift, emptySift } from "./sim/sift.js";
 import { dateOf, MONTHS } from "./sim/culture.js";
 import { CITIES } from "./sim/war.js";
 import { CRAFTS } from "./sim/drift.js";
+import { renderCodex } from "./codex.js";
 import { figure, lookOf } from "./figures.js";
 import { hash32 } from "./sim/rng.js";
 
@@ -341,7 +342,7 @@ function frontPage() {
   $("#p-front").innerHTML = html;
 }
 function panels() {
-  updateClock(); chronicle(); frontPage();
+  updateClock(); chronicle(); frontPage(); w.storyLog = M.stories; $("#p-codex").innerHTML = renderCodex(w, seed, view, esc, dayLabel, linkify);
   const A = w.A, live = w.factions.map(() => 0); for (let i = 0; i < w.N; i++) if (A.status[i] === ST.living) live[A.faction[i]]++;
   const max = Math.max(...live);
   // legend
