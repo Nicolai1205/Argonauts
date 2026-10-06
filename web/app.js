@@ -48,7 +48,7 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
     $("#loading").remove(); performance.mark("argo-ready");
     chronP.then((c) => { chron.unshift(...c); S.sinceHtml = undefined; panels(); });
     // the pixel atlas (1.4 MB) is only for portraits: fetch it after the world is on screen (before routing, so a linked page waits for it)
-    spritesReady = gunzip("data/fleet.bin.gz").then((r) => r.arrayBuffer()).then((b) => { sprites = buildAtlas(new Uint8Array(b)); });
+    spritesReady = gunzip("data/fleet.bin.gz").then((r) => r.arrayBuffer()).then((b) => buildAtlas(new Uint8Array(b))).then((a) => { sprites = a; });
     setInterval(liveTick, 15000); requestAnimationFrame(frame); loadArt(); route(); addEventListener("hashchange", route);
     if (ahead > 2) { S.catching = true; $("#dawn").textContent = `catching up ${ahead} days…`;
       workerCatchUp(stTxt, omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1)).then((ok) => { S.catching = false; if (!ok) catchUp(); layout(); panels(); flash(); }); }
@@ -86,11 +86,14 @@ function buildAtlas(u8) {
   const idx = new Uint16Array(u8.buffer.slice(u8.byteOffset + 8 + P * 3, u8.byteOffset + 8 + P * 3 + n * 576 * 2));
   const cols = 100, c = document.createElement("canvas"); c.width = cols * 24; c.height = Math.ceil(n / cols) * 24;
   const ctx = c.getContext("2d"), img = ctx.createImageData(c.width, c.height), px = img.data;
-  for (let t = 0; t < n; t++) {
-    const ox = (t % cols) * 24, oy = Math.floor(t / cols) * 24;
-    for (let p = 0; p < 576; p++) { const k = idx[t * 576 + p] * 3, o = ((oy + (p / 24 | 0)) * c.width + ox + (p % 24)) * 4; px[o] = pal[k]; px[o + 1] = pal[k + 1]; px[o + 2] = pal[k + 2]; px[o + 3] = 255; }
-  }
-  ctx.putImageData(img, 0, 0); return { canvas: c, cols };
+  // built a band of rows at a time in idle time, so it never blocks a frame
+  return new Promise((resolve) => { let t = 0; const band = cols * 6;
+    const step = () => { const end = Math.min(n, t + band), y0 = Math.floor(t / cols) * 24;
+      for (; t < end; t++) { const ox = (t % cols) * 24, oy = Math.floor(t / cols) * 24;
+        for (let p = 0; p < 576; p++) { const k = idx[t * 576 + p] * 3, o = ((oy + (p / 24 | 0)) * c.width + ox + (p % 24)) * 4; px[o] = pal[k]; px[o + 1] = pal[k + 1]; px[o + 2] = pal[k + 2]; px[o + 3] = 255; } }
+      ctx.putImageData(img, 0, 0, 0, y0, c.width, Math.ceil(end / cols) * 24 - y0);
+      if (t < n) (window.requestIdleCallback || setTimeout)(step); else resolve({ canvas: c, cols }); };
+    step(); });
 }
 const withSprites = (fn) => (sprites ? fn() : spritesReady.then(fn));
 const spriteAt = (i) => [(i % sprites.cols) * 24, Math.floor(i / sprites.cols) * 24];
