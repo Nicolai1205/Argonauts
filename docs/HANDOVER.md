@@ -74,6 +74,8 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
   ```
 - **Fresh world-gen** (360-day prehistory): about 10–15 s. Delete `world/` first.
 - **Preview:** `python3 -m http.server -d _site 8777`. Load with a fresh query (`?v=N`); browsers cache modules.
+- **Benchmark and health:** `node tools/bench.mjs <dir or state.json.gz> [days] [out.json.gz]` (ms/day, three hashes, a trend, an event histogram).
+- **Browser determinism:** open `/?xtest=N`; the page title shows the hash after N days from the checkpoint.
 - **Refresh the seed** after the parent DB updates:
   1. `python tools/py/compile_seed.py` from the parent repo root.
   2. Commit `data/`.
@@ -125,7 +127,72 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - **The 60-day cron rule:** the heartbeat is in place but not yet proven over two months.
 - **Not built yet** (`docs/ROADMAP.md`): trunk-road merging. Determinism check in a browser: open `/?xtest=N` and compare the page title's hash with Node (`runUntil` N days from the same checkpoint and omens).
 
-## 8. Canon (short)
+## 8. Learnings (2026-10-06)
+- **Profile the page, not just the engine.** The road A* in `web/map.js` cost ~17 s on every page load for weeks; the engine was never the bottleneck. `performance.mark("argo-ready")` marks first paint. Boot is ~1 s now.
+- **Refactor with proof.** `node tools/bench.mjs <state.json.gz> 150` prints the state hash, a hash of the whole save and a hash of the event stream. A pure refactor must reproduce all three; this is how the v18 optimisation was verified.
+- **Health over time.** The same tool prints a hunger/Gini/unrest/Leaves trend and an event histogram. Run 360–720 days after any balance change; several bugs (winter famine, jar-hoarding price shocks, monuments every 15 days) only showed over a year.
+- **Test in a scratch world** (`node tools/advance.mjs /tmp/x`), never in `world/`. A fresh prehistory takes ~13 s.
+- **Determinism traps hit this wave:** JS `%` on negative days; `-1` as an unset day; `Math.hypot`/`log2`; locale number formatting in state; module-level `day % 30 === 15` never matching in prehistory.
+- **Balance traps:** a single global seasonal multiplier plus market hoarding produced famines; sea closure starved an island; penniless buyers ratcheted prices to the cap; any "per death" penalty starves the director.
+- **Browser checks** use the Playwright browser already installed; do not download other engines locally. `/?xtest=N` puts the N-day hash in the page title to compare with Node.
+
+## 9. Backlog: not done, should do, could do
+### A. Planned but not built
+- Trunk-road merging on the map.
+- Poems as world objects (sung events decay slower, satire costs legitimacy); they are text-only now.
+- From the research top-25, not built: story-aware director nudges toward open threads; hooks from secrets that bend Boule votes; encounter intents (Comme il Faut-lite); cadet houses splitting from great houses; aspirant movements (petition → agitation → riot); the Dragon's Teeth (Leaves sowing bone soldiers); Kēres after lost battles; Empusa, Lamia and the vrykolakas; the Bouphonia axe-trial; Trophonius; Cleomedes and Theagenes (statues tried for murder); the Symplegades first passage; Talos as guardian; Alcinous' arbitration for the Ouranidai; Circe's island; the Cattle of Helios; the bow contest for vacant offices; recognition tokens in succession (the spear-mark); dowry and epiklēros inheritance; grain loans between neighbours (WD 349); the two Strifes; sitophylakes and a grain-hoarder villain; Pyrrhias names for Leaves born on a burn day.
+### B. Should do (risks, correctness, balance)
+- **Herbalists** nearly die out, so plague over-kills. Seed herbalists from Anthemoessa births or let the Medea office train them.
+- **War:** the audit saw Ares become lord of 8 cities and city cohesion pinned at 0.86–0.98. Not revisited this wave.
+- **Factions:** capped at 24 alive and legitimacy collapses to 4–21, so schisms stall (audit §3). Revisit.
+- **Front page on quiet days** still leads with small revenge brawls. Add a quiet-day edition (dawn, the Orpheus, an almanac of the city) and weight arcs with stakes.
+- **Prophecies** lapse ~70% in peacetime; broaden the fit rules or reinterpret lapsed ones (Croesus-style "it was fulfilled after all").
+- **Inequality** holds near 0.7. Options: progressive liturgies, eisphora war-tax, Solon-style debt relief law in the Boule.
+- **State growth** ~0.35 MB gzipped per sim-year. Move dead rows' genes and bio to a side file loaded on demand.
+- **Infants carry their parent's job label** (effects are gated by age, but the panel says "pirate" for a baby). Show "child of a pirate".
+- **Geography mismatch:** the sim's district coordinates differ from the map's sites; travel times and beast radii are in sim units.
+- **Cross-engine determinism** is only checked by hand in Chromium. A CI job could run `/?xtest` in Firefox and WebKit.
+### C. Better pathing and map
+- Walkers follow street graphs instead of straight lines through houses; stay off water.
+- Animate journeys between cities instead of teleporting: migrants, colonists sailing with the sacred fire, avengers tracking a target, hunting parties marching to a lair, war levies, Fleece expeditions, scapegoats driven out, pilgrims to the Pythia and to the mysteries.
+- Ships: convoys from trierarchies, wrecks marked where they sank, Scylla taking ships in the strait, storm squalls over lanes.
+- Beasts as moving figures inside their hunting circle; a slain beast's lair becomes a shrine.
+- Weather in place: rain over wet districts, cracked fields in drought, rivers widening in flood, fog on the Mist-terraces.
+- The Pyra burns brighter with each body; shades walk the Asphodel Meadow; stolen bones shown in the thief city.
+- Unify geography so the sim uses the map's coordinates.
+### D. Engagement (spectators and holders)
+- **Holder view:** search by wallet → the house page: every token, its life, its guest-friends (xenia from real sales), feuds and curses.
+- **Follow alerts:** subscribe to a character or house; an RSS feed per character or house.
+- **Share cards:** an auto-drawn image for each front-page lead (portrait, title, poem).
+- **Brewing with stakes:** countdowns ("an oath falls due in 4 days"), and odds ("the Areopagus leans guilty").
+- **Charts:** the Iron clock, the stress index, hunger and prices over time; a family-tree view; a map of feuds and guest-friendships.
+- **Story arcs page:** each thread from first event to resolution.
+- **Mobile layout** pass; a lightweight "today in the Argo" page.
+### E. Lore and story
+- Every faith retells the new event kinds (miasma, oracles, beasts, the stone), not only burns, wars, Lemnian nights and prophets.
+- A monthly epic: the Orpheus sings the month as a catalogue (Il. 2 form) and the year as an epic cycle.
+- Name elements from the research: Phyll- and Oste- for Leaves, Pyr- for burn-day births.
+- The Maker: rulings as acts with a doctrine; faiths that worship or resist the Maker.
+- Horror set pieces: the Empusa lover, Lamia blamed for famine infant deaths, the Hero of Temesa's yearly tribute.
+- Off-map places as expedition goals: Aeaea, Crete and Talos, Phaeacia, Colchis itself.
+- Codex chapters with the myth behind each system, and "what cannot be undone" growing over time.
+### F. Simulation depth
+- Households (oikoi) as economic units: shared stores, dowries, inheritance and adoption of Leaves by the Sown.
+- Individual skill and apprenticeship (Henrich at the person level), and personal projects (build a ship, found a temple, write a law).
+- Credit and grain loans with interest; debt and a Solon-style relief law.
+- Disease as SIR per district with immunity and quarantine.
+- Politics: candidates, campaigns, orators moving individual voters, bribes and hooks.
+- War: supply and famine in sieges, raids for loot, treaties sworn as oaths (and broken).
+- Ecology: prey tied to weather; overfishing; felling forests for ships.
+- The director reads the Brewing threads and nudges toward resolution.
+### G. Engineering
+- Weekly CI run of `tools/bench.mjs` over 360 days, posting a health report.
+- Typed event payloads instead of `|`-joined strings.
+- Split `sim/systems.js` (900+ lines); a system registry and typed event bus (audit §6).
+- A test that every event type has a narration line and a biography phrase.
+- Cache the checkpoint in IndexedDB; run larger live catch-ups in the worker too.
+
+## 10. Canon (short)
 - **The Maker** (alphacentaurikid / ACK) sowed the Minyai on 26 Aug 2026 (the Sowing). The Minyai are bone and only fire unmakes them.
 - **Factions by Bones:** Spartoi (five Theban houses), Gegeneis, Argyreoi, Gorgonides, Anthemoessans, Laoi Lithinoi, Chryseoi, Phaethontes, Ouranidai. Their mortal children are **the Leaves**.
 - **Places:**
