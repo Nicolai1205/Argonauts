@@ -10,12 +10,13 @@ import { crafts, craftBoost, fashion, dialects } from "./drift.js";
 import { seedRumor, gossip, rumorsDaily } from "./rumor.js";
 import { quest, forgeRelic, passRelic, relicsOf, inheritRelics, captureRelics, champion, cityOf } from "./fleece.js";
 import { caravans, tradeFlows } from "./trade.js";
+import { miasmaDaily, onKilling, onUntimely, onBurn, shun } from "./miasma.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -23,7 +24,7 @@ const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded 
 export function tick(w, omens = []) {
   const day = w.day, ev = [];
   const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) }; ctx.rr = ctx.r("misc"); ctx.E = E; ctx.TH = TH; ctx.think = (i, th) => think(ctx, i, th); ctx.kill = (i, c, by) => kill(ctx, i, c, by); ctx.remember = remember;
-  ctx.forgeRelic = (...a) => forgeRelic(ctx, ...a); ctx.captureRelics = (...a) => captureRelics(ctx, ...a); ctx.champion = (c) => champion(ctx, c);
+  ctx.cognomen = (i, c) => setCognomen(ctx, i, c); ctx.forgeRelic = (...a) => forgeRelic(ctx, ...a); ctx.captureRelics = (...a) => captureRelics(ctx, ...a); ctx.champion = (c) => champion(ctx, c);
   ctx.trace = (t, a, b, x = -1) => ev.push({ i: -1, d: day, t: EV[t], a, b, x, v: 0, s: "", h: 1 });   // seen by the story sifter, not the chronicle
   ctx.log = (t, a = -1, b = -1, x = -1, v = 0, s = "") => { const e = { i: ++w.eventSeq, d: day, t: EV[t], a, b, x, v, s }; ev.push(e); if (a >= 0) bio(ctx, a, t, b); if (b >= 0 && b !== a) bio(ctx, b, t, a); return e; };
   applyOmens(ctx, omens); chk(ctx, 'applyOmens');
@@ -38,6 +39,7 @@ export function tick(w, omens = []) {
   if (day % 7 === 0) { centroids(ctx); defection(ctx); migration(ctx); love(ctx); } chk(ctx, '');
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   director(ctx); chk(ctx, 'director');
+  index(ctx); miasmaDaily(ctx); chk(ctx, 'miasma');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
@@ -85,6 +87,7 @@ const P = (A, i, k) => A.pers[i * 6 + k];          // 0 H,1 E,2 X,3 A,4 C,5 O
 function setCognomen(ctx, i, c) { if (ctx.A.cognomen[i] !== c) { ctx.A.cognomen[i] = c; bio(ctx, i, E.cognomen, c); } }
 export function kill(ctx, i, cause, by = -1) {
   const { A, w, day } = ctx; if (A.status[i] !== ST.living && A.status[i] !== ST.exiled) return;
+  if (by >= 0) onKilling(ctx, i, by);
   if (A.kind[i]) return leafDies(ctx, i, cause, by);
   A.status[i] = ST.shade; A.died[i] = day; A.until[i] = day + 20 + (hash32(w.seed, i, day) % 41); A.unburied[i] = 1; A.district[i] = D.asphodel; A.hunger[i] = 0; A.sick[i] = 0; A.jail[i] = 0;
   A.inv[i * 5] = 0;
@@ -111,7 +114,9 @@ function leafDies(ctx, i, cause, by) {
   A.obols[i] = 0; for (let g = 0; g < 5; g++) A.inv[i * 5 + g] = 0;
   A.status[i] = ST.pyre; A.district[i] = D.pyra; A.died[i] = day; A.until[i] = day + 3; A.hunger[i] = 0; A.sick[i] = 0; A.jail[i] = 0;
   w.leafDeaths++;
-  const age = ageOf(A, i, day), notable = age >= 60 || heldOffice || !A.kind[A.p1[i]] || ctx.rr.chance(0.25);
+  const age = ageOf(A, i, day);
+  if (by < 0 && age < 14 && ctx.rr.chance(0.35)) onUntimely(ctx, i);
+  const notable = age >= 60 || heldOffice || !A.kind[A.p1[i]] || ctx.rr.chance(0.25);
   if (notable) ctx.log(E.death, i, by, -1, age, cause); else { bio(ctx, i, E.death, by); ctx.trace(E.death, i, by); }
 }
 
@@ -174,6 +179,7 @@ function bear(ctx, a, b, r) {
   B.faction[c] = B.faction[first]; B.birthFac[c] = B.faction[first]; B.district[c] = B.district[a]; B.oikos[c] = B.oikos[a]; B.job[c] = B.job[first];
   B.style[c] = B.style[first]; B.dialect[c] = B.district[a];
   B.faith[c] = B.faith[first]; B.devotion[c] = (B.devotion[a] + B.devotion[b]) >> 2;
+  B.miasma[c] = 0; B.fury[c] = 0; B.avenge[c] = 0;
   B.obols[c] = 0; B.inv[c * 5] = 4; B.vice[c] = 0; B.office[c] = -1; B.met[c] = -1; B.lover[c] = -1; B.until[c] = 0;
   for (let k = 0; k < TIES; k++) { B.tieTo[c * TIES + k] = -1; B.tieVal[c * TIES + k] = 0; }
   for (let k = 0; k < THS; k++) B.thType[c * THS + k] = 0;
@@ -198,6 +204,7 @@ function applyOmens(ctx, omens) {
       const i = o.tok - 1; if (A.status[i] === ST.pyre || A.status[i] === ST.asphodel) continue;
       if (A.office[i] >= 0) { delete w.offices[OFFICES[A.office[i]].key]; A.office[i] = -1; }
       A.status[i] = ST.pyre; A.district[i] = D.pyra; A.oikos[i] = 0; A.unburied[i] = 0; A.hunger[i] = 0;
+      onBurn(ctx, i);
       A.until[i] = Math.max(day + 1, dayOfTs(o.ts + PYRE_SECONDS)); w.burnTs[i] = o.ts;
       let heir = -1, best = 0; for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k]; if (j >= 0 && A.tieVal[i * TIES + k] > best && living(A, j)) { best = A.tieVal[i * TIES + k]; heir = j; } if (j >= 0 && living(A, j) && A.tieVal[i * TIES + k] > 15) think(ctx, j, TH.a_friend_went_to_the_pyre); }
       if (heir >= 0) A.obols[heir] += A.obols[i]; else w.treasury += A.obols[i];
@@ -437,7 +444,7 @@ function social(ctx) {
     let dist = 0; for (let k = 0; k < 3; k++) dist += Math.abs(A.ideo[i * 3 + k] - A.ideo[j * 3 + k]);
     const same = A.faction[i] === A.faction[j], kin = A.oikos[i] === A.oikos[j];
     const fa = A.faith[i], fb = A.faith[j], sect = fa === fb ? (A.devotion[i] > 50 && A.devotion[j] > 50 ? 8 : 2) : fa && fb ? -8 : (fa || fb) && (A.devotion[i] > 60 || A.devotion[j] > 60) ? -4 : 0;
-    const score = (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 + (same ? 15 : -4) + (kin ? 12 : 0) + (A.lover[i] === j ? 10 : 0) + sect + r.next() * 40 - 20;
+    const score = (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 - shun(A, i, j) + (same ? 15 : -4) + (kin ? 12 : 0) + (A.lover[i] === j ? 10 : 0) + sect + r.next() * 40 - 20;
     if (score > 20) { convert(ctx, i, j, true); convert(ctx, j, i, true); }
     if (score > 0) gossip(ctx, i, j);
     A.met[i] = j; A.met[j] = A.met[j] < 0 ? i : A.met[j]; const kind = score > 45 ? 1 : score > 20 ? 2 : score > 0 ? 3 : 4; A.metKind[i] = kind; if (A.met[j] === i) A.metKind[j] = kind;
@@ -656,7 +663,7 @@ function postWatch(ctx, r) {
 }
 function offices(ctx, proposer) {
   const { A, w } = ctx;
-  const best = (pred, score) => { let b = -1, bv = -1e9; for (const i of ctx.live) if (!A.jail[i] && !A.status[i] && isAdult(A, i, ctx.day) && pred(i)) { const v = score(i); if (v > bv) { bv = v; b = i; } } return b; };
+  const best = (pred, score) => { let b = -1, bv = -1e9; for (const i of ctx.live) if (!A.jail[i] && !A.status[i] && !A.miasma[i] && isAdult(A, i, ctx.day) && pred(i)) { const v = score(i); if (v > bv) { bv = v; b = i; } } return b; };
   const want = {
     tiphys: best((i) => A.faction[i] === proposer, (i) => isqrt(A.obols[i]) + P(A, i, 2) / 4 + A.tieVal.subarray(i * TIES, i * TIES + TIES).reduce((a, v) => a + Math.max(0, v), 0) / 20),
     lynceus: best((i) => A.sight[i] === w._digital, (i) => P(A, i, 4) + P(A, i, 5)),

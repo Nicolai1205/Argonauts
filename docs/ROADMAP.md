@@ -99,4 +99,52 @@ An in-site Codex:
 7. ✅ **Spectator tools:** follow a character or a family, time-lapse replay of the last N days, and shareable deep links to a character or a story.
 8. **Performance:** Web Worker catch-up, compact saves (archive long-dead Leaves), faster world-gen.
 
+## Wave 3: an insanely complex living world (planned 2026-10-06)
+Sources: [research/SIMULATIONS.md](research/SIMULATIONS.md) (Dwarf Fortress, CK3, RimWorld, Caves of Qud, Talk of the Town, Versu …), [research/MYTH.md](research/MYTH.md) (Apollonius, Odyssey, Hesiod, Greek religion and law), [research/AUDIT.md](research/AUDIT.md) (engine audit, measured).
+Rule for every phase: each mechanic feeds at least one existing system, produces stories the sifter can find, and ties to the chain canon (fire is the only death of the Sown; the Leaves are mortal).
+
+### v10: the audit fixes  ✅ live
+Unrest (2,101 → ~80), director pacing, market price ratchet, nobles' rents, pirates fish, Leaves inherit faith, love-index overflow, prophecy pattern, anniversaries, integer distances, 35-day full-save self-test.
+
+### v11: The Unclean City (pollution and justice)  ✅ live (`sim/miasma.js`)
+- **Miasma** (Parker, *Miasma*): bloodshed pollutes the killer and the district; pollution raises plague odds and bars office. **Katharsis**: priests and Circe's rite at Aeaea cleanse for a fee (money moves, nothing minted).
+- **Erinyes**: kin-slayers and oath-breakers are hounded (stress, breakdowns, wandering) until purified.
+- **Blood-feud vs poinē**: a killing opens a feud between lineages unless blood-price is paid; a broken bone costs half a Leaf's life (the bone/Leaf moral asymmetry in one rule).
+- **Supplication** (hiketeia): losers of feuds and wars clasp knees at an altar; refusing a suppliant pollutes.
+- **Pharmakos** (Thargelia): in a crisis the city drives out two of its lowest.
+- **Restless dead** (aōroi, biaiothanatoi): Leaves dying young or by violence walk until avenged or given rites; shades name their killers.
+
+### v12: The Gift and the Duty (economy and obligation)
+- **Liturgies + antidosis**: the richest oikoi must fund grain imports (sitonia), feasts (hestiasis) and convoy escorts (trierarchy); a house may challenge a richer one to take the duty or swap estates. The Gini fix.
+- **Inherited xenia**: every real sale forges a guest-bond between the old and new oikos; guest-friends refuse to fight each other and shelter each other's refugees.
+- **Hesiod's farming year and the sailing season**: ploughing, harvest and vintage pulses; sea lanes close in winter.
+- **Theoxenia**: rare-blood wanderers test hospitality; the generous are blessed, the cruel cursed.
+
+### v13: Long Memory
+- Dead-Leaf archive (compact save) ships first.
+- **Lethe or Mnemosyne at re-knit**: an uninitiated Argonaut returns from Asphodel without some bonds; Samothracian initiates remember. A ruling is "the Maker gave it Memory".
+- **The Weight of Leaves**: long-term memory slots, anniversary recall, core memories that change personality; each Argonaut counts the Leaves it has buried.
+- **Oaths on the Styx**: vows with deadlines; broken oaths curse a lineage.
+- **Scars**: permanent coping habits after breakdowns.
+
+### v14: Oracles and the storyteller
+- **The beam as Dodona**: on renderer changes the city brings lead-tablet questions.
+- **Delphic prophecy**: ambiguous oracles that resolve after the fact; Phineus' curse on augurs who see too well.
+- **Brewing**: half-finished story patterns surfaced as cliffhangers; an act-cycle director (quiet, rising, climax, aftermath).
+
+### v15: Beasts and Heroes
+Monsters with lairs and appetites, hunts, funeral and Pagasaean games, strange moods that forge named relics, dynasty renown, epitaphs and poems.
+
+### v16: The Stone in Their Midst
+Spartoi self-slaughter, the Iron Clock (Hesiod's Five Ages as world health), the Agrionia, the Demophon heresy, Theoclymenus' vision, the Lemnian New Fire.
+
+### v17: What Is Hidden
+Secrets and hooks, open mysteries with an Areopagus trial, reputation from gossip.
+
+### v18: Discord
+Colonies by lot in drought (apoikia), aspirants and Turchin's secular cycle, irreversible world states, elections with candidates and speeches.
+
+### Text layer (no rules bump)
+Reactive narration (most specific line wins; nothing repeats per character), Qud-style domains and mythic biographies, epitaphs for every Leaf.
+
 **Watch items (v9):** Gini rose to ~0.7 once haulers earn carriage (consider a carriage tax or guild dues). Lemnos and the forges run famine-level bread prices (poor producers can't afford imports): plausible, but check that it doesn't become permanent.

@@ -7,13 +7,15 @@ const HARM = new Set(["brawl", "robbery", "death", "lemnian"]);
 const PROPHECY = { "SIRENS": ["sirens", "sirens_sung"], "DO NOT LISTEN": ["sirens"], "LEMNOS": ["lemnian"], "CLASHING ROCKS": ["talos"], "MEDEA": ["plague"], "STARS FELL": ["star", "pall"],
   "MAX PAIN": ["riot", "famine"], "SOWN MEN": ["riot", "doliones"], "ORIGINAL SIN": ["lemnian", "ostracism"], "BUTES": ["sirens"], "THE DRAGON SLEEPS": ["fleece"], "ESCAPING MY DEMONS": ["return"], "GREAT RESTORATION": ["bounty", "return"] };
 const BASE = { revenge: 70, risefall: 65, thricebroken: 55, widowed: 50, lastline: 60, feud: 75, street: 70, prophecy: 85, turncoat: 45, generation: 90, burn: 95, ruling: 90, fleece: 80, schism: 60,
-  lemnian: 85, dissolve: 50, bigfamily: 40, doliones: 70, election: 45, firstleaf: 55, riot: 55, plague: 60, sirens: 65, talos: 40, pall: 45, bounty: 35, ostracism: 55, law: 30, famine: 50, harpies: 45, beam: 70, prophet: 90, temple: 50, monument: 60, iconoclasm: 75, festival: 55, faithdies: 55, war: 85, battle: 60, peace: 80, revolt: 85, rumor: 60, fleece: 95, expedition: 70, relic: 50, caravan: 50, raid: 45 };
+  lemnian: 85, dissolve: 50, bigfamily: 40, doliones: 70, election: 45, firstleaf: 55, riot: 55, plague: 60, sirens: 65, talos: 40, pall: 45, bounty: 35, ostracism: 55, law: 30, famine: 50, harpies: 45, beam: 70, prophet: 90, temple: 50, monument: 60, iconoclasm: 75, festival: 55, faithdies: 55, war: 85, battle: 60, peace: 80, revolt: 85, rumor: 60, fleece: 95, expedition: 70, relic: 50, caravan: 50, raid: 45,
+  kinslayer: 80, katharsis: 60, supplication: 65, pharmakos: 85, shadenames: 75, blight: 70, feudend: 70, bloodforblood: 65, poine: 35 };
 
 // how an age is named when a story of this kind dominates it
 const ERA = {
   prophet: (e) => `the Age of ${(e.s || "").split("|")[1] || "the New God"}`, war: (e) => `the Age of ${(e.s || "the War").replace(/^the war/, "the War")}`,
   burn: (e, who) => `the Age of ${who(e.a).split(" ")[0]}'s Pyre`, riot: (e, who, where) => `the Age of Stones in ${where(e.x)}`, lemnian: () => "the Age of Knives",
   plague: (e, who, where) => `the Plague Years of ${where(e.x)}`, peace: (e, who, where) => (e.v === 1 ? `the Dominion of ${where(e.x)}` : `the ${((e.s || "").split("|")[0] || "war").replace(/^the war of/, "Peace of")}`),
+  pharmakos: (e, who, where) => `the Years of the Scapegoat`, blight: (e, who, where) => `the Unclean Years of ${where(e.x)}`, kinslayer: () => "the Age of Kindred Blood",
   revolt: () => "the Age of Revolt", schism: (e) => `the Age of Schism`, sirens: () => "the Age of the Singing Meadow", generation: () => "the Age of the New Generation",
   iconoclasm: () => "the Age of Broken Steles", ruling: (e, who) => `the Age of the Maker's Hand on ${who(e.a).split(" ")[0]}`, battle: (e, who, where) => `the Age of the Field at ${where(e.x)}`,
   fleece: () => "the Age of the Fleece", beam: (e) => `the Age of the Word "${e.s}"`, festival: (e) => `the Age of ${e.s}`, famine: () => "the Hungry Age", monument: (e) => `the Age of ${e.s}`,
@@ -94,6 +96,15 @@ export function sift(M, day, events, w, name) {
       case "schism": add("schism", [a], `Schism: ${e.s}`, `${who(a)} broke away and founded ${e.s}.`); break;
       case "lemnian": add("lemnian", [a], "A Lemnian night", `In ${where(e.x)}, ${e.s} murdered ${e.v} of their neighbours in one night.`); break;
       case "doliones": add("doliones", [], "Allies in the dark", `In ${where(e.x)}, two allied factions fought each other by night: ${(e.s || "").replace("|", " against ")}. ${e.v} fell.`); break;
+      case "kinslayer": add("kinslayer", [a, b], "Kindred blood", `${who(a)} killed ${who(b)}, their own blood, in ${where(e.x)}. No purifier will touch them yet.`); break;
+      case "erinyes": (M.fury || (M.fury = {}))[a] = day; break;
+      case "katharsis": { const since = M.fury && M.fury[a]; if (since !== undefined) { delete M.fury[a]; if (day - since >= 5) add("katharsis", [a, b], e.s === "kindly" ? "The Kindly Ones turn away" : "The stain washed out", e.s === "kindly" ? `For ${day - since} days the Erinyes hounded ${who(a)}. Today they let go, unbribed and unexplained.` : `${day - since} days ${who(a)} ran from the Furies. In ${where(e.x)}, ${who(b)} washed the blood away with a piglet's blood and sea-water.`); } break; }
+      case "supplication": if (e.s === "spared") add("supplication", [a, b], "Mercy at the knees", `${who(a)} owed ${who(b)} a death. In ${where(e.x)} ${who(a)} knelt and clasped ${who(b)}'s knees, and ${who(b)} let it go.`); else if (e.s === "altar") add("supplication", [a, b], "Refused at the altar", `${who(b)} turned away ${who(a)}, a suppliant at the god's own altar in ${where(e.x)}. The priests say the stain will spread.`, 1.1); break;
+      case "pharmakos": add("pharmakos", [a, b], `The scapegoats of ${where(e.x).replace(/^the /, "")}`, `With ${e.s} in the streets, ${where(e.x)} chose ${who(a)} and ${who(b)}, two nobody would miss, and drove them out of the gates with fig branches.`); break;
+      case "shadenames": add("shadenames", [a, b], "The dead name their killer", `The shade of ${who(a)} has named ${who(b)} before all ${where(e.x)}.${e.v >= 0 ? ` ${who(e.v)} has sworn to finish it.` : ""}`); break;
+      case "blight": add("blight", [], `Blight in ${where(e.x)}`, `${e.v} stains of unwashed blood in ${where(e.x)}. The fever followed, as it followed Oedipus into Thebes.`); break;
+      case "feudend": if (e.s === "fire") add("feudend", [a, b], "Fire ends a feud", `The chain sent ${who(a)} to the fire, and the feud with the house of ${who(b)} burned with them after ${e.v} killings.`); break;
+      case "poine": if (e.v >= 120 && A.kind[b] === 0 && b < 9999 && (A.office[b] >= 0 || A.cognomen[b])) add("poine", [a, b], "The price of a life", `${who(a)} paid ${who(b)} ${e.v} obols for a Leaf's life, and the elders called it straight.`); break;
       case "dissolve": add("dissolve", [], `${e.s} is no more`, `The last members of ${e.s} drifted back to their blood.`); break;
       case "birth": {
         const c = e.v; if (c >= 0 && A.gen[c] > M.gen.max) { M.gen.max = A.gen[c]; add("generation", [c, a, b], `The ${["", "first", "second", "third", "fourth", "fifth", "sixth"][A.gen[c]] || A.gen[c] + "th"} generation`, `${who(c)} is the first Minyan of generation ${A.gen[c]}: born to ${who(a)} and ${who(b)}, descended from ${who(A.lineage[c])}.`, 1.3); }
@@ -101,6 +112,9 @@ export function sift(M, day, events, w, name) {
         break;
       }
     }
+    // blood for blood: a vengeance killing; feuds are counted by the world itself
+    if (e.t === "death" && e.s === "vengeance" && a >= 0 && b >= 0) { const f = w.feuds && w.feuds[Math.min(A.lineage[a], A.lineage[b]) + ":" + Math.max(A.lineage[a], A.lineage[b])];
+      add("bloodforblood", [b, a], "Blood for blood", `${who(b)} found ${who(a)} in ${where(e.x >= 0 ? e.x : A.district[b])} and settled the debt${A.kind[a] ? "" : " (the bones will knit; the shame will not)"}.${f && f.n > 1 ? ` That is ${f.n} killings between these houses since ${f.since < 0 ? "before the Sowing" : "day " + f.since}.` : ""}`, f ? 1 + Math.min(1, f.n * 0.15) : 1); }
     // the beloved dies: love that lasted
     if (e.t === "death" && a >= 0 && M.love[a]) {
       const [p, d0] = M.love[a]; delete M.love[a]; delete M.love[p];
@@ -126,6 +140,7 @@ export function sift(M, day, events, w, name) {
   if (day % 7 === 0) {   // forget what can no longer become a story
     for (const v of Object.keys(M.harm)) { const h = M.harm[v]; for (const d of Object.keys(h)) if (day - Math.floor(h[d] / 10) >= 150) delete h[d]; if (!Object.keys(h).length) delete M.harm[v]; }
     if (M.avenged) for (const k of Object.keys(M.avenged)) if (day - M.avenged[k] > 120) delete M.avenged[k];
+    if (M.fury) for (const k of Object.keys(M.fury)) if (day - M.fury[k] > 400) delete M.fury[k];
     for (const k of Object.keys(M.love)) if (A.status[k] && A.kind[k]) delete M.love[k];
   }
   return out;

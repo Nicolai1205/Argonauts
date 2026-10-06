@@ -7,11 +7,12 @@ import { initDrift } from "./drift.js";
 import { initRumors } from "./rumor.js";
 import { initQuest } from "./fleece.js";
 import { initTrade } from "./trade.js";
+import { initMiasma } from "./miasma.js";
 
 export const TIES = 8;      // social ties per character
 export const THS = 6;       // thought slots
 export const BIO = 10;      // remembered life events (ring)
-export const VERSION = 10;
+export const VERSION = 11;
 export const ARGO = 9999;   // entity indices 0..9998 are the tokens; the Leaves (mortal children) are appended after  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
 
 // dynamic arrays: [name, type, per-agent width]
@@ -26,6 +27,7 @@ const LAYOUT = [
   // genes and lineage (tokens: genes from their traits, generation 0, lineage = themselves)
   ["kind", Uint8Array, 1], ["bones", Uint8Array, 1], ["palette", Uint8Array, 1], ["cloak", Uint8Array, 1], ["crown", Uint8Array, 1], ["sight", Uint8Array, 1], ["artifact", Uint8Array, 1],
   ["faith", Uint8Array, 1], ["devotion", Uint8Array, 1], ["style", Uint16Array, 1], ["dialect", Uint8Array, 1], ["rumor", Uint8Array, 6],
+  ["miasma", Uint8Array, 1], ["fury", Uint8Array, 1], ["avenge", Int32Array, 1],
   ["born", Int32Array, 1], ["p1", Int32Array, 1], ["p2", Int32Array, 1], ["gen", Uint16Array, 1], ["lineage", Int32Array, 1], ["birthFac", Uint8Array, 1],
 ];
 const HEXACO = ["H", "E", "X", "A", "C", "O"];
@@ -127,7 +129,7 @@ export function createWorld(seed, seedHash = "argo") {
   w.m0 = 0; for (let i = 0; i < N; i++) w.m0 += A.obols[i];
   w.stats = []; w.eventSeq = 0;
   w._digital = d.Sight.indexOf("Digital");
-  initCulture(w); initWar(w); initDrift(w); initRumors(w); initTrade(w);
+  initCulture(w); initWar(w); initDrift(w); initRumors(w); initTrade(w); initMiasma(w);
   w.fleece = seed.crown.indexOf(d.Crown.indexOf("Golden Fleece"));  // the single Golden Fleece bearer (index)
   initQuest(w);
   w.burnTs = seed.burnTs.slice();

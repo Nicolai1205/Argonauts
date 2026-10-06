@@ -82,6 +82,7 @@ export const THOUGHTS = [
   ["haunted", -10, 5, 2], ["katharsis", 30, 3, 1], ["plague dread", -10, 3, 1], ["gold from Colchis", 15, 10, 1], ["exiled", -30, 30, 1],
   ["twice-born", 10, 10, 1], ["darkness", -6, 2, 1], ["sick", -12, 1, 1], ["awe at an omen", 8, 5, 1], ["a fine trade", 3, 2, 2],
   ["in love", 12, 8, 1], ["lost a beloved", -40, 40, 1], ["heartbroken", -18, 15, 1],
+  ["hounded by the Furies", -30, 3, 1], ["vengeance taken", 12, 15, 1],
 ];
 export const TH = Object.fromEntries(THOUGHTS.map((t, i) => [t[0].replace(/[^a-z]+/gi, "_").replace(/^_|_$/g, "").toLowerCase() || "none", i]));
 
@@ -105,7 +106,7 @@ export const SPLINTER_COLORS = ["#ff6b6b", "#4ecdc4", "#f7d794", "#a29bfe", "#fd
 
 // cognomens earned by deeds (Caves of Qud style)
 export const COGNOMENS = ["", "the Twice-Born", "the Hungry", "the Unburied", "the Oath-breaker", "the Thrice-Robbed", "the Exile", "the Fleece-touched",
-  "the Mob-leader", "the Blood-handed", "Siren-deaf", "the Rich", "the Ruined", "Maker-touched", "Plague-spared", "the Turncoat", "the Founder", "the Ostracized", "the Prophet"];
+  "the Mob-leader", "the Blood-handed", "Siren-deaf", "the Rich", "the Ruined", "Maker-touched", "Plague-spared", "the Turncoat", "the Founder", "the Ostracized", "the Prophet", "the Scapegoat", "the Avenger", "the Kinslayer"];
 
 // the Argo's speaking beam quotes the collection's own visor phrases
 export const BEAM = ["SOWN MEN", "THE DRAGON SLEEPS", "CLASHING ROCKS", "KEEP ROWING", "DO NOT LISTEN", "ONE SANDAL", "LEMNOS", "HYLAS", "BUTES", "SIRENS",
