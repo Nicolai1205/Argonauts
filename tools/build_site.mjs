@@ -13,6 +13,9 @@ fs.writeFileSync(`${OUT}/.nojekyll`, "");
 const BUILD = Date.now().toString(36);
 const bust = (file) => { const t = fs.readFileSync(file, "utf8").replace(/((?:from|import)\s*["'])(\.{1,2}\/[^"']+?\.js)(["'])/g, `$1$2?v=${BUILD}$3`); fs.writeFileSync(file, t); };
 for (const dir of [OUT, `${OUT}/sim`]) for (const f of fs.readdirSync(dir)) if (f.endsWith(".js")) bust(`${dir}/${f}`);
-const html = fs.readFileSync(`${OUT}/index.html`, "utf8").replace('src="app.js"', `src="app.js?v=${BUILD}"`).replace('href="style.css"', `href="style.css?v=${BUILD}"`);
+// preload the whole module graph in parallel instead of discovering it one import (one round trip) at a time
+const mods = [...fs.readdirSync(OUT).filter((f) => f.endsWith(".js") && f !== "catchup.worker.js"), ...fs.readdirSync(`${OUT}/sim`).filter((f) => f.endsWith(".js")).map((f) => `sim/${f}`)];
+const preload = mods.map((m) => `<link rel="modulepreload" href="${m}?v=${BUILD}">`).join("");
+const html = fs.readFileSync(`${OUT}/index.html`, "utf8").replace('src="app.js"', `src="app.js?v=${BUILD}"`).replace('href="style.css"', `href="style.css?v=${BUILD}"`).replace("</head>", preload + "</head>");
 fs.writeFileSync(`${OUT}/index.html`, html);
 console.log("site ->", OUT);

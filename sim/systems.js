@@ -374,7 +374,7 @@ function stats(ctx) {
   w.stats.push({ d: day, live, shade, pyre, asph, exiled, sick, hungry, gini: Math.round(gini * 1000) / 1000, mood: Math.round(mood / Math.max(1, live)),
     prices: w.prices.map((p) => Math.round(p * 100) / 100), treasury: w.treasury, tax: w.taxPermille, unrest: (w.activePrev || []).reduce((a, b) => a + b, 0),
     fac: w.factions.map((f) => f.alive ? f.members : 0), leaves: w.leafCount || 0, births: w.births, leafDeaths: w.leafDeaths, N: w.N });
-  if (w.stats.length > 900) w.stats.splice(0, w.stats.length - 900);
+  if (w.stats.length > 400) w.stats.splice(0, w.stats.length - 400);   // the charts show 240 days
 }
 function chk(ctx, where) { if (ctx.w.debug) invariant(ctx, where); }
 function invariant(ctx, where = "end") {

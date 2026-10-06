@@ -186,7 +186,7 @@ export function sift(M, day, events, w, name) {
   }
   out.sort((p, q) => q.score - p.score || (p.id < q.id ? -1 : 1));
   const keep = out.filter((x) => x.score >= 15).slice(0, 6);
-  M.stories = M.stories.concat(keep.length ? keep : out.slice(0, 1)).slice(-600);
+  M.stories = M.stories.concat(keep.length ? keep : out.slice(0, 1)).slice(-400);
   // prune memory
   for (const k of Object.keys(M.riot)) if (day - M.riot[k] > 240) delete M.riot[k];
   for (const k of Object.keys(M.office)) if (day - M.office[k] > 120) delete M.office[k];

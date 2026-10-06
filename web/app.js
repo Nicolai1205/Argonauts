@@ -29,8 +29,11 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
 // ------------------------------------------------------------------ boot
 (async function boot() {
   try {
-    [seed, meta] = await Promise.all([json("data/seed.json"), json("world/meta.json")]);
-    const [stTxt, omens, sm] = await Promise.all([(await gunzip("world/state.json.gz")).text(), json("world/omens.json").catch(() => []), json("world/sift.json").catch(() => null)]);
+    // every download starts at once; the chronicle is not waited for
+    const metaP = json("world/meta.json"), stP = gunzip("world/state.json.gz").then((r) => r.text()), chronP = metaP.then((m) => Promise.all(m.chunks.slice(-2).map((k) => json(`world/chronicle/c${k}.json`).catch(() => [])))).then((a) => a.flat());
+    try { S.lastSeen = Number(localStorage.getItem("argo.lastDay") ?? -1e9); } catch { S.lastSeen = -1e9; }
+    const [seed0, meta0, stTxt, omens, sm] = await Promise.all([json("data/seed.json"), metaP, stP, json("world/omens.json").catch(() => []), json("world/sift.json").catch(() => null)]);
+    seed = seed0; meta = meta0;
     if (sm) M = sm;
     const raw = JSON.parse(stTxt); if (raw.version !== VERSION) throw new Error("the world is being re-dreamed under new rules; try again in a minute");
     w = deserialize(raw, seed); checkpointDay = w.day; displayName.dialects = w.dialect;
@@ -38,13 +41,12 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
     // cross-engine determinism check (tools/xengine.mjs): ?xtest=N runs N days from the checkpoint and publishes the hash
     const xt = Number(new URLSearchParams(location.search).get("xtest") || 0);
     if (xt > 0) { runUntil(w, checkpointDay + xt, byDay); window.__xtest = stateHash(w); document.title = "XTEST " + window.__xtest; $("#loading").textContent = "xtest " + window.__xtest; return; }
-    const last = meta.chunks.at(-1), prev = meta.chunks.at(-2);
-    for (const k of [prev, last]) if (k !== undefined) chron.push(...await json(`world/chronicle/c${k}.json`).catch(() => []));
     // paint the checkpoint at once; replay the missed days in a worker when there are more than a couple
     const ahead = Math.min(dayNow(Date.now() / 1000) + 1, checkpointDay + 48) - w.day;
     if (ahead <= 2) catchUp();
     layout(); fit(); render(); panels();
     $("#loading").remove(); performance.mark("argo-ready");
+    chronP.then((c) => { chron.unshift(...c); S.sinceHtml = undefined; panels(); });
     // the pixel atlas (1.4 MB) is only for portraits: fetch it after the world is on screen (before routing, so a linked page waits for it)
     spritesReady = gunzip("data/fleet.bin.gz").then((r) => r.arrayBuffer()).then((b) => { sprites = buildAtlas(new Uint8Array(b)); });
     setInterval(liveTick, 15000); requestAnimationFrame(frame); loadArt(); route(); addEventListener("hashchange", route);
@@ -642,8 +644,7 @@ const watched = (e) => { const A = w.A, hs = new Set(WATCH.h); return [e.a, e.b]
 function toast(html) { let box = $("#toasts"); if (!box) { box = document.createElement("div"); box.id = "toasts"; document.body.appendChild(box); } const t = document.createElement("div"); t.className = "toast"; t.innerHTML = html; box.appendChild(t); setTimeout(() => t.remove(), 12000); }
 function notifyWatched(events) { for (const e of events.filter(watched).slice(-4)) toast(`<b>★</b> ${linkify(e.text)}`); }
 function sinceLastVisit() {
-  let last = -1e9; try { last = Number(localStorage.getItem("argo.lastDay") ?? -1e9); } catch { }
-  try { localStorage.setItem("argo.lastDay", String(w.day - 1)); } catch { }
+  const last = S.lastSeen ?? -1e9; try { localStorage.setItem("argo.lastDay", String(w.day - 1)); } catch { }
   if (!WATCH.c.length && !WATCH.h.length) return "";
   const evs = chron.concat(provisional).filter((e) => e.d > last && watched(e)).slice(-8).reverse();
   return evs.length ? `<div class="since"><h4>Since you were last here</h4><ol>${evs.map((e) => `<li><span class="num">${dayLabel(e.d)}</span> ${linkify(e.text)}</li>`).join("")}</ol></div>` : "";
