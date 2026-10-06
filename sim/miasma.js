@@ -62,7 +62,7 @@ export function miasmaDaily(ctx) {
   for (let d = 0; d < nD; d++) {
     if (pop[d] < 30 || pol[d] < 8 + pop[d] / 60 || !r.chance(0.04)) continue;
     let n = 0; const pool = ctx.byDist[d];
-    for (let t = 0; t < 12 && pool.length; t++) { const i = pool[r.int(pool.length)]; if (!A.status[i]) { A.sick[i] = Math.max(A.sick[i], 1); ctx.think(i, TH.plague_dread); n++; } }
+    for (let t = 0; t < 12 && pool.length; t++) { const i = pool[r.int(pool.length)]; if (!A.status[i] && !A.immune[i]) { A.sick[i] = Math.max(A.sick[i], 1); ctx.think(i, TH.plague_dread); n++; } }
     ctx.log(E.blight, -1, -1, d, pol[d]);
   }
 

@@ -20,13 +20,14 @@ import { discordDaily, orators, vacate } from "./discord.js";
 import { threadsDaily, hookVotes, intent } from "./threads.js";
 import { wondersDaily } from "./wonders.js";
 import { voyageDaily, lendGrain, strife, weddingGifts, bowContest } from "./voyage.js";
+import { depthDaily, quarantined, skillMult, recover, guardianOf } from "./depth.js";
 import { memoryDaily, memorize, onReknit, swear, oathEnds, cursed, onLeafDeath, scarOf } from "./memory.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire", "case", "trial", "secret", "tablet", "weather", "colony", "psi", "speech", "vacant", "song", "cadet", "movement", "hook", "wonder", "voyage", "contest"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy", "stone", "iron", "nemesis", "agrionia", "demophon", "doom", "newfire", "case", "trial", "secret", "tablet", "weather", "colony", "psi", "speech", "vacant", "song", "cadet", "movement", "hook", "wonder", "voyage", "contest", "craftsman", "quarantine", "ward"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -51,7 +52,7 @@ export function tick(w, omens = []) {
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   if (((day % 30) + 30) % 30 === 15) { index(ctx); giftMonthly(ctx); } chk(ctx, 'gift');
   director(ctx); chk(ctx, 'director');
-  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); hiddenDaily(ctx); discordDaily(ctx); threadsDaily(ctx); wondersDaily(ctx); voyageDaily(ctx); chk(ctx, 'miasma');
+  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); ironDaily(ctx); hiddenDaily(ctx); discordDaily(ctx); threadsDaily(ctx); wondersDaily(ctx); voyageDaily(ctx); depthDaily(ctx); chk(ctx, 'miasma');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
@@ -146,6 +147,7 @@ function lifecycle(ctx) {
     const d = day - A.born[i], age = Math.floor(d / YEAR);
     if (d === 14 * YEAR) {
       A.job[i] = adultJob(ctx, i, r); bio(ctx, i, E.comeofage, A.job[i]);
+      { const mentor = [A.p1[i], A.p2[i], guardianOf(A, i)].filter((p) => p >= 0 && A.job[p] === A.job[i]).sort((x, y) => A.skill[y] - A.skill[x])[0]; A.skill[i] = mentor !== undefined ? A.skill[mentor] >> 1 : 8; }   // the apprentice learns from the best at the trade
       // heirlooms: a crown, a pair of eyes or a vice taken up from a parent; the cloak of one's trade
       const par = [A.p1[i], A.p2[i]].filter((p) => p >= 0), pick = () => par[r.int(par.length)], X = w.dictIx;
       if (par.length && r.chance(0.45)) { const c = A.crown[pick()]; if (c !== X.crown["Golden Fleece"]) A.crown[i] = c; }
@@ -159,7 +161,7 @@ function lifecycle(ctx) {
   // children are fed by their parents
   for (const i of ctx.live) {
     if (!A.kind[i] || A.status[i] || isAdult(A, i, day) || A.inv[i * 5] > 1) continue;
-    for (const p of [A.p1[i], A.p2[i]]) if (p >= 0 && living(A, p) && A.inv[p * 5] > 2) { A.inv[p * 5] -= 2; A.inv[i * 5] += 2; break; }
+    for (const p of [A.p1[i], A.p2[i], guardianOf(A, i)]) if (p >= 0 && living(A, p) && A.inv[p * 5] > 2) { A.inv[p * 5] -= 2; A.inv[i * 5] += 2; break; }
   }
   if (day % 7 === 0) for (let c = ARGO; c < w.N; c++) {
     if (A.status[c] !== ST.asphodel || day - A.died[c] < 360 || A.tieTo[c * TIES] === -2) continue;
@@ -201,7 +203,7 @@ function bear(ctx, a, b, r) {
   B.style[c] = B.style[first]; B.dialect[c] = B.district[a];
   birthMarks(w, B, c, a, b); if (ctx.ev.some((e) => e.t === "burn")) B.mark[c] |= 8;
   B.faith[c] = B.faith[first]; B.devotion[c] = (B.devotion[a] + B.devotion[b]) >> 2;
-  B.miasma[c] = 0; B.fury[c] = 0; B.avenge[c] = 0; B.fame[c] = 0;
+  B.miasma[c] = 0; B.fury[c] = 0; B.avenge[c] = 0; B.fame[c] = 0; B.skill[c] = 0; B.immune[c] = 0; B.guard[c] = 0;
   B.obols[c] = 0; B.inv[c * 5] = 4; B.vice[c] = 0; B.office[c] = -1; B.met[c] = -1; B.lover[c] = -1; B.until[c] = 0;
   for (let k = 0; k < TIES; k++) { B.tieTo[c * TIES + k] = -1; B.tieVal[c * TIES + k] = 0; }
   for (let k = 0; k < THS; k++) B.thType[c * THS + k] = 0;
@@ -295,7 +297,7 @@ function production(ctx) {
     const job = JOBS[A.job[i]], good = job === "pirate" ? "food" : JOB_GOOD[job]; if (!good) continue;   // pirates fish between raids
     const g = GOODS.indexOf(good), d = A.district[i];
     let q = job === "servant" || job === "rower" ? 2 : job === "merchant" ? 1 : job === "pirate" ? (YIELD.fish || 2) * 0.5 : (YIELD[good] || 1);
-    q *= craftBoost(w, d, A.job[i]) * (age < 14 ? 0.5 : age >= 60 ? 0.7 : 1) * (0.8 + P(A, i, 4) / 250) * (w.fertility[d] / 1000) * (A.inv[i * 5 + 3] > 0 ? 1.4 : 1) * (A.mood[i] < -30 ? 0.6 : 1) * strife(A, i);
+    q *= craftBoost(w, d, A.job[i]) * (age < 14 ? 0.5 : age >= 60 ? 0.7 : 1) * (0.8 + P(A, i, 4) / 250) * (w.fertility[d] / 1000) * (A.inv[i * 5 + 3] > 0 ? 1.4 : 1) * (A.mood[i] < -30 ? 0.6 : 1) * strife(A, i) * skillMult(A, i);
     if (prom && g === 4) q *= 2;
     if (g === 0) q *= job === "farmer" ? FIELD_SEASON[mo] : SEA_SEASON[mo];
     if (w.newFire !== null && w.newFire !== undefined && d === D.lemnos) q *= 0.5;   // every fire on Lemnos is out
@@ -324,8 +326,8 @@ function consumption(ctx) {
     if (A.inv[b] > 60 && r.chance(0.3)) A.inv[b] -= Math.ceil(A.inv[b] / 10);       // grain rots, fish stinks
     if (A.sick[i]) {
       think(ctx, i, TH.sick);
-      if (A.inv[b + 4] > 0) { A.inv[b + 4]--; A.sick[i] = Math.max(0, A.sick[i] - 3); }
-      else if (r.chance(0.08 + ctx.w.crafts[A.district[i]][2] / 1000)) A.sick[i] = 0; else A.sick[i] = Math.min(60, A.sick[i] + 1);
+      if (A.inv[b + 4] > 0) { A.inv[b + 4]--; A.sick[i] = Math.max(0, A.sick[i] - 3); if (!A.sick[i]) A.immune[i] = 90; }
+      else if (r.chance(0.08 + ctx.w.crafts[A.district[i]][2] / 1000)) recover(A, i); else A.sick[i] = Math.min(60, A.sick[i] + 1);
       if (A.sick[i] >= 6 && r.chance(0.035)) kill(ctx, i, "plague");
     }
   }
@@ -453,11 +455,11 @@ function migration(ctx) {
   let best = 0; for (let g = 1; g < 5; g++) if (ratio[g] > ratio[best]) best = g;
   const where = DISTRICTS.map((d, k) => k).filter((k) => DISTRICTS[k].res === GOODS[best] || (best === 0 && DISTRICTS[k].res === "fish"));
   for (const i of ctx.live) {
-    if (A.status[i] || A.jail[i] || !isAdult(A, i, ctx.day) || i === w.fleece) continue;
+    if (A.status[i] || A.jail[i] || !isAdult(A, i, ctx.day) || i === w.fleece || quarantined(w, A.district[i])) continue;
     const good = JOB_GOOD[JOBS[A.job[i]]]; if (!good || JOBS[A.job[i]] === "servant" || JOBS[A.job[i]] === "rower") continue;
     const g = GOODS.indexOf(good), own = w.cprices[cityOf(A.district[i])][g] / BASE_PRICE[g]; if (ratio[best] < 1.4 || g === best || own > 0.7 || A.obols[i] > BLOODS[A.bones[i]].wealth / 2 || !r.chance(0.08 + P(A, i, 5) / 600)) continue;
     const d = where[r.int(where.length)], res = DISTRICTS[d].res;
-    ctx.trip(i, A.district[i], d, "migrate"); A.district[i] = d; A.job[i] = res === "food" ? J.farmer : res === "fish" ? J.fisher : res === "ore" ? J.miner : res === "cloth" ? J.weaver : res === "smoke" ? J.grower : J.herbalist; n++;
+    ctx.trip(i, A.district[i], d, "migrate"); A.district[i] = d; A.skill[i] >>= 1; A.job[i] = res === "food" ? J.farmer : res === "fish" ? J.fisher : res === "ore" ? J.miner : res === "cloth" ? J.weaver : res === "smoke" ? J.grower : J.herbalist; n++;
     bio(ctx, i, E.migrate, d);
   }
   if (n > 40) ctx.log(E.migrate, -1, -1, where[0], n, GOODS[best]);
@@ -469,7 +471,7 @@ function social(ctx) {
   const crews = new Array(DISTRICTS.length * 32); for (const i of ctx.live) { const k = A.district[i] * 32 + A.job[i]; (crews[k] || (crews[k] = [])).push(i); }
   A.met.fill(-1); A.metKind.fill(0);
   for (const i of ctx.live) {
-    if (A.status[i] || A.jail[i] || !r.chance((0.45 + P(A, i, 2) / 220) * (A.scar[i] === 3 ? 0.5 : 1))) continue;
+    if (A.status[i] || A.jail[i] || !r.chance((0.45 + P(A, i, 2) / 220) * (A.scar[i] === 3 ? 0.5 : 1) * (quarantined(w, A.district[i]) ? 0.6 : 1))) continue;
     let j = -1;
     const roll = r.next();
     if (roll < 0.1 && A.lover[i] >= 0 && living(A, A.lover[i])) j = A.lover[i];                   // the beloved
@@ -502,7 +504,7 @@ function social(ctx) {
       }
     }
     // plague jumps between bodies; the fed feed their friends
-    if (A.sick[i] > 2 && !A.sick[j] && r.chance(0.06)) A.sick[j] = 1;
+    if (A.sick[i] > 2 && !A.sick[j] && !A.immune[j] && r.chance(0.06)) A.sick[j] = 1;
     if (A.hunger[i] > 1 && A.inv[j * 5] > 10) { const k = tieIndex(A, j, i); if (k >= 0 && A.tieVal[j * TIES + k] > 25) { if (isKin(A, i, j) || A.lover[i] === j) { A.inv[j * 5] -= 3; A.inv[i * 5] += 3; } else lendGrain(ctx, j, i, 3); tie(ctx, i, j, 5); } }   // kin give; neighbours lend (WD 349)
     // pirates take
     if (A.job[i] === J.pirate && !same && isAdult(A, i, ctx.day) && A.obols[j] > A.obols[i] * 2 && r.chance(0.12 * (100 - P(A, i, 0)) / 100 * (w.iron && w.iron.tier >= 1 ? 1.2 : 1))) {   // when Aidos leaves the earth, shame no longer stops a thief
@@ -789,7 +791,7 @@ function director(ctx) {
   switch (key) {
     case "pall": dir.active.pall = day + 1; for (const i of ctx.live) think(ctx, i, TH.darkness); ctx.log(E.pall); break;
     case "harpies": { let lost = 0; for (const i of ctx.byDist[d]) { const q = Math.floor(A.inv[i * 5] / 2); A.inv[i * 5] -= q; lost += q; } ctx.log(E.harpies, -1, -1, d, lost); break; }
-    case "plague": { const v = pick(ctx.byDist[d], 10); for (const i of v) { A.sick[i] = 1; think(ctx, i, TH.plague_dread); } ctx.log(E.plague, v[0], -1, d, v.length); break; }
+    case "plague": { const v = pick(ctx.byDist[d], 10).filter((i) => !A.immune[i]); for (const i of v) { A.sick[i] = 1; think(ctx, i, TH.plague_dread); } ctx.log(E.plague, v[0], -1, d, v.length); break; }
     case "sirens": {
       const near = [D.anthemoessa, D.lemnos, D.reef, D.agora].flatMap((k) => ctx.byDist[k]).filter((i) => A.stress[i] > 150);
       if (w.offices.orpheus !== undefined && living(A, w.offices.orpheus)) { for (const i of near) setCognomen(ctx, i, 10); ctx.log(E.sirens_sung, w.offices.orpheus, -1, D.anthemoessa, near.length); }

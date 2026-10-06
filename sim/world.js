@@ -18,11 +18,12 @@ import { initDiscord } from "./discord.js";
 import { initThreads } from "./threads.js";
 import { initWonders } from "./wonders.js";
 import { initVoyage } from "./voyage.js";
+import { initDepth } from "./depth.js";
 
 export const TIES = 8;      // social ties per character
 export const THS = 6;       // thought slots
 export const BIO = 10;      // remembered life events (ring)
-export const VERSION = 24;
+export const VERSION = 25;
 export const ARGO = 9999;   // entity indices 0..9998 are the tokens; the Leaves (mortal children) are appended after  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
 
 // dynamic arrays: [name, type, per-agent width]
@@ -38,7 +39,7 @@ const LAYOUT = [
   ["kind", Uint8Array, 1], ["bones", Uint8Array, 1], ["palette", Uint8Array, 1], ["cloak", Uint8Array, 1], ["crown", Uint8Array, 1], ["sight", Uint8Array, 1], ["artifact", Uint8Array, 1],
   ["faith", Uint8Array, 1], ["devotion", Uint8Array, 1], ["style", Uint16Array, 1], ["dialect", Uint8Array, 1], ["rumor", Uint8Array, 6],
   ["miasma", Uint8Array, 1], ["fury", Uint8Array, 1], ["avenge", Int32Array, 1],
-  ["mark", Uint8Array, 1], ["fame", Int8Array, 1], ["mystes", Uint8Array, 1], ["lethe", Uint8Array, 1], ["buried", Uint16Array, 1], ["scar", Uint8Array, 1], ["ltmCore", Uint8Array, 1],
+  ["mark", Uint8Array, 1], ["fame", Int8Array, 1], ["skill", Uint8Array, 1], ["immune", Uint8Array, 1], ["guard", Int32Array, 1], ["mystes", Uint8Array, 1], ["lethe", Uint8Array, 1], ["buried", Uint16Array, 1], ["scar", Uint8Array, 1], ["ltmCore", Uint8Array, 1],
   ["ltmKind", Uint8Array, 3], ["ltmWho", Int32Array, 3], ["ltmDay", Int32Array, 3], ["ltmStr", Uint8Array, 3],
   ["born", Int32Array, 1], ["p1", Int32Array, 1], ["p2", Int32Array, 1], ["gen", Uint16Array, 1], ["lineage", Int32Array, 1], ["birthFac", Uint8Array, 1],
 ];
@@ -112,6 +113,7 @@ export function createWorld(seed, seedHash = "argo") {
     A.obols[i] = Math.round((40 + B.wealth * (0.4 + u * u * 2.2)) * (seed.relic[i] ? 1.6 : 1) + (job === J.noble ? 250 : 0) + (job === J.merchant ? 60 : 0));
     A.inv[i * 5 + 0] = 10; A.inv[i * 5 + 1] = art === "none" ? 0 : 4; A.inv[i * 5 + 2] = 2; A.inv[i * 5 + 3] = 1; A.inv[i * 5 + 4] = 1;
     A.vice[i] = art === "none" ? 0 : (seed.breath[i] ? 2 : 1);
+    A.skill[i] = 30 + (hash32(tok, "skill") % 40);   // the Sown arrive knowing their trade, some better than others
     A.met[i] = -1; A.lover[i] = -1; A.p1[i] = -1; A.p2[i] = -1; A.lineage[i] = i; A.born[i] = -100000; A.birthFac[i] = A.faction[i];
     A.bones[i] = blood; A.palette[i] = seed.palette[i]; A.cloak[i] = seed.cloak[i]; A.crown[i] = seed.crown[i]; A.sight[i] = seed.sight[i]; A.artifact[i] = seed.artifact[i];
     for (let k = 0; k < TIES; k++) A.tieTo[i * TIES + k] = -1;
@@ -141,7 +143,7 @@ export function createWorld(seed, seedHash = "argo") {
   w.m0 = 0; for (let i = 0; i < N; i++) w.m0 += A.obols[i];
   w.stats = []; w.eventSeq = 0;
   w._digital = d.Sight.indexOf("Digital");
-  initCulture(w); initWar(w); initDrift(w); initRumors(w); initTrade(w); initMiasma(w); initGift(w); initMemory(w); initOracle(w); initHeroes(w); initIron(w); initHidden(w); initDiscord(w); initThreads(w); initWonders(w); initVoyage(w);
+  initCulture(w); initWar(w); initDrift(w); initRumors(w); initTrade(w); initMiasma(w); initGift(w); initMemory(w); initOracle(w); initHeroes(w); initIron(w); initHidden(w); initDiscord(w); initThreads(w); initWonders(w); initVoyage(w); initDepth(w);
   w.fleece = seed.crown.indexOf(d.Crown.indexOf("Golden Fleece"));  // the single Golden Fleece bearer (index)
   initQuest(w);
   w.burnTs = seed.burnTs.slice();

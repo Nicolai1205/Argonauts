@@ -4,6 +4,7 @@
 import { DISTRICTS, D, GOODS, BASE_PRICE, J, monthOf, SEA_CLOSED, SEA_RISKY } from "./lore.js";
 import { CITIES, atWar } from "./war.js";
 import { rocksShut } from "./voyage.js";
+import { quarantined } from "./depth.js";
 
 const dist = (a, b) => { const dx = DISTRICTS[a].x - DISTRICTS[b].x, dy = DISTRICTS[a].y - DISTRICTS[b].y; return Math.round(Math.sqrt(dx * dx + dy * dy)); };   // integer: replays identically in every engine
 const ISLAND = new Set(["drepane", "lemnos", "anthemoessa", "eridanus"].map((k) => D[k]));
@@ -18,7 +19,7 @@ export function tradeFlows(ctx, g, left) {
   const haulers = ctx.haulers || (ctx.haulers = (() => { const h = {}; for (const i of ctx.live) if (!A.status[i] && !A.jail[i] && (A.job[i] === J.merchant || A.job[i] === J.rower)) (h[A.district[i]] || (h[A.district[i]] = [])).push(i); return h; })());
   for (const b of Object.keys(left.buyers).map(Number).sort((x, y) => P[y][g] - P[x][g] || x - y)) {   // goods run first to the dearest market
     const buyers = left.buyers[b];
-    const mo = monthOf(day), sources = Object.keys(left.sellers).map(Number).filter((a) => a !== b && !atWar(w.war, a, b) && w.war.rel[a][b] > -60 && !(sea(a, b) && SEA_CLOSED(mo)) && !rocksShut(w, a, b)).sort((x, y) => P[x][g] * carriage(w, x, b) - P[y][g] * carriage(w, y, b) || x - y);
+    const mo = monthOf(day), sources = Object.keys(left.sellers).map(Number).filter((a) => a !== b && !atWar(w.war, a, b) && w.war.rel[a][b] > -60 && !(sea(a, b) && SEA_CLOSED(mo)) && !rocksShut(w, a, b) && !quarantined(w, a) && !quarantined(w, b)).sort((x, y) => P[x][g] * carriage(w, x, b) - P[y][g] * carriage(w, y, b) || x - y);
     for (const a of sources) {
       const landed = P[a][g] * carriage(w, a, b) * w.priceMult; if (landed >= P[b][g] * 1.02) break;   // no profit in the road
       const sl = left.sellers[a]; let moved = 0, fees = 0;
