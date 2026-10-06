@@ -38,6 +38,8 @@ Bloods follow the **Bones** trait:
 
 Splinter factions break away when a blood loses faith in the Boule and its rich have too few seats (Turchin's elite overproduction). See `docs/LORE.md` for the sources.
 
+**Taking this over?** Start with [`docs/HANDOVER.md`](docs/HANDOVER.md), then [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
 ## How it works
 
 - `sim/` is a deterministic engine (plain ES modules) that runs the same in Node and the browser.
