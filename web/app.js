@@ -9,6 +9,7 @@ import { EV } from "./sim/systems.js";
 import { generate, paint, SITES, SIZE, TILE } from "./map.js";
 import { sift, emptySift } from "./sim/sift.js";
 import { dateOf, MONTHS } from "./sim/culture.js";
+import { CITIES } from "./sim/war.js";
 import { figure, lookOf } from "./figures.js";
 import { hash32 } from "./sim/rng.js";
 
@@ -237,6 +238,10 @@ function render() {
     (w.monuments || []).forEach((m, mk) => { if (m.district !== k) return; const mx = c.x + 50 + (mk % 5) * 16, my = c.y + 34; if (m.standing) { cx.fillStyle = "#e9e1cf"; cx.fillRect(mx - 3, my - 16, 6, 18); cx.fillStyle = "#b8b0a0"; cx.fillRect(mx - 5, my, 10, 3); } else { cx.fillStyle = "#8a8478"; cx.fillRect(mx - 8, my - 2, 7, 4); cx.fillRect(mx + 1, my, 6, 3); } });
     if (V.docks) { cx.strokeStyle = "#8a6a44"; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(V.docks[0] - 20, V.docks[1]); cx.lineTo(V.docks[0] + 20, V.docks[1]); cx.stroke(); }
   });
+  // banners of lordship and lines of war
+  for (const k of CITIES) { const L = w.war.lord[k]; if (L !== k) { cx.strokeStyle = "rgba(227,179,65,.55)"; cx.setLineDash([30, 20]); cx.lineWidth = Math.max(4, 2 / sc); cx.beginPath(); cx.moveTo(SITE[k].x, SITE[k].y); cx.lineTo(SITE[L].x, SITE[L].y); cx.stroke(); cx.setLineDash([]); } }
+  for (const x of w.war.wars) { const a = SITE[x.a], b = SITE[x.target]; cx.strokeStyle = `rgba(224,90,70,${0.5 + 0.4 * Math.sin(tAnim / 300)})`; cx.lineWidth = Math.max(8, 3 / sc); cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke();
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; cx.fillStyle = "#e05a46"; cx.font = `${18 / sc}px serif`; cx.textAlign = "center"; cx.fillText("⚔", mx, my); }
   // the Pyra
   const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97);
   const grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, 150); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
@@ -357,6 +362,15 @@ function panels() {
     `<h3>Calendar</h3><p class="muted">A year has 360 days in twelve months named for the voyage: ${MONTHS.join(", ")}. The Pagasaia opens each year; on 11 Anthesterion the dead walk; the Games of Kolchis close the harvest. A memory still strong after a year becomes a festival.</p>` +
     `<h3>Festivals</h3>${(w.festivals || []).slice(0, 12).map((f) => `<div class="law">${esc(f.name)}<span class="num">${dayLabel(f.day)} · ${f.n.toLocaleString()} kept it</span></div>`).join("") || '<p class="muted">None yet.</p>'}` +
     `<h3>Monuments</h3>${(w.monuments || []).map((m) => `<div class="law">${esc(m.name)}<span class="num">${esc(DISTRICTS[m.district].name)} · raised ${dayLabel(m.day)}${m.standing ? "" : " · torn down " + dayLabel(m.fell)}</span></div>`).join("") || '<p class="muted">None yet. A great memory and a rich treasury raise a stele on its first anniversary.</p>'}`;
+  // cities
+  const Wr = w.war, cname = (k) => DISTRICTS[k].name;
+  $("#p-city").innerHTML = `<p class="muted">Each city's cohesion (asabiya) grows on a hostile frontier with people of another faith or blood and decays in safety. Cohesive, stronger cities make war; the beaten pay tribute or kneel as vassals, and resentful vassals revolt.</p>` +
+    (Wr.wars.length ? `<h3>At war</h3>${Wr.wars.map((x) => `<div class="law"><b>${esc(x.name)}</b><span class="num">since ${dayLabel(x.since)} · ${x.battles} battles · ${x.dead} Leaves dead, ${x.broken} Argonauts broken · ${x.score > 0 ? esc(cname(x.a)) + " leads" : x.score < 0 ? esc(cname(x.b)) + " leads" : "even"}</span></div>`).join("")}` : "<h3>At peace</h3>") +
+    `<h3>City-states</h3>` + CITIES.map((k) => ({ k, P: Wr.power[k] })).sort((a, b) => b.P - a.P).map(({ k }) => { const dm = Wr.dom[k] || {}; const foes = CITIES.filter((b) => b !== k && Wr.rel[k][b] < -30).map((b) => cname(b).replace(/^the /, "")); const lord = Wr.lord[k] !== k ? ` · vassal of ${esc(cname(Wr.lord[k]))}` : CITIES.some((b) => b !== k && Wr.lord[b] === k) ? ` · lord of ${CITIES.filter((b) => b !== k && Wr.lord[b] === k).map((b) => esc(cname(b).replace(/^the /, ""))).join(", ")}` : "";
+      return `<div class="fac"><i style="background:${w.factions[dm.faction] ? w.factions[dm.faction].color : "#888"}"></i><div><b>${esc(cname(k))}</b>${lord}</div><div class="num">power ${Wr.power[k]}</div>
+        <div class="bar" title="asabiya"><b style="width:${Math.round(Wr.S[k] * 100)}%;background:var(--blood)"></b></div>
+        <div class="t num">cohesion ${Math.round(Wr.S[k] * 100)} · ${dm.pop || 0} adults · ${esc(w.factions[dm.faction] ? w.factions[dm.faction].name : "")} · ${esc(w.faiths[dm.faith] ? w.faiths[dm.faith].name : "")}${foes.length ? " · hates " + esc(foes.join(", ")) : ""}</div></div>`; }).join("") +
+    `<h3>Wars remembered</h3>${Wr.history.map((x) => `<div class="law"><b>${esc(x.name)}</b>: ${esc(x.terms)}<span class="num">${dayLabel(x.from)} to ${dayLabel(x.to)} · ${x.dead} Leaves dead, ${x.broken} Argonauts broken</span></div>`).join("") || '<p class="muted">No wars yet.</p>'}`;
   // boule
   const off = Object.entries(w.offices).map(([k, i]) => { const o = OFFICES.find((x) => x.key === k); return `<div class="law"><b>${esc(o.title)}</b>, ${esc(o.role)}: <a class="who" data-i="${i}">${esc(view.name(i))}</a></div>`; }).join("");
   $("#p-boule").innerHTML = `<div class="kv"><b>Coalition</b><span>${w.boule.coalition.map((k) => esc(w.factions[k].name)).join(" + ") || "none"}</span><b>Treasury</b><span>${w.treasury.toLocaleString()} obols</span>

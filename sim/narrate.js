@@ -42,6 +42,11 @@ const T = {
   festival: ["{s}: {v} Minyans keep the day.", "The city keeps {s}. {v} feast."],
   monument: ["The Boule raised {s} in {where}.", "In {where} a stone now stands: {s}."],
   iconoclasm: ["Rioters led by {a} tore down {s} in {where}.", "{s} lies in pieces in {where}; {a} struck the first blow."],
+  war: ["War: {s}. The levies march.", "{s} has begun. Spears are counted in both cities."],
+  battle: ["A battle in {where}: {w1} carried the field. {d1} Leaves dead, {b1} Argonauts broken.", "Battle at {where} in {w0}: {w1} won the day. The Pyra will be busy: {d1} Leaves dead, {b1} Argonauts broken."],
+  peace: ["{w0} is over: {w2}. {d1} Leaves died; {b1} Argonauts were broken.", "Peace: {w2}. That ends {w0}."],
+  revolt: ["{s}: the vassal rises against its lord.", "Revolt! {s}."],
+  incident: ["{s}", "Bad blood at the border: {s}"],
   burn8985: ["{a} did not go to the Pyra like the others. The Maker built a barrel of oil for {a} alone, and it burns beside the pyre; the smoke is black and smells of the old world."],
   burn: ["{a} was given to the Pyra. The bones burn bright on the shore; {b} inherits what was left.", "On the chain they sent {a} to the dead address. On the shore the Pyra took {a}, and the smoke went up for days.", "{a} of the {fa} burns. Ash falls on {where}, and Charon is owed nothing; the fire took it all."],
   ostologia: ["The fire under {a} has gone out. The bones were gathered and an oar was planted on the mound in the Asphodel Meadow.", "Ostologia for {a}: ash raked, bones gathered, oar set upright. Elpenor asked for no more."],
@@ -107,10 +112,13 @@ export function narrate(e, view) {
     a: who(e.a), b: who(e.b), c: e.t === "birth" ? who(e.v) : (e.t === "cognomen" ? COGNOMENS[e.v] : ""), first: e.s === "first" ? ", the first Leaf of their line" : "", where: e.x >= 0 ? DISTRICTS[e.x].name : "the archipelago", fa: e.a >= 0 ? view.faction(e.a) : "Minyans",
     bfa: e.a >= 0 ? view.blood(e.a) : "", pfa: e.a >= 0 ? view.blood(e.a) : "", s: e.s || "", v: e.v, r: riot, s1, s2,
     god: e.t === "prophet" ? (e.s || "").split("|")[1] : "", people: e.t === "prophet" ? (e.s || "").split("|")[0] : "",
+    w0: ["battle", "peace"].includes(e.t) ? (e.s || "").split("|")[0] : "", w1: e.t === "battle" ? (e.s || "").split("|")[1] : "", w2: e.t === "peace" ? (e.s || "").split("|")[1] : "",
+    d1: ["battle", "peace"].includes(e.t) ? (e.s || "").split("|")[e.t === "battle" ? 2 : 2] : "", b1: ["battle", "peace"].includes(e.t) ? (e.s || "").split("|")[3] : "",
     eth: (e.v / 100).toFixed(2), price: (e.v / 100).toFixed(1), dir: e.t === "beam" ? DIRS(e.v) : "", caught: e.s === "caught" ? ", and the Reapers caught them" : "",
     role: e.t === "office" ? OFFICES[e.v].role : "",
   };
-  return tpl.replace(/\{(\w+)\}/g, (_, k) => (map[k] !== undefined ? map[k] : ""));
+  const out = tpl.replace(/\{(\w+)\}/g, (_, k) => (map[k] !== undefined ? map[k] : ""));
+  return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
 /** voice of an event, used to colour the chronicle */
@@ -118,4 +126,4 @@ export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plag
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
   crash: "realism", migrate: "realism", dole: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
-  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism" };
+  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism" };

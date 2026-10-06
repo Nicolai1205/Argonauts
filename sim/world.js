@@ -2,11 +2,12 @@
 import { BLOODS, SPARTOI_HOUSES, DISTRICTS, D, J, JOBS, GOODS, TARGET, BASE_PRICE, ST, PREHISTORY_DAYS } from "./lore.js";
 import { unit, stream, hash32 } from "./rng.js";
 import { initCulture } from "./culture.js";
+import { initWar } from "./war.js";
 
 export const TIES = 8;      // social ties per character
 export const THS = 6;       // thought slots
 export const BIO = 10;      // remembered life events (ring)
-export const VERSION = 4;
+export const VERSION = 5;
 export const ARGO = 9999;   // entity indices 0..9998 are the tokens; the Leaves (mortal children) are appended after  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
 
 // dynamic arrays: [name, type, per-agent width]
@@ -121,7 +122,7 @@ export function createWorld(seed, seedHash = "argo") {
   w.m0 = 0; for (let i = 0; i < N; i++) w.m0 += A.obols[i];
   w.stats = []; w.eventSeq = 0;
   w._digital = d.Sight.indexOf("Digital");
-  initCulture(w);
+  initCulture(w); initWar(w);
   w.fleece = seed.crown.indexOf(d.Crown.indexOf("Golden Fleece"));  // the single Golden Fleece bearer (index)
   w.burnTs = seed.burnTs.slice();
   return w;
