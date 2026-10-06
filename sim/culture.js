@@ -17,6 +17,7 @@ export const DEITIES = {
   riot: { god: "the Stone Among Us", people: "the Lithoboloi", color: "#9aa0a8", cost: 0.3, zeal: 1.4 },
   beam: { god: "the Oak of Dodona", people: "the Dodonaioi", color: "#7fb069", cost: 0.5, zeal: 1.0 },
   ruling: { god: "the Maker", people: "the Poietai", color: "#e9e1cf", cost: 0.6, zeal: 1.1 },
+  defiance: { god: "the Void before the Sowing", people: "the Anapoietai", color: "#2a2a30", cost: 0.6, zeal: 1.3 },
   beast: { god: "the Hunger in the Hills", people: "the Theriodai", color: "#a0473a", cost: 0.5, zeal: 1.2 },
   doliones: { god: "the Dark that Blinds Friends", people: "the Skotioi", color: "#3d4a6b", cost: 0.4, zeal: 0.9 },
 };
@@ -35,7 +36,7 @@ export function prophets(ctx, events, kill) {
   const { A, w, day } = ctx, r = ctx.r("prophets");
   if (day - w.lastProphet < 20 || w.faiths.filter((f) => f.alive).length >= 12) return;
   for (const e of events) {
-    const kind = e.t === "death" ? null : e.t === "riot" ? "riot" : e.t === "plague" ? "plague" : e.t === "famine" ? "famine" : e.t === "sirens" ? "sirens" : e.t === "lemnian" ? "lemnian" : e.t === "burn" ? "burn" : e.t === "beam" ? "beam" : e.t === "ruling" ? "ruling" : e.t === "beast" && (e.s || "").startsWith("attack") ? "beast" : e.t === "doliones" ? "doliones" : null;
+    const kind = e.t === "death" ? null : e.t === "riot" ? "riot" : e.t === "plague" ? "plague" : e.t === "famine" ? "famine" : e.t === "sirens" ? "sirens" : e.t === "lemnian" ? "lemnian" : e.t === "burn" ? "burn" : e.t === "beam" ? "beam" : e.t === "ruling" ? "ruling" : e.t === "beast" && (e.s || "").startsWith("attack") ? "beast" : e.t === "burn" && w.faiths.some((f) => f.alive && f.origin === "ruling") && !w.faiths.some((f) => f.alive && f.origin === "defiance") ? "defiance" : e.t === "doliones" ? "doliones" : null;
     if (!kind || w.faiths.some((f) => f.alive && f.origin === kind) || !r.chance(kind === "burn" || kind === "ruling" ? 0.6 : 0.25)) continue;
     // the prophet: a shaken, open, well-connected adult near the catastrophe (for a burn: the one who loved the burned most)
     let near = e.x >= 0 ? ctx.byDist[e.x] : ctx.live;

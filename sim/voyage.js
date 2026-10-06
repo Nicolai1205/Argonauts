@@ -16,7 +16,7 @@ const P = (A, i, k) => A.pers[i * 6 + k];
 const cityOf = (d) => (CITIES.includes(d) ? d : D.agora);
 export const ROCKS = [D.reef, D.drepane];   // the lane the Clashing Rocks shut
 
-export function initVoyage(w) { w.trips = []; w.rocks = { open: false, tries: 0 }; w.talos = { alive: true }; w.loans = []; w.aeaea = []; }
+export function initVoyage(w) { w.voyages = []; w.trips = []; w.rocks = { open: false, tries: 0 }; w.talos = { alive: true }; w.loans = []; w.aeaea = []; }
 /** is the lane between a and b shut by the Clashing Rocks? */
 export const rocksShut = (w, a, b) => w.rocks && !w.rocks.open && ((a === ROCKS[0] && b === ROCKS[1]) || (a === ROCKS[1] && b === ROCKS[0]));
 
@@ -58,6 +58,36 @@ export function voyageDaily(ctx) {
   }
   for (const x of w.aeaea.slice()) if (day >= x.back && A.status[x.i] === ST.living) { w.aeaea.splice(w.aeaea.indexOf(x), 1); A.fury[x.i] = 0; A.miasma[x.i] = 0; ctx.think(x.i, TH.katharsis); ctx.memorize(x.i, 9, -1, 80); ctx.log(E.voyage, x.i, -1, A.district[x.i], 0, "aeaea-back"); }
     else if (A.status[x.i] === 2 || A.status[x.i] === 3) w.aeaea.splice(w.aeaea.indexOf(x), 1);
+
+  // ---- voyages beyond the map: each season a renowned captain takes a crew east, south or north; cargo and a relic, or the sea
+  if (((day % 90) + 90) % 90 === 45 && w.voyages.length < 2) {
+    const caps = ctx.live.filter((i) => alive(A, i) && adult(A, i, day) && (A.fame[i] > 20 || A.cognomen[i] === 23 || A.cognomen[i] === 27) && A.district[i] < D.pyra);
+    if (caps.length) {
+      const cap = caps[r.int(caps.length)], home = A.district[cap], dest = ["Colchis", "Crete", "the Hyperboreans", "the Isles of the Blest"][r.int(4)];
+      const crew = (ctx.byDist[home] || []).filter((i) => alive(A, i) && adult(A, i, day) && i !== cap && [J.rower, J.pirate, J.fisher].includes(A.job[i])).slice(0, 14);
+      if (crew.length >= 6) {
+        const all = [cap, ...crew]; for (const i of all) { ctx.trip(i, home, D.agora, "aeaea"); A.status[i] = ST.exiled; A.until[i] = day + 100000; }
+        w.voyages.push({ cap, crew: all, home, dest, left: day, back: day + 25 + r.int(30) }); ctx.log(E.voyage, cap, -1, home, all.length, "sail|" + dest);
+      }
+    }
+  }
+  for (const vg of w.voyages.slice()) {
+    if (day < vg.back) continue; w.voyages.splice(w.voyages.indexOf(vg), 1);
+    const u = r.next(), back = (i) => { if (A.status[i] === ST.exiled) { A.status[i] = ST.living; A.until[i] = 0; A.district[i] = vg.home; ctx.trip(i, D.agora, vg.home, "migrate"); } };
+    if (u < 0.55) {   // home with cargo and a wonder
+      for (const i of vg.crew) { back(i); A.inv[i * 5 + 3] += 4; A.inv[i * 5 + 4] += 3; ctx.memorize(i, 5, vg.cap, 60); }
+      const thing = { Colchis: "a horn of the golden ram", Crete: "a bronze nail from the giant's kin", "the Hyperboreans": "an amber tear of the Heliades", "the Isles of the Blest": "a sprig of asphodel that does not wilt" }[vg.dest];
+      if (alive(A, vg.cap)) { ctx.forgeRelic(`${thing}, brought from ${vg.dest}`, "voyage", vg.cap, `carried home from ${vg.dest}`); ctx.renown(vg.cap, 80); A.fame[vg.cap] = Math.min(100, A.fame[vg.cap] + 20); }
+      ctx.log(E.voyage, vg.cap, -1, vg.home, vg.crew.length, "home|" + vg.dest);
+    } else if (u < 0.85) {   // the sea took some
+      let n = 0; for (const i of vg.crew) { back(i); if (r.chance(0.35)) { ctx.kill(i, `lost on the voyage to ${vg.dest}`); n++; } }
+      ctx.log(E.voyage, vg.cap, -1, vg.home, n, "wrecked|" + vg.dest);
+    } else {   // lost; they come back a season later, changed
+      vg.back = day + 90; vg.lost = true; if (!vg.told) { vg.told = true; ctx.log(E.voyage, vg.cap, -1, vg.home, vg.crew.length, "lost|" + vg.dest); }
+      if (vg.lost && day - vg.left > 120) { for (const i of vg.crew) { back(i); if (!A.kind[i]) A.lethe[i] = Math.min(255, A.lethe[i] + 1); A.stress[i] = Math.min(600, A.stress[i] + 150); } ctx.log(E.voyage, vg.cap, -1, vg.home, vg.crew.length, "returned|" + vg.dest); continue; }
+      w.voyages.push(vg);
+    }
+  }
 
   // ---- grain loans fall due: measure back with the same measure, or better (WD 349)
   if (w.loans.length) for (const L of w.loans.slice()) {
