@@ -105,6 +105,18 @@ const RIVERS = (() => { const p = new Path2D(); for (const [a, b] of MAP.rivers)
 // sea lanes as point lists, for ships
 const ROUTE = {}; MAP.roads.forEach((r) => { const pts = r.path.map(([x, y]) => [x * TILE + TILE / 2, y * TILE + TILE / 2]); ROUTE[r.a + ">" + r.b] = pts; ROUTE[r.b + ">" + r.a] = pts.slice().reverse(); });
 const routeOf = (a, b) => ROUTE[DISTRICTS[a].key + ">" + DISTRICTS[b].key] || [[SITE[a].x, SITE[a].y], [SITE[b].x, SITE[b].y]];
+// any two places: chain the road and sea-lane network (breadth-first over the routes the map draws)
+const LINKS = (() => { const g = {}; for (const r of MAP.roads) { (g[r.a] || (g[r.a] = [])).push(r.b); (g[r.b] || (g[r.b] = [])).push(r.a); } return g; })(), RCACHE = {};
+function routeBetween(a, b) {
+  const ka = DISTRICTS[a].key, kb = DISTRICTS[b].key, ck = ka + ">" + kb; if (RCACHE[ck]) return RCACHE[ck];
+  if (ROUTE[ck]) return (RCACHE[ck] = ROUTE[ck]);
+  const prev = { [ka]: null }, q = [ka]; while (q.length) { const u = q.shift(); if (u === kb) break; for (const v of LINKS[u] || []) if (!(v in prev)) { prev[v] = u; q.push(v); } }
+  if (!(kb in prev)) return (RCACHE[ck] = [[SITE[a].x, SITE[a].y], [SITE[b].x, SITE[b].y]]);
+  const chain = []; for (let v = kb; v; v = prev[v]) chain.unshift(v);
+  let pts = []; for (let k = 1; k < chain.length; k++) pts = pts.concat(ROUTE[chain[k - 1] + ">" + chain[k]] || []);
+  return (RCACHE[ck] = pts.length ? pts : [[SITE[a].x, SITE[a].y], [SITE[b].x, SITE[b].y]]);
+}
+const ROUND = new Set(["pilgrim", "hunt", "levy"]);
 const along = (pts, u) => { const t = Math.max(0, Math.min(0.999, u)) * (pts.length - 1), k = Math.floor(t), f = t - k, [x0, y0] = pts[k], [x1, y1] = pts[k + 1] || pts[k]; return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]; };
 const LANES = MAP.roads.map((r) => r.path.filter((p) => p[2]).map(([x, y]) => [x * TILE + TILE / 2, y * TILE + TILE / 2])).filter((l) => l.length > 6);
 
@@ -223,6 +235,8 @@ const ease = (t) => t * t * (3 - 2 * t);
 function positions(now) {
   const A = w.A, f0 = (((now - GENESIS) % 3600) + 3600) % 3600 / 3600, Pp = S.plan, out = S.cur;
   if (S.planDay !== w.day) plans();
+  if (S.tripDay !== w.day || S.tripN !== (w.trips || []).length) { S.trips = new Map(); for (const t of w.trips || []) if (t.d === w.day - 1) S.trips.set(t.i, t); S.tripDay = w.day; S.tripN = (w.trips || []).length; }
+  const trips = S.trips;
   for (let i = 0; i < w.N; i++) {
     const st = A.status[i], hx = S.home[i * 2], hy = S.home[i * 2 + 1]; let x = hx, y = hy, fr = 4, vis = 1;
     if (st === ST.shade) { const a = now / 9 + i; x = hx + Math.cos(a) * 8; y = hy + Math.sin(a * 0.7) * 5; }
@@ -230,13 +244,23 @@ function positions(now) {
       const b = i * 12, t = Pp, night = S.planFlags[i] & 1; let f = f0; if (night) f = (f0 + 0.5) % 1;
       const T = night ? [0, 1, 2, 3, 4, 5].map((q) => (t[b + q] + 0.5) % 1) : [t[b], t[b + 1], t[b + 2], t[b + 3], t[b + 4], t[b + 5]];
       const wx = t[b + 6], wy = t[b + 7], ex = t[b + 8], ey = t[b + 9];
-      const go = (ax, ay, bx, by, s, e) => { const k = e > s ? ease(Math.min(1, (f - s) / (e - s))) : 1; x = ax + (bx - ax) * k; y = ay + (by - ay) * k; fr = Math.floor(now * 6 + i) % 4; };
+      const go = (ax, ay, bx, by, s, e) => { const k = e > s ? Math.min(1, (f - s) / (e - s)) : 1, xf = i & 1;   // along the streets: one leg, then the other
+        if (xf) { x = k < 0.5 ? ax + (bx - ax) * ease(k * 2) : bx; y = k < 0.5 ? ay : ay + (by - ay) * ease((k - 0.5) * 2); } else { y = k < 0.5 ? ay + (by - ay) * ease(k * 2) : by; x = k < 0.5 ? ax : ax + (bx - ax) * ease((k - 0.5) * 2); }
+        fr = Math.floor(now * 6 + i) % 4; };
       if (f < T[0] || f >= T[5]) { vis = A.sick[i] ? 1 : 0; }                              // asleep indoors
       else if (f < T[1]) go(hx, hy, wx, wy, T[0], T[1]);
       else if (f < T[2]) { x = wx; y = wy; if (S.planFlags[i] & 4) { const a = f * 40 + i; x = SITE[A.district[i]].x + Math.cos(a) * (S.city[A.district[i]].R + 10); y = SITE[A.district[i]].y + Math.sin(a) * (S.city[A.district[i]].R + 10); fr = Math.floor(now * 4 + i) % 4; } else { x += Math.sin(now / 2 + i) * 2; } }
       else if (f < T[3]) go(wx, wy, ex, ey, T[2], T[3]);
       else if (f < T[4]) { x = ex + Math.sin(now / 4 + i) * 2; y = ey; }
       else go(ex, ey, hx, hy, T[4], T[5]);
+    }
+    const tp = trips.get(i);
+    if (tp && (st === ST.living || st === ST.exiled)) {
+      const pts = routeBetween(tp.from, tp.to), j = (hash32("tj", i) % 41) - 20;
+      let u = ROUND.has(tp.k) ? (f0 < 0.5 ? ease(f0 * 2) : ease((1 - f0) * 2)) : ease(Math.max(0, Math.min(1, (f0 - 0.1) / 0.8)));
+      if (tp.k === "aeaea") { if (f0 < 0.5) { [x, y] = along(pts, ease(f0 * 2)); } else { const [ax, ay] = along(pts, 1); x = ax + (WORLD - ax) * ease((f0 - 0.5) * 2); y = ay; } }
+      else if (ROUND.has(tp.k) || (f0 > 0.1 && f0 < 0.9) || st === ST.exiled) [x, y] = along(pts, u);
+      x += j; y += ((hash32("tk", i) % 31) - 15); vis = 1; fr = Math.floor(now * 6 + i) % 4;
     }
     out[i * 2] = x; out[i * 2 + 1] = y; S.frame[i] = fr; S.vis[i] = vis;
   }
@@ -283,10 +307,18 @@ function render() {
   });
   // weather: drought browns a district, a flood blues it; winter storms streak the sea
   if (w.dry) DISTRICTS.forEach((d, k) => { const c = SITE[k]; if (w.dry[k] >= 20) { cx.fillStyle = `rgba(160,110,50,${Math.min(0.35, 0.12 + w.dry[k] / 400)})`; cx.beginPath(); cx.arc(c.x, c.y, c.r * 1.25, 0, 6.283); cx.fill(); } else if (w.rain && w.rain[k] > 200) { cx.fillStyle = "rgba(80,140,220,.22)"; cx.beginPath(); cx.arc(c.x, c.y, c.r * 1.25, 0, 6.283); cx.fill(); } });
+  if (w.rain) DISTRICTS.forEach((d, k) => { const c = SITE[k];
+    if (w.rain[k] > 150) { cx.save(); cx.beginPath(); cx.arc(c.x, c.y, c.r * 1.4, 0, 6.283); cx.clip(); cx.strokeStyle = "rgba(170,200,240,.35)"; cx.lineWidth = Math.max(1.5, 0.8 / sc); for (let q = 0; q < 40; q++) { const x = c.x - c.r * 1.4 + ((q * 131 + k * 17) % (c.r * 2.8)), y = c.y - c.r * 1.4 + ((q * 97 + tAnim / 3) % (c.r * 2.8)); cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x - 8, y + 26); cx.stroke(); } cx.restore(); }
+    if (w.dry && w.dry[k] >= 20) { cx.strokeStyle = "rgba(90,60,30,.4)"; cx.lineWidth = Math.max(2, 1 / sc); for (let q = 0; q < 7; q++) { const a = q * 0.9 + k, r0 = c.r * 0.3; let x = c.x + Math.cos(a) * r0, y = c.y + Math.sin(a) * r0; cx.beginPath(); cx.moveTo(x, y); for (let s = 0; s < 4; s++) { x += Math.cos(a + (s % 2 ? 0.6 : -0.6)) * c.r * 0.18; y += Math.sin(a + (s % 2 ? 0.6 : -0.6)) * c.r * 0.18; cx.lineTo(x, y); } cx.stroke(); } }
+  });
+  { const m = SITE[D.mist], g = cx.createRadialGradient(m.x, m.y, 10, m.x, m.y, m.r * 2.6); g.addColorStop(0, `rgba(220,228,238,${0.35 + 0.1 * Math.sin(tAnim / 3000)})`); g.addColorStop(1, "rgba(220,228,238,0)"); cx.fillStyle = g; cx.beginPath(); cx.arc(m.x, m.y, m.r * 2.6, 0, 6.283); cx.fill(); }
   if (w.storm === w.day - 1) { cx.strokeStyle = "rgba(200,220,255,.25)"; cx.lineWidth = Math.max(2, 1 / sc); for (let q = 0; q < 160; q++) { const x = (q * 977) % WORLD, y = (q * 571 + tAnim / 4) % WORLD; cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x - 30, y + 60); cx.stroke(); } }
   // beasts at their lairs, with the reach of their hunting
-  for (const b of w.beasts || []) { if (!b.alive) continue; const c = SITE[b.lair]; const R = b.radius / 1000 * WORLD; cx.strokeStyle = `rgba(200,60,50,${0.15 + b.hunger / 300})`; cx.setLineDash([12, 18]); cx.lineWidth = Math.max(3, 1.5 / sc); cx.beginPath(); cx.arc(c.x, c.y, R, 0, 6.283); cx.stroke(); cx.setLineDash([]);
-    cx.fillStyle = "#c8463a"; cx.font = `${16 / sc}px serif`; cx.textAlign = "center"; cx.fillText(`☠ ${b.name}`, c.x, c.y + c.r + 30 / sc); }
+  for (const b of w.beasts || []) { const c = SITE[b.lair];
+    if (!b.alive) { cx.fillStyle = "#e9e1cf"; cx.fillRect(c.x - 10, c.y + c.r + 6, 20, 14); cx.fillRect(c.x - 14, c.y + c.r + 20, 28, 5); cx.fillStyle = "#b8b0a0"; cx.font = `${11 / sc}px serif`; cx.textAlign = "center"; cx.fillText(`shrine of the slaying of ${b.name.replace(/^the /, "")}`, c.x, c.y + c.r + 44 / sc); continue; }
+    const R = b.radius / 1000 * WORLD; cx.strokeStyle = `rgba(200,60,50,${0.15 + b.hunger / 300})`; cx.setLineDash([12, 18]); cx.lineWidth = Math.max(3, 1.5 / sc); cx.beginPath(); cx.arc(c.x, c.y, R, 0, 6.283); cx.stroke(); cx.setLineDash([]);
+    const a = tAnim / (9000 + b.k * 1300) + b.k * 1.7, rr = R * (0.35 + 0.25 * Math.sin(tAnim / 7000 + b.k)), bx = c.x + Math.cos(a) * rr, by = c.y + Math.sin(a) * rr * 0.8;   // it prowls
+    cx.fillStyle = `rgba(200,70,58,${0.6 + b.hunger / 250})`; cx.font = `${22 / sc}px serif`; cx.textAlign = "center"; cx.fillText("☠", bx, by); cx.font = `${13 / sc}px serif`; cx.fillText(b.name, bx, by + 18 / sc); }
   // colonies: the road from the old hearth to the new
   for (const col of (w.colonies || []).slice(-6)) { const a = SITE[col.from], b = SITE[col.to]; cx.strokeStyle = "rgba(127,180,255,.45)"; cx.setLineDash([6, 14]); cx.lineWidth = Math.max(3, 1.2 / sc); cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); cx.setLineDash([]); }
   // banners of lordship and lines of war
@@ -316,13 +348,19 @@ function render() {
     for (const c of w.caravans || []) { const u = (simNow - c.left) / Math.max(1, c.arrive - c.left); if (u < 0 || u > 1) continue; const [x, y] = along(routeOf(c.from, c.to), u), z = Math.max(1, 1 / sc / 3);
       if (c.sea) { cx.fillStyle = "#5a3d22"; cx.fillRect(x - 12 * z, y, 24 * z, 6 * z); cx.fillStyle = GC[c.g]; cx.beginPath(); cx.moveTo(x, y - 16 * z); cx.lineTo(x + 9 * z, y); cx.lineTo(x, y); cx.fill(); }
       else { cx.fillStyle = "#6b5a46"; cx.fillRect(x - 8 * z, y - 4 * z, 16 * z, 8 * z); cx.fillStyle = GC[c.g]; cx.fillRect(x - 6 * z, y - 10 * z, 12 * z, 6 * z); } }
+    if (w.convoy) for (const c of w.caravans || []) { if (!c.sea || !(w.convoy[c.from] > w.day || w.convoy[c.to] > w.day)) continue; const u = (simNow - c.left) / Math.max(1, c.arrive - c.left); if (u < 0 || u > 1) continue; const [x, y] = along(routeOf(c.from, c.to), u), z = Math.max(1, 1 / sc / 3);
+      cx.fillStyle = "#3a2a1a"; cx.fillRect(x + 14 * z, y + 4 * z, 30 * z, 5 * z); cx.fillStyle = "#b8392a"; cx.fillRect(x + 27 * z, y - 12 * z, 4 * z, 16 * z); }
+    const SHORT = Object.fromEntries(DISTRICTS.map((d, k) => [d.name.replace(/^the /, "").replace(/ & the Agora/, ""), k]));
+    for (const e of chron.concat(provisional)) { if (e.t !== "wreck" || e.d < w.day - 3) continue; const [fa, fb] = (e.s || "").split("|"), a = SHORT[fa], b = SHORT[fb]; if (a === undefined || b === undefined) continue; const [x, y] = along(routeBetween(a, b), 0.5), z = Math.max(1, 1 / sc / 3);
+      cx.strokeStyle = "#e9e1cf"; cx.lineWidth = 2 * z; cx.beginPath(); cx.moveTo(x - 8 * z, y + 6 * z); cx.lineTo(x + 6 * z, y - 14 * z); cx.stroke(); cx.fillStyle = "rgba(233,225,207,.6)"; cx.font = `${10 * z}px serif`; cx.textAlign = "center"; cx.fillText("wreck", x, y + 18 * z); }
+    for (const h of w.heldBones || []) { const c = SITE[h.city], z = Math.max(1, 1 / sc / 3); cx.fillStyle = "#4a3a2a"; cx.fillRect(c.x + c.r * 0.6, c.y - 6 * z, 22 * z, 10 * z); cx.fillStyle = "#e9e1cf"; cx.font = `${10 * z}px serif`; cx.fillText("stolen bones", c.x + c.r * 0.6 + 11 * z, c.y - 9 * z); }
     for (const x of (w.quest && w.quest.expeditions) || []) { const u = (simNow - x.left) / Math.max(1, x.arrive - x.left); const [ex, ey] = along(routeOf(x.from, x.target), Math.min(1, u)), z = Math.max(1, 1 / sc / 2.5);
       cx.fillStyle = "#e05a46"; cx.fillRect(ex - 2 * z, ey - 30 * z, 3 * z, 30 * z); cx.beginPath(); cx.moveTo(ex + z, ey - 30 * z); cx.lineTo(ex + 18 * z, ey - 24 * z); cx.lineTo(ex + z, ey - 18 * z); cx.fill();
       cx.fillStyle = "#f2c14e"; cx.font = `${12 * z}px serif`; cx.fillText("✦", ex + 9 * z, ey - 21 * z); } }
   // the Pyra
-  const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97);
-  const grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, 150); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
-  cx.fillStyle = grd; cx.beginPath(); cx.arc(pd.x, pd.y, 150, 0, 6.283); cx.fill();
+  const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97); let burning = 0; for (let i = 0; i < w.N; i++) if (A.status[i] === ST.pyre) burning++; S.burning = burning;
+  const PR = 90 + Math.min(260, burning * 18), grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, PR); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
+  cx.fillStyle = grd; cx.beginPath(); cx.arc(pd.x, pd.y, PR, 0, 6.283); cx.fill();
   if (R.on) { drawReplay(sc); cx.restore(); return; }
   // characters
   const vx0 = -S.x / sc - 40, vy0 = -S.y / sc - 40, vx1 = (r.width - S.x) / sc + 40, vy1 = (r.height - S.y) / sc + 40, P = S.cur;

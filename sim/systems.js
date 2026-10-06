@@ -35,7 +35,7 @@ const A_ = (w) => w.A;
 export function tick(w, omens = []) {
   const day = w.day, ev = [];
   const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) }; ctx.rr = ctx.r("misc"); ctx.E = E; ctx.TH = TH; ctx.think = (i, th) => think(ctx, i, th); ctx.kill = (i, c, by, hid) => kill(ctx, i, c, by, hid); ctx.remember = remember;
-  ctx.cognomen = (i, c) => setCognomen(ctx, i, c); ctx.renown = (i, n) => renown(w, A_(w), i, n); ctx.tie = (i, j, d) => tie(ctx, i, j, d); ctx.memorize = (i, k, who, s) => memorize(ctx, i, k, who, s); ctx.oathEnds = (i, k, kept) => oathEnds(ctx, i, k, kept); ctx.swear = (i, j, k, d) => swear(ctx, i, j, k, d); ctx.forgeRelic = (...a) => forgeRelic(ctx, ...a); ctx.captureRelics = (...a) => captureRelics(ctx, ...a); ctx.champion = (c) => champion(ctx, c);
+  ctx.trip = (i, from, to, k) => { if (from === to || from < 0 || to < 0) return; w.trips.push({ i, from, to, d: day, k }); }; ctx.cognomen = (i, c) => setCognomen(ctx, i, c); ctx.renown = (i, n) => renown(w, A_(w), i, n); ctx.tie = (i, j, d) => tie(ctx, i, j, d); ctx.memorize = (i, k, who, s) => memorize(ctx, i, k, who, s); ctx.oathEnds = (i, k, kept) => oathEnds(ctx, i, k, kept); ctx.swear = (i, j, k, d) => swear(ctx, i, j, k, d); ctx.forgeRelic = (...a) => forgeRelic(ctx, ...a); ctx.captureRelics = (...a) => captureRelics(ctx, ...a); ctx.champion = (c) => champion(ctx, c);
   ctx.trace = (t, a, b, x = -1) => ev.push({ i: -1, d: day, t: EV[t], a, b, x, v: 0, s: "", h: 1 });   // seen by the story sifter, not the chronicle
   ctx.log = (t, a = -1, b = -1, x = -1, v = 0, s = "") => { const e = { i: ++w.eventSeq, d: day, t: EV[t], a, b, x, v, s }; ev.push(e); if (a >= 0) bio(ctx, a, t, b); if (b >= 0 && b !== a) bio(ctx, b, t, a); return e; };
   applyOmens(ctx, omens); chk(ctx, 'applyOmens');
@@ -59,6 +59,7 @@ export function tick(w, omens = []) {
   rumorsDaily(ctx);
   lifecycle(ctx); ctx.N = w.N; chk(ctx, 'lifecycle');
   funerals(ctx); chk(ctx, 'funerals');
+  if (w.trips.length) { w.trips = w.trips.filter((t) => t.d > day - 3); if (w.trips.length > 600) w.trips.splice(0, w.trips.length - 600); }
   stats(ctx); chk(ctx, 'stats');
   invariant(ctx);
   w.day++;
@@ -268,7 +269,7 @@ function scheduled(ctx) {
     const s = A.status[i];
     if (s === ST.pyre && day >= A.until[i]) { A.status[i] = ST.asphodel; A.district[i] = D.asphodel; ctx.log(E.ostologia, i, -1, D.asphodel); }
     else if (s === ST.shade && day >= A.until[i]) {
-      A.status[i] = ST.living; A.deaths[i]++; A.district[i] = BLOODS[A.bones[i]].home; A.inv[i * 5] = 6; A.stress[i] = 50; A.unburied[i] = 0;
+      A.status[i] = ST.living; A.deaths[i]++; A.district[i] = BLOODS[A.bones[i]].home; ctx.trip(i, D.asphodel, A.district[i], "return"); A.inv[i * 5] = 6; A.stress[i] = 50; A.unburied[i] = 0;
       think(ctx, i, TH.twice_born); if (A.deaths[i] === 1) A.cognomen[i] = 1;
       onReknit(ctx, i);
       ctx.log(E.return, i, -1, A.district[i], A.deaths[i]);
@@ -456,7 +457,7 @@ function migration(ctx) {
     const good = JOB_GOOD[JOBS[A.job[i]]]; if (!good || JOBS[A.job[i]] === "servant" || JOBS[A.job[i]] === "rower") continue;
     const g = GOODS.indexOf(good), own = w.cprices[cityOf(A.district[i])][g] / BASE_PRICE[g]; if (ratio[best] < 1.4 || g === best || own > 0.7 || A.obols[i] > BLOODS[A.bones[i]].wealth / 2 || !r.chance(0.08 + P(A, i, 5) / 600)) continue;
     const d = where[r.int(where.length)], res = DISTRICTS[d].res;
-    A.district[i] = d; A.job[i] = res === "food" ? J.farmer : res === "fish" ? J.fisher : res === "ore" ? J.miner : res === "cloth" ? J.weaver : res === "smoke" ? J.grower : J.herbalist; n++;
+    ctx.trip(i, A.district[i], d, "migrate"); A.district[i] = d; A.job[i] = res === "food" ? J.farmer : res === "fish" ? J.fisher : res === "ore" ? J.miner : res === "cloth" ? J.weaver : res === "smoke" ? J.grower : J.herbalist; n++;
     bio(ctx, i, E.migrate, d);
   }
   if (n > 40) ctx.log(E.migrate, -1, -1, where[0], n, GOODS[best]);
@@ -696,7 +697,7 @@ function postWatch(ctx, r) {
   for (const h of hot.slice(0, 2)) {
     const src = cold.find((c) => reap[c].length > 20); if (src === undefined) break;
     const n = Math.min(Math.floor(reap[src].length / 4), Math.ceil((act[h] || 0) / 8)); if (n < 5) continue;
-    for (let t = 0; t < n; t++) { const i = reap[src].splice(r.int(reap[src].length), 1)[0]; A.district[i] = h; reap[h].push(i); bio(ctx, i, E.watch, h); }
+    for (let t = 0; t < n; t++) { const i = reap[src].splice(r.int(reap[src].length), 1)[0]; ctx.trip(i, src, h, "watch"); A.district[i] = h; reap[h].push(i); bio(ctx, i, E.watch, h); }
     ctx.log(E.watch, -1, -1, h, n, DISTRICTS[src].name);
   }
 }
@@ -730,7 +731,7 @@ function ostracism(ctx) {
   for (const i of ctx.live) for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k], v = A.tieVal[i * TIES + k]; if (j >= 0 && v < 0) hate[j] -= v; }
   let worst = -1, hv = 260; for (const i of ctx.live) if (hate[i] > hv) { hv = hate[i]; worst = i; }
   if (worst < 0) return;
-  A.status[worst] = ST.exiled; A.until[worst] = day + 60; A.district[worst] = D.agora; think(ctx, worst, TH.exiled);
+  ctx.trip(worst, A.district[worst], D.agora, "exile"); A.status[worst] = ST.exiled; A.until[worst] = day + 60; A.district[worst] = D.agora; think(ctx, worst, TH.exiled);
   if (A.office[worst] >= 0) { delete w.offices[OFFICES[A.office[worst]].key]; A.office[worst] = -1; }
   setCognomen(ctx, worst, 17); ctx.log(E.ostracism, worst, -1, D.agora, hv);
 }

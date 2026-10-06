@@ -16,7 +16,7 @@ const P = (A, i, k) => A.pers[i * 6 + k];
 const cityOf = (d) => (CITIES.includes(d) ? d : D.agora);
 export const ROCKS = [D.reef, D.drepane];   // the lane the Clashing Rocks shut
 
-export function initVoyage(w) { w.rocks = { open: false, tries: 0 }; w.talos = { alive: true }; w.loans = []; w.aeaea = []; }
+export function initVoyage(w) { w.trips = []; w.rocks = { open: false, tries: 0 }; w.talos = { alive: true }; w.loans = []; w.aeaea = []; }
 /** is the lane between a and b shut by the Clashing Rocks? */
 export const rocksShut = (w, a, b) => w.rocks && !w.rocks.open && ((a === ROCKS[0] && b === ROCKS[1]) || (a === ROCKS[1] && b === ROCKS[0]));
 
@@ -54,7 +54,7 @@ export function voyageDaily(ctx) {
   // ---- Aeaea: the hounded sail to Circe, sit silent at her hearth, and come back clean
   for (const i of ctx.live) {
     if (A.status[i] || A.fury[i] < 20 || A.obols[i] < 60 || !r.chance(0.03)) continue;
-    A.obols[i] -= 60; w.treasury += 60; A.status[i] = ST.exiled; A.until[i] = day + 20; w.aeaea.push({ i, back: day + 20 }); ctx.log(E.voyage, i, -1, A.district[i], 0, "aeaea-go");
+    A.obols[i] -= 60; w.treasury += 60; ctx.trip(i, A.district[i], D.agora, "aeaea"); A.status[i] = ST.exiled; A.until[i] = day + 20; w.aeaea.push({ i, back: day + 20 }); ctx.log(E.voyage, i, -1, A.district[i], 0, "aeaea-go");
   }
   for (const x of w.aeaea.slice()) if (day >= x.back && A.status[x.i] === ST.living) { w.aeaea.splice(w.aeaea.indexOf(x), 1); A.fury[x.i] = 0; A.miasma[x.i] = 0; ctx.think(x.i, TH.katharsis); ctx.memorize(x.i, 9, -1, 80); ctx.log(E.voyage, x.i, -1, A.district[x.i], 0, "aeaea-back"); }
     else if (A.status[x.i] === 2 || A.status[x.i] === 3) w.aeaea.splice(w.aeaea.indexOf(x), 1);

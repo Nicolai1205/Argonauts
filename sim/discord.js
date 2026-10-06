@@ -47,7 +47,7 @@ export function discordDaily(ctx) {
     const goers = pop.filter(() => r.chance(0.1)).filter((i) => i !== w.fleece && A.office[i] < 0);
     if (goers.length < 15) continue;
     const oik = goers.slice().sort((x, y) => (P(A, y, 2) + P(A, y, 4) + A.fame[y]) - (P(A, x, 2) + P(A, x, 4) + A.fame[x]) || x - y)[0];
-    for (const i of goers) { A.district[i] = dest[0]; ctx.think(i, TH.exiled); }
+    for (const i of goers) { ctx.trip(i, d, dest[0], "colony"); A.district[i] = dest[0]; ctx.think(i, TH.exiled); }
     ctx.cognomen(oik, 16); ctx.renown(oik, 80);
     w.colonies.push({ from: d, to: dest[0], oik, day, n: goers.length, members: goers.slice(0, 120) });
     if (w.colonies.length > 30) w.colonies.shift();

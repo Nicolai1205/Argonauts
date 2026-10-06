@@ -67,6 +67,7 @@ export function heroesDaily(ctx) {
     const cands = (ctx.byDist[h.city] || []).filter((i) => alive(A, i) && adult(A, i, day) && !A.jail[i]).sort((x, y) => bold(y) - bold(x) || x - y).slice(0, 40);
     const band = []; for (let t = 0; t < 6 && cands.length; t++) band.push(cands.splice(r.int(Math.min(cands.length, 12)), 1)[0]);
     if (band.length < 2) continue;
+    for (const i of band) ctx.trip(i, h.city, b.lair, "hunt");
     const strength = band.reduce((s, i) => s + bold(i), 0) / 3, tough = BEASTS[b.k].tough * (1 - Math.min(0.6, b.wounds * 0.15));
     let fell = 0; for (const i of band) if (r.chance(0.18)) { ctx.kill(i, `killed hunting ${b.name}`); fell++; }
     const lead = band.filter((i) => A.status[i] === ST.living).sort((x, y) => bold(y) - bold(x) || x - y)[0] ?? band[0];

@@ -95,6 +95,7 @@ function battle(ctx, war, r) {
   for (const [city, frac] of [[lose, 0.06], [win, 0.02]]) {
     const pool = ctx.live.filter((i) => !A.status[i] && A.district[i] === city && (!A.kind[i] || day - A.born[i] >= 16 * 12) && r.chance(0.2));
     const spared = city === lose ? spareXenoi(ctx, pool, win) : new Set();
+    for (let t = 0; t < Math.min(12, pool.length); t++) ctx.trip(pool[t], city, field, "levy");
     for (const i of pool) if (!spared.has(i) && r.chance(frac)) { ctx.kill(i, `fell in ${war.name}`); if (A.kind[i]) dead++; else broken++; }
   }
   war.dead += dead; war.broken += broken;

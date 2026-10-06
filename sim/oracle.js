@@ -65,7 +65,7 @@ export function oracleDaily(ctx) {
       const seer = seers.length ? seers[r.int(seers.length)] : -1;
       const tpl = pick(r.int(1000), RIDDLE[kind]);
       const text = tpl.replace("{city}", DISTRICTS[city].name).replace("{where}", DISTRICTS[city].name).replace("{blood}", w.factions[A.faction[who]].name).replace("{name}", nameOf(A.lineage[who] + 1));
-      const id = ++w.pseq; w.prophecies.push({ id, day, who, kind, city, seer, text, until: day + 180 });
+      ctx.trip(who, A.district[who], D.mist, "pilgrim"); const id = ++w.pseq; w.prophecies.push({ id, day, who, kind, city, seer, text, until: day + 180 });
       ctx.log(E.oracle, who, seer, city, id, "given|" + text);
     }
   }

@@ -1,6 +1,6 @@
 # The Argo: handover
 
-Status on 2026-10-06 (afternoon). **Rules v22**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
+Status on 2026-10-06 (afternoon). **Rules v23**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
 An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and their mortal children. **One real hour is one sim day.** Day 0 is 2026-10-06 00:00 UTC.
 
 ## 1. How it runs (nothing to babysit)
@@ -159,14 +159,12 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ v22. **Infants carry their parent's job label** (effects are gated by age, but the panel says "pirate" for a baby). Show "child of a pirate".
 - ✅ v22: the sim's districts use the map's coordinates. **Geography mismatch:** the sim's district coordinates differ from the map's sites; travel times and beast radii are in sim units.
 - **Cross-engine determinism** is only checked by hand in Chromium. A CI job could run `/?xtest` in Firefox and WebKit.
-### C. Better pathing and map
-- Walkers follow street graphs instead of straight lines through houses; stay off water.
-- Animate journeys between cities instead of teleporting: migrants, colonists sailing with the sacred fire, avengers tracking a target, hunting parties marching to a lair, war levies, Fleece expeditions, scapegoats driven out, pilgrims to the Pythia and to the mysteries.
-- Ships: convoys from trierarchies, wrecks marked where they sank, Scylla taking ships in the strait, storm squalls over lanes.
-- Beasts as moving figures inside their hunting circle; a slain beast's lair becomes a shrine.
-- Weather in place: rain over wet districts, cracked fields in drought, rivers widening in flood, fog on the Mist-terraces.
-- The Pyra burns brighter with each body; shades walk the Asphodel Meadow; stolen bones shown in the thief city.
-- Unify geography so the sim uses the map's coordinates.
+### C. Better pathing and map  ✅ v23
+- ✅ Walkers take L-shaped street paths instead of cutting through houses.
+- ✅ Journeys between cities are drawn during the hour they happen, chained over the road and sea network (`w.trips`, kept 3 days): migrants, colonists, avengers tracking a target, the Reapers' watch, exiles and scapegoats, Argonauts walking home from Asphodel, pilgrims to the Pythia, hunting parties (there and back), war levies, the hounded sailing off-map to Aeaea.
+- ✅ Wrecks marked on the lane, convoy escorts beside ships, stolen bones in the thief city, beasts prowling their circle, shrines at slain beasts' lairs, local rain, drought cracks, fog on the Mist-terraces, the Pyra glowing with the number it holds.
+- Still open: a real street graph inside cities; beasts drawn as creatures instead of glyphs; rivers that widen in flood.
+- **State growth (measured, v22):** the save is dominated by tie indices (random, so they barely compress), dead Leaves' life records (needed for their pages) and holder addresses. A binary save would save ~13%; not worth it yet.
 ### D. Engagement (spectators and holders)
 - **Holder view:** search by wallet → the house page: every token, its life, its guest-friends (xenia from real sales), feuds and curses.
 - **Follow alerts:** subscribe to a character or house; an RSS feed per character or house.

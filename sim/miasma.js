@@ -113,7 +113,7 @@ export function miasmaDaily(ctx) {
     if (A.status[t] === ST.pyre || A.status[t] === ST.asphodel) { A.avenge[i] = 0; ctx.oathEnds(i, "vengeance", true); continue; }   // dead for good: the vow is discharged
     if (r.chance(0.006)) { A.avenge[i] = 0; ctx.oathEnds(i, "vengeance", false); continue; }                                     // the grief is spent; the vow is broken
     if (A.status[t] !== ST.living) continue;                                                                       // broken bone: wait for it to knit
-    if (A.district[t] !== A.district[i]) { if (A.district[t] < D.pyra && r.chance(0.04)) A.district[i] = A.district[t]; continue; }
+    if (A.district[t] !== A.district[i]) { if (A.district[t] < D.pyra && r.chance(0.04)) { ctx.trip(i, A.district[i], A.district[t], "hunt-man"); A.district[i] = A.district[t]; } continue; }
     const due = w.oaths && w.oaths.find((o) => o.who === i && o.kind === "vengeance"), urgent = due && due.until - day < 15;   // an oath falling due presses the hand
     if (!r.chance(urgent ? 0.14 : 0.07)) continue;
     A.avenge[i] = 0; ctx.think(i, TH.vengeance_taken);
@@ -148,7 +148,7 @@ export function miasmaDaily(ctx) {
     const worth = (i) => { let s = A.obols[i] + A.fame[i] * 3; for (let t = 0; t < TIES; t++) if (A.tieVal[i * TIES + t] > 0) s += A.tieVal[i * TIES + t]; return s; };
     pool.sort((x, y) => worth(x) - worth(y) || x - y); const goats = pool.slice(0, 2); if (goats.length < 2) continue;
     w.scapegoat[d] = day;
-    for (const g of goats) { ctx.memorize(g, 8, -1, 90); A.status[g] = ST.exiled; A.until[g] = day + 60; A.district[g] = D.agora; ctx.think(g, TH.exiled); ctx.cognomen(g, 19); }
+    for (const g of goats) { ctx.memorize(g, 8, -1, 90); ctx.trip(g, d, D.agora, "exile"); A.status[g] = ST.exiled; A.until[g] = day + 60; A.district[g] = D.agora; ctx.think(g, TH.exiled); ctx.cognomen(g, 19); }
     for (const i of ctx.byDist[d]) if (!A.status[i] && A.miasma[i]) A.miasma[i]--;
     ctx.log(E.pharmakos, goats[0], goats[1], d, pop[d], sick[d] > pop[d] * 0.08 ? "plague" : hungry[d] > pop[d] * 0.25 ? "famine" : "blight");
   }
