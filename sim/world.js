@@ -9,7 +9,7 @@ import { initRumors } from "./rumor.js";
 export const TIES = 8;      // social ties per character
 export const THS = 6;       // thought slots
 export const BIO = 10;      // remembered life events (ring)
-export const VERSION = 7;
+export const VERSION = 8;
 export const ARGO = 9999;   // entity indices 0..9998 are the tokens; the Leaves (mortal children) are appended after  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
 
 // dynamic arrays: [name, type, per-agent width]
@@ -112,6 +112,7 @@ export function createWorld(seed, seedHash = "argo") {
   w.static = { persona: seed.persona, relic: seed.relic };
   w.none = { cloak: d.Cloak.indexOf("none"), crown: d.Crown.indexOf("none"), sight: d.Sight.indexOf("none"), artifact: d.Artifact.indexOf("none") };
   w.births = 0; w.leafDeaths = 0;
+  w.dictIx = { cloak: Object.fromEntries(d.Cloak.map((n, k) => [n, k])), crown: Object.fromEntries(d.Crown.map((n, k) => [n, k])), artifact: Object.fromEntries(d.Artifact.map((n, k) => [n, k])) };
   w.prices = BASE_PRICE.slice();
   w.priceMult = 1;            // Talos at the strait raises everything
   w.fertility = DISTRICTS.map(() => 1000);

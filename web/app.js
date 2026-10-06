@@ -12,6 +12,7 @@ import { dateOf, MONTHS } from "./sim/culture.js";
 import { CITIES } from "./sim/war.js";
 import { CRAFTS } from "./sim/drift.js";
 import { renderCodex } from "./codex.js";
+import { portrait, loadArt } from "./portrait.js";
 import { figure, lookOf } from "./figures.js";
 import { hash32 } from "./sim/rng.js";
 
@@ -38,7 +39,7 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
     catchUp();
     layout(); fit(); render(); panels();
     $("#loading").remove();
-    setInterval(liveTick, 15000); requestAnimationFrame(frame);
+    setInterval(liveTick, 15000); requestAnimationFrame(frame); loadArt(); route(); addEventListener("hashchange", route);
   } catch (e) { $("#loading").textContent = "The sea is fogged: " + e.message; console.error(e); }
 })();
 
@@ -222,7 +223,9 @@ function fit() { resize(); const r = cv.getBoundingClientRect(); S.scale = Math.
 let tAnim = 0;
 function render() {
   if (!w || !S.home) return;
-  const r = cv.getBoundingClientRect(), A = w.A, sc = S.scale, now = Date.now() / 1000, f = positions(now);
+  const r = cv.getBoundingClientRect(), A = w.A, now = Date.now() / 1000, f = positions(now);
+  if (S.follow >= 0) { const tx = r.width / 2 - S.cur[S.follow * 2] * S.scale, ty = r.height / 2 - (S.cur[S.follow * 2 + 1] - 8) * S.scale; S.x += (tx - S.x) * 0.2; S.y += (ty - S.y) * 0.2; S.sel = S.follow; }
+  const sc = S.scale;
   cx.fillStyle = "#0b1a33"; cx.fillRect(0, 0, r.width, r.height);
   cx.save(); cx.translate(S.x, S.y); cx.scale(sc, sc);
   cx.imageSmoothingEnabled = false; cx.drawImage(TERRAIN, 0, 0, SIZE, SIZE, 0, 0, WORLD, WORLD);
@@ -271,6 +274,7 @@ function render() {
   const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97);
   const grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, 150); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
   cx.fillStyle = grd; cx.beginPath(); cx.arc(pd.x, pd.y, 150, 0, 6.283); cx.fill();
+  if (R.on) { drawReplay(sc); cx.restore(); return; }
   // characters
   const vx0 = -S.x / sc - 40, vy0 = -S.y / sc - 40, vx1 = (r.width - S.x) / sc + 40, vy1 = (r.height - S.y) / sc + 40, P = S.cur;
   const figH = 16, figPx = figH * sc, mode = figPx < 4 ? 0 : 1, label = figPx > 34;
@@ -308,7 +312,7 @@ function frame(t) { tAnim = t; if (t - lastFrame > 45 && !document.hidden) { las
 
 // ------------------------------------------------------------------ interaction
 let drag = null, pinch = null;
-cv.addEventListener("pointerdown", (e) => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, sx: S.x, sy: S.y, moved: false }; cv.classList.add("drag"); });
+cv.addEventListener("pointerdown", (e) => { if (S.follow >= 0) unfollow(); cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, sx: S.x, sy: S.y, moved: false }; cv.classList.add("drag"); });
 cv.addEventListener("pointermove", (e) => {
   if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; S.x = drag.sx + dx; S.y = drag.sy + dy; return; }
   const i = pick(e); S.hover = i;
@@ -418,6 +422,7 @@ function panels() {
     <h3>Broken, mending (${shades.length})</h3><p class="muted">Argonauts broken by wounds, hunger or plague. Their bones re-knit in Asphodel after 20 to 60 days.</p><p>${lst(shades.slice(0, 120))}${shades.length > 120 ? " …" : ""}</p>`;
   $("#p-about").innerHTML = `<p><b>The Argo</b> is an autonomous world. Each of the 9,999 Argonauts lives on its own: it works, trades, eats, talks, holds grudges, votes, riots, defects, dies and sometimes returns. Nobody steers it.</p>
     <p>One real hour is one day of the voyage. The world is computed by a deterministic engine: the GitHub job and your browser run the same code from the same checkpoint and get the same world (fingerprint <code>${stateHash(w)}</code>).</p>
+    <p><b>Watching:</b> ⚘ follows someone remarkable through their day; ⏵ plays the cities' history week by week; every character has a page with a link you can share (#/a/8985 for an Argonaut, #/l/12 for a Leaf, #/follow/a/8985 to follow one).</p>
     <p>The only outside force is the chain. Sales move an Argonaut to a new house, and the price arrives as gold from Colchis. Burns light the Pyra. The Maker's rulings remake a character. Renderer changes make the Argo's speaking beam speak.</p>
     <p>Names come from Apollonius' <i>Argonautica</i>, Hesiod and Ovid. Factions follow the Bones trait. Text is procedural, with no AI model; three voices, myth, horror and realism.</p>
     <p class="muted">Checkpoint day ${checkpointDay - 1}, written ${esc(meta.updated)}. Front page as RSS: <a class="who" href="world/feed.xml">feed.xml</a>. Source: <a class="who" href="https://github.com/Nicolai1205/Argonauts" target="_blank" rel="noopener" style="text-decoration:underline">github.com/Nicolai1205/Argonauts</a>.</p>`;
@@ -440,6 +445,8 @@ function openLegends(i) {
   const age = leaf ? ageOf(A, i, w.day) : null, deadLeaf = leaf && A.status[i] >= 2;
   const family = (leaf ? `<div class="kv"><b>Born</b><span>${dayLabel(A.born[i])}${deadLeaf ? ` · died ${dayLabel(A.died[i])} aged ${Math.floor((A.died[i] - A.born[i]) / YEAR)}` : ` · ${age} years old`}</span><b>Parents</b><span>${who(A.p1[i])} and ${who(A.p2[i])}</span><b>Line</b><span>generation ${A.gen[i]} of the line of ${who(A.lineage[i])}</span>${sibs.length ? `<b>Siblings</b><span>${sibs.map(who).join(", ")}</span>` : ""}</div>` : "")
     + (kids.length ? `<div class="kv"><b>Children</b><span>${kids.map(who).join(", ")}</span></div>` : "");
+  const famIds = [...(leaf ? [A.p1[i], A.p2[i]] : []), ...(A.lover[i] >= 0 ? [A.lover[i]] : []), ...kids.slice(0, 10)];
+  const thumbs = famIds.length ? `<div class="thumbs">${famIds.map((j) => `<a data-i="${j}" class="${A.status[j] >= 2 && A.status[j] <= 3 ? "dead" : ""}"><img data-p="${j}" alt=""><span>${esc(view.name(j).split(" ")[0])}${j === A.lover[i] ? " ♥" : (leaf && (j === A.p1[i] || j === A.p2[i])) ? " (parent)" : ""}</span></a>`).join("")}</div>` : "";
   const hex = ["Honesty", "Emotionality", "Extraversion", "Agreeableness", "Conscientiousness", "Openness"].map((h, k) => `<div class="trait"><span>${h}</span><div class="bar"><b style="width:${A.pers[i * 6 + k]}%;background:var(--gold)"></b></div><span class="num">${A.pers[i * 6 + k]}</span></div>`).join("");
   const ideo = AXES.map((a, k) => { const v = A.ideo[i * 3 + k]; return `<div class="trait"><span>${v >= 0 ? a[0] : a[1]}</span><div class="bar"><b style="left:${50 + Math.min(0, v) / 2}%;width:${Math.abs(v) / 2}%;background:var(--myth)"></b></div><span class="num">${Math.abs(v)}</span></div>`; }).join("");
   const th = []; for (let k = 0; k < THS; k++) { const t = A.thType[i * THS + k]; if (t && A.thUntil[i * THS + k] >= w.day - 1) th.push(`<span class="pill">${THOUGHTS[t][0]} ${THOUGHTS[t][1] > 0 ? "+" : ""}${THOUGHTS[t][1]}</span>`); }
@@ -450,8 +457,9 @@ function openLegends(i) {
    <div class="lg-head"><canvas id="lgArt" width="24" height="24"></canvas><div><h2>${esc(view.name(i))}</h2>
      <div class="t">${esc(f.name)}, ${esc(f.title)} · ${A.status[i] === ST.pyre || A.status[i] === ST.asphodel ? "once a " + JOBS[A.job[i]] : JOBS[A.job[i]] + " in " + esc(DISTRICTS[A.district[i]].name)} · ${status}${A.office[i] >= 0 ? " · " + OFFICES[A.office[i]].title : ""}</div>
      <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}${i < 9999 ? `<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a>` : "born in the world, not on the chain"}</div>
-     <div style="margin-top:6px">${traits}</div></div></div>
-   ${family ? `<h3>Family</h3>${family}` : ""}
+     <div style="margin-top:6px">${traits}</div>
+     <div class="lg-tools">${A.status[i] === ST.living ? '<button id="lgFollow">Follow</button>' : ""}<button id="lgShare">Copy link</button></div></div></div>
+   ${family || thumbs ? `<h3>Family</h3>${thumbs}${family}` : ""}
    <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span><b>Faith</b><span style="color:${w.faiths[A.faith[i]].color}">${esc(w.faiths[A.faith[i]].name)}</span><b>Wears</b><span style="color:${w.styles[A.style[i]].color}">${esc(w.styles[A.style[i]].name)}</span><b>Devotion</b><span>${A.devotion[i]}</span></div></div></div>
    ${A.status[i] === ST.living && S.where && S.where[i] ? `<h3>Today</h3><p>${esc(view.name(i).split(' ')[0])} ${esc(S.where[i].work)}, then ${esc(S.where[i].eve)}${S.eveWith[i] >= 0 ? ` <a class="who" data-i="${S.eveWith[i]}">${esc(view.name(S.eveWith[i]))}</a>` : ""}.${A.lover[i] >= 0 ? ` Beloved: <a class="who" data-i="${A.lover[i]}">${esc(view.name(A.lover[i]))}</a>.` : ""}</p>` : ""}
    <h3>On their mind</h3><div>${th.join("") || '<span class="muted">nothing pressing</span>'}</div>
@@ -459,19 +467,88 @@ function openLegends(i) {
    <h3>Life</h3><ol class="bio">${bio.join("") || '<li class="muted">Nothing remembered yet.</li>'}</ol>${recent ? `<h3>In the chronicle</h3><ol class="bio">${recent}</ol>` : ""}`;
   const c = $("#lgArt").getContext("2d");
   if (i < 9999) { const [sx, sy] = spriteAt(i); c.drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); }
-  else { const L = S.looks[i]; c.fillStyle = "#1b2a40"; c.fillRect(0, 0, 24, 24); c.imageSmoothingEnabled = true; c.drawImage(L.canvas, 4 * L.w, 0, L.w, L.h, 5, 1, 14, 22); }
+  else portrait(seed, A, i).then((img) => { c.clearRect(0, 0, 24, 24); c.drawImage(img, 0, 0, 24, 24); if (A.status[i] >= 2 && A.status[i] <= 3) { c.globalCompositeOperation = "saturation"; c.fillStyle = "#888"; c.fillRect(0, 0, 24, 24); } });
+  // family in pictures
+  document.querySelectorAll("#lgCard .thumbs img[data-p]").forEach((im) => { const j = +im.dataset.p; if (j < 9999) { const cc = document.createElement("canvas"); cc.width = cc.height = 24; const [sx, sy] = spriteAt(j); cc.getContext("2d").drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); im.src = cc.toDataURL(); } else portrait(seed, A, j).then((pi) => (im.src = pi.src)); });
+  history.replaceState(null, "", `#/${i < 9999 ? "a/" + (i + 1) : "l/" + (i - 9998)}`);
   if (A.status[i] === ST.asphodel || A.status[i] === ST.shade) { c.globalCompositeOperation = "saturation"; c.fillStyle = "#888"; c.fillRect(0, 0, 24, 24); }
   $("#legends").classList.add("on"); $("#legends").setAttribute("aria-hidden", "false"); $(".close").onclick = closeLegends; focus(i);
+  if ($("#lgFollow")) $("#lgFollow").onclick = () => { closeLegends(); follow(i); };
+  $("#lgShare").onclick = () => { const url = location.href.split("#")[0] + `#/${i < 9999 ? "a/" + (i + 1) : "l/" + (i - 9998)}`; navigator.clipboard.writeText(url).then(() => ($("#lgShare").textContent = "Link copied")).catch(() => prompt("Link", url)); };
 }
 function bioText(t, arg) {
   return { death: "died", return: "came back from Asphodel", burn: "went to the Pyra", ostologia: "bones gathered; an oar planted", sold: `passed to the house of ${w.oikoi[arg]?.name || "a stranger"}`,
     hostage: "held in escrow", xenia: "exchanged under xenia", gold: "sold for gold", ruling: "touched by the Maker", riot: "rioted", defect: "changed allegiance", schism: "founded a faction",
     office: "took office", ostracism: "ostracized", funeral: "a funeral", unburied: "lay unburied", break: "broke under the strain", brawl: "fought", robbery: arg >= 0 ? `robbery involving ${view.name(arg)}` : "robbery",
-    cognomen: `became ${COGNOMENS[arg]}`, migrate: `moved to ${DISTRICTS[arg]?.name || "new work"}`, exile_end: "returned from exile", lemnian: "the night of knives", plague: "fell sick", fleece: "the Fleece" }[t] || t;
+    cognomen: `became ${COGNOMENS[arg]}`, comeofage: `came of age and took up the trade of ${JOBS[arg] || "their family"}`, birth: arg >= 0 ? `a child was born: ${view.name(arg)}` : "a child was born", heartbreak: "a heart broke", love: arg >= 0 ? `fell in love with ${view.name(arg)}` : "fell in love", convert: "took a new faith", prophet: "heard a god", battle: "went to war", migrate: `moved to ${DISTRICTS[arg]?.name || "new work"}`, exile_end: "returned from exile", lemnian: "the night of knives", plague: "fell sick", fleece: "the Fleece" }[t] || t;
 }
-function closeLegends() { $("#legends").classList.remove("on"); $("#legends").setAttribute("aria-hidden", "true"); S.sel = -1; render(); }
+function closeLegends() { if (location.hash.startsWith("#/a/") || location.hash.startsWith("#/l/")) history.replaceState(null, "", location.pathname); $("#legends").classList.remove("on"); $("#legends").setAttribute("aria-hidden", "true"); S.sel = -1; render(); }
 $("#legends").addEventListener("click", (e) => { if (e.target.id === "legends") closeLegends(); });
 addEventListener("keydown", (e) => { if (e.key === "Escape") closeLegends(); });
+
+// ------------------------------------------------------------------ links: #/a/8985 (an Argonaut), #/l/12 (a Leaf), #/follow/a/8985, #/tab/cities
+function route() {
+  const h = location.hash.replace(/^#\/?/, "").split("/");
+  const idOf = (k, n) => (k === "a" ? Number(n) - 1 : 9998 + Number(n));
+  if ((h[0] === "a" || h[0] === "l") && h[1]) { const i = idOf(h[0], h[1]); if (i >= 0 && i < w.N) openLegends(i); }
+  else if (h[0] === "follow" && h[2]) { const i = idOf(h[1], h[2]); if (i >= 0 && i < w.N) follow(i); }
+  else if (h[0] === "tab" && h[1]) { const b = document.querySelector(`.tabs [data-tab="${h[1]}"]`); if (b) b.click(); }
+}
+
+// ------------------------------------------------------------------ follow one life: the camera stays with them through the day
+function activityOf(i) {
+  const A = w.A; if (A.status[i] !== ST.living) return "is not among the living";
+  const f0 = (((Date.now() / 1000 - GENESIS) % 3600) + 3600) % 3600 / 3600, b = i * 12, P = S.plan, night = S.planFlags[i] & 1, f = night ? (f0 + 0.5) % 1 : f0;
+  const T = [0, 1, 2, 3, 4, 5].map((q) => (night ? (P[b + q] + 0.5) % 1 : P[b + q])), wh = S.where[i] || { work: "works", eve: "rests" };
+  if (f < T[0] || f >= T[5]) return A.sick[i] ? "lies sick at home" : "is asleep at home";
+  if (f < T[1]) return "is on the way to work";
+  if (f < T[2]) return wh.work;
+  if (f < T[3]) return "is walking into the evening";
+  if (f < T[4]) return wh.eve + (S.eveWith[i] >= 0 ? " " + view.name(S.eveWith[i]) : "");
+  return "is walking home";
+}
+function follow(i) {
+  S.follow = i; S.scale = Math.max(S.scale, 2.6); const bar = $("#followbar"); bar.classList.add("on");
+  history.replaceState(null, "", `#/follow/${i < 9999 ? "a/" + (i + 1) : "l/" + (i - 9998)}`);
+  const head = () => { bar.innerHTML = `<img id="fbImg" alt=""><div><b>${esc(view.name(i))}</b><br><span class="muted">${esc(activityOf(i))}</span></div><button id="fbOpen">Page</button><button id="fbStop">Stop</button>`;
+    const im = $("#fbImg"); if (i < 9999) { const cc = document.createElement("canvas"); cc.width = cc.height = 24; const [sx, sy] = spriteAt(i); cc.getContext("2d").drawImage(sprites.canvas, sx, sy, 24, 24, 0, 0, 24, 24); im.src = cc.toDataURL(); } else portrait(seed, w.A, i).then((p) => (im.src = p.src));
+    $("#fbStop").onclick = unfollow; $("#fbOpen").onclick = () => openLegends(i); };
+  head(); clearInterval(S.followTimer); S.followTimer = setInterval(() => { if (S.follow === i) { const sp = bar.querySelector(".muted"); if (sp) sp.textContent = activityOf(i); } }, 2000);
+}
+function unfollow() { S.follow = -1; $("#followbar").classList.remove("on"); clearInterval(S.followTimer); if (location.hash.startsWith("#/follow")) history.replaceState(null, "", location.pathname); }
+S.follow = -1;
+$("#zluck").onclick = () => {
+  // someone remarkable: an office holder, a prophet, a named survivor or someone in today's news; never the same twice in a row
+  const A = w.A, pool = []; for (let i = 0; i < w.N; i++) if (A.status[i] === ST.living && (A.office[i] >= 0 || A.cognomen[i] || A.lover[i] >= 0 && A.kind[i])) pool.push(i);
+  const today = (M.stories || []).filter((x) => x.day >= w.day - 2).flatMap((x) => x.actors).filter((i) => i >= 0 && i < w.N && A.status[i] === ST.living);
+  const choice = today.length && Math.random() < 0.6 ? today[Math.floor(Math.random() * today.length)] : pool[Math.floor(Math.random() * pool.length)];
+  if (choice !== undefined) follow(choice);
+};
+
+// ------------------------------------------------------------------ time-lapse: the cities' history, week by week
+const R = { on: false, k: 0, playing: false, timer: null };
+$("#zlapse").onclick = () => {
+  const tl = w.war.timeline || []; if (!tl.length) return;
+  if (S.follow >= 0) unfollow(); closeLegends(); fit(); R.on = true; R.k = 0; $("#replay").classList.add("on"); const sl = $("#rslider"); sl.max = tl.length - 1; sl.value = 0; showReplay(); play(true);
+};
+function showReplay() {
+  const tl = w.war.timeline, t = tl[R.k]; $("#rslider").value = R.k; $("#rdate").textContent = dayLabel(t.d);
+  const st = (M.stories || []).filter((x) => x.day >= t.d && x.day < t.d + 7).sort((a, b) => b.score - a.score)[0];
+  $("#rstory").innerHTML = st ? `<b>${esc(st.title)}.</b> ${linkify(st.text)}` : '<span class="muted">A quiet week.</span>';
+}
+function play(on) { R.playing = on; $("#rplay").textContent = on ? "⏸" : "⏵"; clearInterval(R.timer); if (on) R.timer = setInterval(() => { if (R.k >= w.war.timeline.length - 1) return play(false); R.k++; showReplay(); }, 900); }
+$("#rplay").onclick = () => play(!R.playing);
+$("#rslider").oninput = (e) => { R.k = +e.target.value; showReplay(); };
+$("#rclose").onclick = () => { R.on = false; play(false); $("#replay").classList.remove("on"); };
+function drawReplay(sc) {
+  const t = w.war.timeline[R.k]; if (!t) return;
+  CITIES.forEach((c, n) => { const lord = t.lord[c]; if (lord !== c) { cx.strokeStyle = "rgba(227,179,65,.75)"; cx.setLineDash([30, 20]); cx.lineWidth = Math.max(6, 2.5 / sc); cx.beginPath(); cx.moveTo(SITE[c].x, SITE[c].y); cx.lineTo(SITE[lord].x, SITE[lord].y); cx.stroke(); cx.setLineDash([]); } });
+  CITIES.forEach((c, n) => { const F = w.factions[t.fac[n]], Fa = w.faiths[t.faith[n]], r = 60 + Math.sqrt(t.pop[n] || 0) * 9;
+    cx.fillStyle = F ? F.color + "cc" : "#888"; cx.beginPath(); cx.arc(SITE[c].x, SITE[c].y, r, 0, 6.283); cx.fill();
+    cx.strokeStyle = Fa ? Fa.color : "#fff"; cx.lineWidth = Math.max(10, 4 / sc); cx.stroke();
+    cx.fillStyle = "#0b1220"; cx.font = `700 ${16 / sc}px "Cormorant Garamond", serif`; cx.textAlign = "center"; cx.fillText(`${F ? F.name : ""}`, SITE[c].x, SITE[c].y + 5 / sc); });
+  for (const [a, b] of t.wars) { cx.strokeStyle = "rgba(224,90,70,.9)"; cx.lineWidth = Math.max(10, 4 / sc); cx.beginPath(); cx.moveTo(SITE[a].x, SITE[a].y); cx.lineTo(SITE[b].x, SITE[b].y); cx.stroke(); cx.fillStyle = "#e05a46"; cx.font = `${22 / sc}px serif`; cx.fillText("⚔", (SITE[a].x + SITE[b].x) / 2, (SITE[a].y + SITE[b].y) / 2); }
+}
 
 // ------------------------------------------------------------------ search
 $("#q").addEventListener("input", () => {

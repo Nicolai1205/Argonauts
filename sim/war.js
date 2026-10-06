@@ -56,6 +56,10 @@ export function cities(ctx) {
     const frontier = CITIES.some((b) => b !== a && W.rel[a][b] < -40 && dist(a, b) < 450 && other(b));   // a metaethnic frontier: hostile AND different
     W.S[a] = Math.max(0.02, Math.min(0.98, frontier ? W.S[a] + 0.06 * W.S[a] * (1 - W.S[a]) : W.S[a] - 0.05 * W.S[a]));
   }
+  // a weekly page of the city-level history, for the time-lapse
+  W.timeline = W.timeline || [];
+  W.timeline.push({ d: day, lord: W.lord.slice(), faith: CITIES.map((c) => W.dom[c].faith), fac: CITIES.map((c) => W.dom[c].faction), pop: CITIES.map((c) => W.dom[c].pop), S: CITIES.map((c) => Math.round(W.S[c] * 100)), wars: W.wars.map((x) => [x.a, x.target]) });
+  if (W.timeline.length > 400) W.timeline.shift();
   // battles in the wars already running
   for (const war of W.wars.slice()) battle(ctx, war, r);
   // declarations: a cohesive, stronger city that hates a reachable neighbour

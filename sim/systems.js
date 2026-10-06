@@ -119,7 +119,15 @@ function lifecycle(ctx) {
   for (const i of ctx.live) {
     if (!A.kind[i] || A.status[i]) continue;
     const d = day - A.born[i], age = Math.floor(d / YEAR);
-    if (d === 14 * YEAR) { A.job[i] = adultJob(ctx, i, r); bio(ctx, i, E.comeofage, A.job[i]); }
+    if (d === 14 * YEAR) {
+      A.job[i] = adultJob(ctx, i, r); bio(ctx, i, E.comeofage, A.job[i]);
+      // heirlooms: a crown, a pair of eyes or a vice taken up from a parent; the cloak of one's trade
+      const par = [A.p1[i], A.p2[i]].filter((p) => p >= 0), pick = () => par[r.int(par.length)], X = w.dictIx;
+      if (par.length && r.chance(0.45)) { const c = A.crown[pick()]; if (c !== X.crown["Golden Fleece"]) A.crown[i] = c; }
+      if (par.length && r.chance(0.45)) A.sight[i] = A.sight[pick()];
+      if (par.length && r.chance(0.4)) { A.artifact[i] = A.artifact[pick()]; A.vice[i] = A.artifact[i] === X.artifact.none ? 0 : 1; }
+      const jc = { [J.reaper]: "Death", [J.priest]: "Clergy", [J.servant]: "Servant", [J.noble]: "Royalty" }[A.job[i]]; if (jc && X.cloak[jc] !== undefined) A.cloak[i] = X.cloak[jc];
+    }
     let hz = HAZ[Math.min(130, age)] / YEAR; if (A.sick[i]) hz *= 4; if (A.hunger[i] > 3) hz *= 3;
     if (r.chance(hz)) kill(ctx, i, age < 5 ? "died in infancy" : age >= 60 ? "died of old age" : A.sick[i] ? "plague" : A.hunger[i] > 3 ? "starved" : "a sudden fever");
   }
