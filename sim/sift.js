@@ -7,7 +7,7 @@ const HARM = new Set(["brawl", "robbery", "death", "lemnian"]);
 const PROPHECY = { "SIRENS": ["sirens", "sirens_sung"], "DO NOT LISTEN": ["sirens"], "LEMNOS": ["lemnian"], "CLASHING ROCKS": ["talos"], "MEDEA": ["plague"], "STARS FELL": ["star", "pall"],
   "MAX PAIN": ["riot", "famine"], "SOWN MEN": ["riot", "doliones"], "ORIGINAL SIN": ["lemnian", "ostracism"], "BUTES": ["sirens"], "THE DRAGON SLEEPS": ["fleece"], "ESCAPING MY DEMONS": ["return"], "GREAT RESTORATION": ["bounty", "return"] };
 const BASE = { revenge: 70, risefall: 65, thricebroken: 55, widowed: 50, lastline: 60, feud: 75, street: 70, prophecy: 85, turncoat: 45, generation: 90, burn: 95, ruling: 90, fleece: 80, schism: 60,
-  lemnian: 85, dissolve: 50, bigfamily: 40, doliones: 70, election: 45, firstleaf: 55, riot: 55, plague: 60, sirens: 65, talos: 40, pall: 45, bounty: 35, ostracism: 55, law: 30, famine: 50, harpies: 45, beam: 70 };
+  lemnian: 85, dissolve: 50, bigfamily: 40, doliones: 70, election: 45, firstleaf: 55, riot: 55, plague: 60, sirens: 65, talos: 40, pall: 45, bounty: 35, ostracism: 55, law: 30, famine: 50, harpies: 45, beam: 70, prophet: 90, temple: 50, monument: 60, iconoclasm: 75, festival: 55, faithdies: 55 };
 
 export function emptySift() { return { harm: {}, office: {}, riot: {}, love: {}, breaks: {}, defect: {}, feud: {}, beams: [], gen: { max: 1 }, freq: {}, firstLeaf: {}, stories: [] }; }
 
@@ -50,6 +50,13 @@ export function sift(M, day, events, w, name) {
       case "famine": add("famine", [], "Famine", `${e.v} Minyans are hungry while the granaries stand full.`, Math.min(2, e.v / 800)); break;
       case "ostracism": add("ostracism", [a], `${who(a).split(" ")[0]} is cast out`, `The ekklesia scratched ${who(a)}'s name on bone shards. Sixty days of exile.`); break;
       case "election": add("election", [], "A new helm for the Boule", `The coalition is now ${e.s}.`); break;
+      case "prophet": { const [people, god] = (e.s || "").split("|"); add("prophet", [a], `A prophet of ${god}`, `${who(a)} has begun to preach ${god}. The faithful call themselves ${people}.`, 1.2); break; }
+      case "faithschism": { const [nf, of] = (e.s || "").split("|"); add("schism", [a], `${nf} breaks with ${of}`, `${who(a)} led the dissenters out of ${of}. They pray apart now.`); break; }
+      case "temple": add("temple", [a], `A temple for ${e.s}`, `${e.s} raised a house of stone for their god in ${where(e.x)}.`); break;
+      case "monument": add("monument", [a], `A stele in ${where(e.x)}`, `The Boule raised ${e.s} so no one forgets.`); break;
+      case "iconoclasm": add("iconoclasm", [a], `${e.s} torn down`, `Rioters led by ${who(a)} broke ${e.s} in ${where(e.x)}. What it remembered is now disputed.`, 1.2); break;
+      case "festival": if (/remembrance/.test(e.s)) add("festival", [], e.s.charAt(0).toUpperCase() + e.s.slice(1), `${e.v} Minyans kept the day.`); break;
+      case "faithdies": add("faithdies", [], `${e.s} is no more`, `The last believer of ${e.s} has gone. Their god goes unworshipped.`); break;
       case "beam": add("beam", [], "The Argo speaks", `The speaking oak in the prow said "${e.s}". The augurs are already arguing about what it means.`); break;
       case "ostracism": case "exile_end": break;
       case "death":

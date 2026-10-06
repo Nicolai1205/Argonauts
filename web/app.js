@@ -8,6 +8,7 @@ import { TIES, THS, BIO } from "./sim/world.js";
 import { EV } from "./sim/systems.js";
 import { generate, paint, SITES, SIZE, TILE } from "./map.js";
 import { sift, emptySift } from "./sim/sift.js";
+import { dateOf, MONTHS } from "./sim/culture.js";
 import { figure, lookOf } from "./figures.js";
 import { hash32 } from "./sim/rng.js";
 
@@ -232,6 +233,8 @@ function render() {
     const V = C.venues, box = (p, col, wd, ht) => { cx.fillStyle = col; cx.fillRect(p[0] - wd / 2, p[1] - ht / 2, wd, ht); };
     box(V.market, "#8c7650", 46, 30); box(V.temple, "#e9e1cf", 40, 18); cx.fillStyle = "#b8b0a0"; for (let q = -2; q <= 2; q++) cx.fillRect(V.temple[0] + q * 8 - 1.5, V.temple[1] - 9, 3, 18);
     box(V.gaol, "#25252b", 20, 16); box(V.workshop, "#6b5a46", 24, 16); for (const T of V.taverns) { box(T, "#9a5b2a", 22, 16); if (night) box(T, "rgba(255,170,70,.9)", 6, 6); }
+    w.faiths.forEach((F, fk) => { if (!F.alive || !F.templeBuilt || F.temple !== k) return; const tx = V.temple[0] + (fk % 4 - 1.5) * 34, ty = V.temple[1] - 26 - Math.floor(fk / 4) * 22; cx.fillStyle = F.color; cx.fillRect(tx - 12, ty - 6, 24, 12); cx.fillStyle = "#0b1220"; cx.fillRect(tx - 9, ty - 2, 3, 8); cx.fillRect(tx - 1.5, ty - 2, 3, 8); cx.fillRect(tx + 6, ty - 2, 3, 8); });
+    (w.monuments || []).forEach((m, mk) => { if (m.district !== k) return; const mx = c.x + 50 + (mk % 5) * 16, my = c.y + 34; if (m.standing) { cx.fillStyle = "#e9e1cf"; cx.fillRect(mx - 3, my - 16, 6, 18); cx.fillStyle = "#b8b0a0"; cx.fillRect(mx - 5, my, 10, 3); } else { cx.fillStyle = "#8a8478"; cx.fillRect(mx - 8, my - 2, 7, 4); cx.fillRect(mx + 1, my, 6, 3); } });
     if (V.docks) { cx.strokeStyle = "#8a6a44"; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(V.docks[0] - 20, V.docks[1]); cx.lineTo(V.docks[0] + 20, V.docks[1]); cx.stroke(); }
   });
   // the Pyra
@@ -248,6 +251,7 @@ function render() {
     cx.globalAlpha = st === ST.shade ? 0.3 : 1;
     if (mode === 0) { cx.fillStyle = w.factions[A.faction[i]].color; cx.fillRect(x - 3, y - 3, 6, 6); }
     else { const L = S.looks[i], hh = A.kind[i] ? figH * [0.45, 0.68, 0.9, 0.86][stageOf(i)] : figH; cx.imageSmoothingEnabled = true; cx.drawImage(L.canvas, S.frame[i] * L.w, 0, L.w, L.h, x - hh * 0.32, y - hh, hh * 0.64, hh); }
+    if (mode === 1 && A.faith[i] && A.devotion[i] > 60 && figPx > 10) { cx.fillStyle = w.faiths[A.faith[i]].color; cx.beginPath(); cx.arc(x, y - figH - 3, 2.2, 0, 6.283); cx.fill(); }
     if (st === ST.pyre) { cx.globalAlpha = 0.6 + 0.4 * fl; cx.fillStyle = "#ff7a1a"; cx.beginPath(); cx.moveTo(x - 7, y + 2); cx.quadraticCurveTo(x, y - 26 * fl, x + 7, y + 2); cx.fill();
       if (i === 8984) { cx.globalAlpha = 1; cx.fillStyle = "#2b2b2b"; cx.fillRect(x + 10, y - 9, 8, 11); } }
     if (i === S.sel || i === S.hover) { cx.globalAlpha = 1; cx.strokeStyle = "#e3b341"; cx.lineWidth = Math.max(1.5, 1.5 / sc); cx.strokeRect(x - 7, y - figH - 2, 14, figH + 4); }
@@ -309,10 +313,10 @@ function chronicle() {
   for (const e of all) { if (e.d !== lastDay) { html += `<h4>${dayLabel(e.d)}${e.prov ? " · provisional" : ""}</h4>`; lastDay = e.d; } html += `<li class="${e.voice}${e.prov ? " prov" : ""}">${linkify(e.text)}</li>`; }
   $("#chron").innerHTML = html || "<li>The sea is quiet.</li>";
 }
-const dayLabel = (d) => d < 0 ? `Prehistory · ${PREHISTORY_DAYS + d} days after the sowing` : `Day ${d} of the voyage`;
+const dayLabel = (d) => d < 0 ? `The Sowing, day ${PREHISTORY_DAYS + d}` : dateOf(d);
 function updateClock() {
   const now = Date.now() / 1000, d = dayNow(now), next = GENESIS + (d + 1) * 3600 - now;
-  $("#day").textContent = `Day ${d} of the voyage`;
+  $("#day").textContent = `${dateOf(d)} · day ${d}`;
   $("#dawn").textContent = `next dawn in ${Math.floor(next / 60)}:${String(Math.floor(next % 60)).padStart(2, "0")} · world ${stateHash(w).slice(0, 6)}${w.day - 1 > checkpointDay ? " (provisional)" : ""}`;
 }
 setInterval(() => w && updateClock(), 1000);
@@ -341,6 +345,18 @@ function panels() {
        <div class="t">${esc(f.title)}${f.founder >= 0 ? ` · founded by <a class="who" data-i="${f.founder}">${esc(view.name(f.founder))}</a>` : ""}</div>
        <div class="bar" title="members"><b style="width:${(live[k] / max * 100).toFixed(1)}%;background:${f.color}"></b></div>
        <div class="t num">legitimacy ${f.legit} · ${AXES.map((a, x) => `${f.ideo[x] >= 0 ? a[0] : a[1]} ${Math.abs(f.ideo[x])}`).join(" · ")}</div></div>`).join("");
+  // faiths
+  const fc = w.faiths.map(() => 0); for (let i = 0; i < w.N; i++) if (A.status[i] === ST.living) fc[A.faith[i]]++;
+  const fmax = Math.max(...fc);
+  $("#p-faith").innerHTML = `<p class="muted">Faiths are born when a prophet rises from a catastrophe; they spread along friendships, fastest among the frightened, hungry and grieving, and split when believers drift from the doctrine.</p>` +
+    w.faiths.map((F, k) => ({ F, k })).filter(({ F }) => F.alive).sort((a, b) => fc[b.k] - fc[a.k]).map(({ F, k }) => `<div class="fac"><i style="background:${F.color}"></i><div><b>${esc(F.name)}</b></div><div class="num">${fc[k].toLocaleString()}</div>
+      <div class="t">worship ${esc(F.god)}${F.founder >= 0 ? ` · prophet <a class="who" data-i="${F.founder}">${esc(view.name(F.founder))}</a>` : ""}${F.parent >= 0 ? ` · broke from ${esc(w.faiths[F.parent].name)}` : ""}${F.templeBuilt ? ` · temple in ${esc(DISTRICTS[F.temple].name)}` : ""}</div>
+      <div class="bar"><b style="width:${(fc[k] / fmax * 100).toFixed(1)}%;background:${F.color}"></b></div>
+      <div class="t num">${F.born < -1000 ? "since time out of mind" : "since " + dayLabel(F.born)} · ritual cost ${Math.round(F.cost * 100)}% · ${AXES.map((a, x) => `${F.doctrine[x] >= 0 ? a[0] : a[1]} ${Math.abs(F.doctrine[x])}`).join(" · ")}</div></div>`).join("") +
+    (w.faiths.some((F) => !F.alive) ? `<h3>Dead faiths</h3><p>${w.faiths.filter((F) => !F.alive).map((F) => `${esc(F.name)} (${esc(F.god)})`).join(", ")}</p>` : "") +
+    `<h3>Calendar</h3><p class="muted">A year has 360 days in twelve months named for the voyage: ${MONTHS.join(", ")}. The Pagasaia opens each year; on 11 Anthesterion the dead walk; the Games of Kolchis close the harvest. A memory still strong after a year becomes a festival.</p>` +
+    `<h3>Festivals</h3>${(w.festivals || []).slice(0, 12).map((f) => `<div class="law">${esc(f.name)}<span class="num">${dayLabel(f.day)} · ${f.n.toLocaleString()} kept it</span></div>`).join("") || '<p class="muted">None yet.</p>'}` +
+    `<h3>Monuments</h3>${(w.monuments || []).map((m) => `<div class="law">${esc(m.name)}<span class="num">${esc(DISTRICTS[m.district].name)} · raised ${dayLabel(m.day)}${m.standing ? "" : " · torn down " + dayLabel(m.fell)}</span></div>`).join("") || '<p class="muted">None yet. A great memory and a rich treasury raise a stele on its first anniversary.</p>'}`;
   // boule
   const off = Object.entries(w.offices).map(([k, i]) => { const o = OFFICES.find((x) => x.key === k); return `<div class="law"><b>${esc(o.title)}</b>, ${esc(o.role)}: <a class="who" data-i="${i}">${esc(view.name(i))}</a></div>`; }).join("");
   $("#p-boule").innerHTML = `<div class="kv"><b>Coalition</b><span>${w.boule.coalition.map((k) => esc(w.factions[k].name)).join(" + ") || "none"}</span><b>Treasury</b><span>${w.treasury.toLocaleString()} obols</span>
@@ -395,7 +411,7 @@ function openLegends(i) {
      <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}${i < 9999 ? `<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a>` : "born in the world, not on the chain"}</div>
      <div style="margin-top:6px">${traits}</div></div></div>
    ${family ? `<h3>Family</h3>${family}` : ""}
-   <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span></div></div></div>
+   <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span><b>Faith</b><span style="color:${w.faiths[A.faith[i]].color}">${esc(w.faiths[A.faith[i]].name)}</span><b>Devotion</b><span>${A.devotion[i]}</span></div></div></div>
    ${A.status[i] === ST.living && S.where && S.where[i] ? `<h3>Today</h3><p>${esc(view.name(i).split(' ')[0])} ${esc(S.where[i].work)}, then ${esc(S.where[i].eve)}${S.eveWith[i] >= 0 ? ` <a class="who" data-i="${S.eveWith[i]}">${esc(view.name(S.eveWith[i]))}</a>` : ""}.${A.lover[i] >= 0 ? ` Beloved: <a class="who" data-i="${A.lover[i]}">${esc(view.name(A.lover[i]))}</a>.` : ""}</p>` : ""}
    <h3>On their mind</h3><div>${th.join("") || '<span class="muted">nothing pressing</span>'}</div>
    <h3>Bonds</h3><div>${ties.map(([v, j]) => `<span class="pill" style="border-color:${v >= 0 ? "#3d6b4a" : "#7a3030"}">${v >= 0 ? "♥" : "✕"} <a class="who" data-i="${j}">${esc(view.name(j))}</a> ${v}</span>`).join("") || '<span class="muted">alone</span>'}</div>

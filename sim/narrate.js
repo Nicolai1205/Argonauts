@@ -34,6 +34,14 @@ const T = {
   return: ["{a}'s bones re-knit in the Asphodel Meadow and walked back to {where}. Only fire unmakes the Sown.", "Like Aethalides, who passes between the living and the dead, {a} rose from Asphodel and returned to {where}.", "{a} was broken and is whole again ({v}×). The {fa} made room at the fire, but no one sat close."],
   birth: ["{a} and {b} sowed a child in {where}: {c}. A Leaf, born to bone.", "A child for the {fa}: {c}, born to {a} and {b}. It will grow old; its parents will not.", "{c} was born in {where} to {a} and {b}{first}."],
   comeofage: ["{a} came of age."],
+  prophet: ["{a} came down from {where} with a new god: {god}. Those who follow call themselves {people}.", "After what happened, {a} began to preach {god}. By evening, {people} had a name and a first congregation."],
+  convert: ["{a} took up the faith of {s}, brought to it by {b}.", "{b} spoke to {a} late into the night; by morning {a} belonged to {s}."],
+  faithdies: ["The last of {s} has gone. Their god goes unworshipped."],
+  temple: ["{s} raised a temple in {where}.", "In {where}, {s} built their god a house of stone."],
+  faithschism: ["{a} broke away from {s2} and founded {s1}.", "Schism: {s1}, led by {a}, no longer prays with {s2}."],
+  festival: ["{s}: {v} Minyans keep the day.", "The city keeps {s}. {v} feast."],
+  monument: ["The Boule raised {s} in {where}.", "In {where} a stone now stands: {s}."],
+  iconoclasm: ["Rioters led by {a} tore down {s} in {where}.", "{s} lies in pieces in {where}; {a} struck the first blow."],
   burn8985: ["{a} did not go to the Pyra like the others. The Maker built a barrel of oil for {a} alone, and it burns beside the pyre; the smoke is black and smells of the old world."],
   burn: ["{a} was given to the Pyra. The bones burn bright on the shore; {b} inherits what was left.", "On the chain they sent {a} to the dead address. On the shore the Pyra took {a}, and the smoke went up for days.", "{a} of the {fa} burns. Ash falls on {where}, and Charon is owed nothing; the fire took it all."],
   ostologia: ["The fire under {a} has gone out. The bones were gathered and an oar was planted on the mound in the Asphodel Meadow.", "Ostologia for {a}: ash raked, bones gathered, oar set upright. Elpenor asked for no more."],
@@ -98,6 +106,7 @@ export function narrate(e, view) {
   const map = {
     a: who(e.a), b: who(e.b), c: e.t === "birth" ? who(e.v) : (e.t === "cognomen" ? COGNOMENS[e.v] : ""), first: e.s === "first" ? ", the first Leaf of their line" : "", where: e.x >= 0 ? DISTRICTS[e.x].name : "the archipelago", fa: e.a >= 0 ? view.faction(e.a) : "Minyans",
     bfa: e.a >= 0 ? view.blood(e.a) : "", pfa: e.a >= 0 ? view.blood(e.a) : "", s: e.s || "", v: e.v, r: riot, s1, s2,
+    god: e.t === "prophet" ? (e.s || "").split("|")[1] : "", people: e.t === "prophet" ? (e.s || "").split("|")[0] : "",
     eth: (e.v / 100).toFixed(2), price: (e.v / 100).toFixed(1), dir: e.t === "beam" ? DIRS(e.v) : "", caught: e.s === "caught" ? ", and the Reapers caught them" : "",
     role: e.t === "office" ? OFFICES[e.v].role : "",
   };
@@ -109,4 +118,4 @@ export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plag
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
   crash: "realism", migrate: "realism", dole: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
-  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism" };
+  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism" };
