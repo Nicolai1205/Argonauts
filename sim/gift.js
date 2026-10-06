@@ -126,7 +126,7 @@ export function giftMonthly(ctx) {
         if (kind > 95 && A.inv[h * 5] > 0) { A.inv[h * 5]--; A.inv[g * 5]++; if (best < 0) best = h; }
         else if (kind < 45 && worst < 0) worst = h;
       }
-      if (best >= 0) { const gift = Math.min(400, Math.floor(A.obols[g] / 8)); A.obols[g] -= gift; A.obols[best] += gift; ctx.think(best, TH.touched_by_the_maker); ctx.tie(best, g, 30); ctx.log(E.theoxenia, g, best, c, gift, "blessed"); }
+      if (best >= 0) { const gift = Math.min(400, Math.floor(A.obols[g] / 8)); A.obols[g] -= gift; A.obols[best] += gift; ctx.think(best, TH.touched_by_the_maker); ctx.tie(best, g, 30); ctx.memorize(best, 11, g, 75); ctx.log(E.theoxenia, g, best, c, gift, "blessed"); }
       else if (worst >= 0) { A.sick[worst] = Math.max(A.sick[worst], 3); ctx.think(worst, TH.haunted); ctx.tie(g, worst, -40); ctx.log(E.theoxenia, g, worst, c, 0, "cursed"); }
     }
   }

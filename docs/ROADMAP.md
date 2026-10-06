@@ -120,7 +120,7 @@ Unrest (2,101 → ~80), director pacing, market price ratchet, nobles' rents, pi
 - **Hesiod's farming year and the sailing season**: ploughing, harvest and vintage pulses; sea lanes close in winter.
 - **Theoxenia**: rare-blood wanderers test hospitality; the generous are blessed, the cruel cursed.
 
-### v13: Long Memory
+### v13: Long Memory  ✅ live (`sim/memory.js`)
 - Dead-Leaf archive (compact save) ships first.
 - **Lethe or Mnemosyne at re-knit**: an uninitiated Argonaut returns from Asphodel without some bonds; Samothracian initiates remember. A ruling is "the Maker gave it Memory".
 - **The Weight of Leaves**: long-term memory slots, anniversary recall, core memories that change personality; each Argonaut counts the Leaves it has buried.

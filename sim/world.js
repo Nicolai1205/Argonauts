@@ -9,11 +9,12 @@ import { initQuest } from "./fleece.js";
 import { initTrade } from "./trade.js";
 import { initMiasma } from "./miasma.js";
 import { initGift } from "./gift.js";
+import { initMemory } from "./memory.js";
 
 export const TIES = 8;      // social ties per character
 export const THS = 6;       // thought slots
 export const BIO = 10;      // remembered life events (ring)
-export const VERSION = 12;
+export const VERSION = 13;
 export const ARGO = 9999;   // entity indices 0..9998 are the tokens; the Leaves (mortal children) are appended after  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
 
 // dynamic arrays: [name, type, per-agent width]
@@ -29,6 +30,8 @@ const LAYOUT = [
   ["kind", Uint8Array, 1], ["bones", Uint8Array, 1], ["palette", Uint8Array, 1], ["cloak", Uint8Array, 1], ["crown", Uint8Array, 1], ["sight", Uint8Array, 1], ["artifact", Uint8Array, 1],
   ["faith", Uint8Array, 1], ["devotion", Uint8Array, 1], ["style", Uint16Array, 1], ["dialect", Uint8Array, 1], ["rumor", Uint8Array, 6],
   ["miasma", Uint8Array, 1], ["fury", Uint8Array, 1], ["avenge", Int32Array, 1],
+  ["mystes", Uint8Array, 1], ["lethe", Uint8Array, 1], ["buried", Uint16Array, 1], ["scar", Uint8Array, 1], ["ltmCore", Uint8Array, 1],
+  ["ltmKind", Uint8Array, 3], ["ltmWho", Int32Array, 3], ["ltmDay", Int32Array, 3], ["ltmStr", Uint8Array, 3],
   ["born", Int32Array, 1], ["p1", Int32Array, 1], ["p2", Int32Array, 1], ["gen", Uint16Array, 1], ["lineage", Int32Array, 1], ["birthFac", Uint8Array, 1],
 ];
 const HEXACO = ["H", "E", "X", "A", "C", "O"];
@@ -130,7 +133,7 @@ export function createWorld(seed, seedHash = "argo") {
   w.m0 = 0; for (let i = 0; i < N; i++) w.m0 += A.obols[i];
   w.stats = []; w.eventSeq = 0;
   w._digital = d.Sight.indexOf("Digital");
-  initCulture(w); initWar(w); initDrift(w); initRumors(w); initTrade(w); initMiasma(w); initGift(w);
+  initCulture(w); initWar(w); initDrift(w); initRumors(w); initTrade(w); initMiasma(w); initGift(w); initMemory(w);
   w.fleece = seed.crown.indexOf(d.Crown.indexOf("Golden Fleece"));  // the single Golden Fleece bearer (index)
   initQuest(w);
   w.burnTs = seed.burnTs.slice();

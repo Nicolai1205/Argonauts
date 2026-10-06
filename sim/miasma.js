@@ -31,7 +31,7 @@ export function onKilling(ctx, v, k) {
   if (guest) ctx.log(ctx.E.xenoi, k, v, A.district[k], 0, "violated");
   if (kinslayer) { ctx.log(ctx.E.kinslayer, k, v, A.district[k]); ctx.cognomen(k, 21); }
   w.blood.push({ v, k, day, d: A.district[k] }); if (w.blood.length > 200) w.blood.shift();
-  if (A.kind[v] && w.restless.length < 60) w.restless.push({ i: v, k, day, d: A.district[v] < D.pyra ? A.district[v] : A.district[k] });
+  if (A.kind[v] && !A.mystes[v] && w.restless.length < 60) w.restless.push({ i: v, k, day, d: A.district[v] < D.pyra ? A.district[v] : A.district[k] });
 }
 
 /** a Leaf who dies before its time without a hand to blame still walks a while (aōros) */
@@ -76,7 +76,7 @@ export function miasmaDaily(ctx) {
     const ps = priests[A.district[i]]; if (!ps.length) continue;
     const fee = A.miasma[i] * 4 + (A.fury[i] ? 30 : 0), p = ps[r.int(ps.length)];
     if (A.obols[i] < fee) continue;
-    A.obols[i] -= fee; A.obols[p] += fee; const was = A.miasma[i], hounded = A.fury[i] > 0; A.miasma[i] = 0; A.fury[i] = 0; ctx.think(i, TH.katharsis);
+    A.obols[i] -= fee; A.obols[p] += fee; const was = A.miasma[i], hounded = A.fury[i] > 0; if (hounded) ctx.memorize(i, 9, p, 70); A.miasma[i] = 0; A.fury[i] = 0; ctx.think(i, TH.katharsis);
     if (hounded || was >= 3) ctx.log(E.katharsis, i, p, A.district[i], was, hounded ? "furies" : ""); else ctx.trace(E.katharsis, i, p, A.district[i]);
   }
 
@@ -93,7 +93,7 @@ export function miasmaDaily(ctx) {
     // the killer may clasp the avenger's knees; at an altar a refusal stains the one who refuses (Gould 1973)
     if (A.district[k] === A.district[av] && r.chance(0.2 + P(A, k, 1) / 300)) {
       const yes = r.chance(P(A, av, 3) / 160 + (altar[A.district[k]] ? 0.15 : 0) + (A.faith[av] === A.faith[k] ? 0.1 : 0));
-      if (yes) { if (A.obols[k] >= 10) { A.obols[k] -= 10; A.obols[av] += 10; } ctx.log(E.supplication, k, av, A.district[k], 1, "spared"); continue; }
+      if (yes) { if (A.obols[k] >= 10) { A.obols[k] -= 10; A.obols[av] += 10; } ctx.memorize(k, 5, av, 70); ctx.log(E.supplication, k, av, A.district[k], 1, "spared"); continue; }
       if (altar[A.district[k]]) pollute(ctx, av, 2);
       ctx.log(E.supplication, k, av, A.district[k], 0, altar[A.district[k]] ? "altar" : "refused");
     }
@@ -102,19 +102,20 @@ export function miasmaDaily(ctx) {
     if (takes && A.obols[k] >= price) {
       A.obols[k] -= price; A.obols[av] += price; if (f) f.paid++; ctx.log(E.poine, k, av, A.district[av], price, A.kind[v] ? "leaf" : "bone"); continue;
     }
-    if (!A.avenge[av]) { A.avenge[av] = k + 1; ctx.log(E.vendetta, av, k, A.district[av], f ? f.n : 1, f && f.n > 1 ? "feud" : "sworn"); }
+    if (!A.avenge[av]) { A.avenge[av] = k + 1; ctx.log(E.vendetta, av, k, A.district[av], f ? f.n : 1, f && f.n > 1 ? "feud" : "sworn"); if (r.chance(0.5)) ctx.swear(av, k, "vengeance", 150); }
   }
 
   // 4. vendettas: the avenger goes looking (Draco: unpurged blood runs in families)
   for (const i of ctx.live) {
     if (!A.avenge[i] || A.status[i] || A.jail[i]) continue;
     const t = A.avenge[i] - 1;
-    if (A.status[t] === ST.pyre || A.status[t] === ST.asphodel || r.chance(0.006)) { A.avenge[i] = 0; continue; }   // dead for good, or the grief is spent
+    if (A.status[t] === ST.pyre || A.status[t] === ST.asphodel) { A.avenge[i] = 0; ctx.oathEnds(i, "vengeance", true); continue; }   // dead for good: the vow is discharged
+    if (r.chance(0.006)) { A.avenge[i] = 0; ctx.oathEnds(i, "vengeance", false); continue; }                                     // the grief is spent; the vow is broken
     if (A.status[t] !== ST.living) continue;                                                                       // broken bone: wait for it to knit
     if (A.district[t] !== A.district[i]) { if (A.district[t] < D.pyra && r.chance(0.04)) A.district[i] = A.district[t]; continue; }
     if (!r.chance(0.07)) continue;
     A.avenge[i] = 0; ctx.think(i, TH.vengeance_taken);
-    if (r.chance(0.55)) { ctx.kill(t, "vengeance", i); ctx.cognomen(i, 20); }
+    if (r.chance(0.55)) { ctx.kill(t, "vengeance", i); ctx.cognomen(i, 20); ctx.oathEnds(i, "vengeance", true); ctx.memorize(i, 7, t, 60); }
     else { A.sick[t] = Math.max(A.sick[t], 3); A.stress[t] = Math.min(600, A.stress[t] + 120); ctx.log(E.vendetta, i, t, A.district[i], 0, "wounded"); }
   }
 
@@ -145,7 +146,7 @@ export function miasmaDaily(ctx) {
     const worth = (i) => { let s = A.obols[i]; for (let t = 0; t < TIES; t++) if (A.tieVal[i * TIES + t] > 0) s += A.tieVal[i * TIES + t]; return s; };
     pool.sort((x, y) => worth(x) - worth(y) || x - y); const goats = pool.slice(0, 2); if (goats.length < 2) continue;
     w.scapegoat[d] = day;
-    for (const g of goats) { A.status[g] = ST.exiled; A.until[g] = day + 60; A.district[g] = D.agora; ctx.think(g, TH.exiled); ctx.cognomen(g, 19); }
+    for (const g of goats) { ctx.memorize(g, 8, -1, 90); A.status[g] = ST.exiled; A.until[g] = day + 60; A.district[g] = D.agora; ctx.think(g, TH.exiled); ctx.cognomen(g, 19); }
     for (const i of ctx.byDist[d]) if (!A.status[i] && A.miasma[i]) A.miasma[i]--;
     ctx.log(E.pharmakos, goats[0], goats[1], d, pop[d], sick[d] > pop[d] * 0.08 ? "plague" : hungry[d] > pop[d] * 0.25 ? "famine" : "blight");
   }
