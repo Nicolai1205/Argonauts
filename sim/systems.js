@@ -12,13 +12,14 @@ import { quest, forgeRelic, passRelic, relicsOf, inheritRelics, captureRelics, c
 import { caravans, tradeFlows } from "./trade.js";
 import { miasmaDaily, onKilling, onUntimely, onBurn, shun } from "./miasma.js";
 import { giftMonthly, bindXenia } from "./gift.js";
+import { oracleDaily } from "./oracle.js";
 import { memoryDaily, memorize, onReknit, swear, oathEnds, cursed, onLeafDeath, scarOf } from "./memory.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -42,7 +43,7 @@ export function tick(w, omens = []) {
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   if (((day % 30) + 30) % 30 === 15) { index(ctx); giftMonthly(ctx); } chk(ctx, 'gift');
   director(ctx); chk(ctx, 'director');
-  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); chk(ctx, 'miasma');
+  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); chk(ctx, 'miasma');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
@@ -739,8 +740,17 @@ function director(ctx) {
   dir.adapt = Math.round(Math.max(0.4, Math.min(2.2, 1.3 * (dir.base + 50) / (dir.heat + 50))) * 100) / 100; dir.points = Math.round((dir.points + dir.adapt) * 100) / 100;
   const allowed = ([k]) => (k !== "lemnian" || w.factions.some((f, i) => i >= w.baseFactions && f.alive && f.legit < 25)) && (k !== "ghost" || unburiedCount(ctx) > 0);
   if (!dir.next || !allowed(INCIDENTS.find((x) => x[0] === dir.next))) { const ok = INCIDENTS.filter(allowed); dir.next = r.weighted(ok, ok.map((x) => x[2]))[0]; }
+  // the act: quiet (points accrue slowly), rising (faster), climax (the biggest blow it can afford), aftermath (nothing)
+  if (!dir.act || day >= dir.actUntil || (dir.heat > dir.base * 2 && dir.act !== "aftermath")) {
+    const next = dir.heat > dir.base * 2 ? "aftermath" : { quiet: "rising", rising: "climax", climax: "aftermath", aftermath: "quiet" }[dir.act || "aftermath"];
+    dir.act = next; dir.actUntil = day + { quiet: 6, rising: 5, climax: 3, aftermath: 5 }[next] + r.int(4);
+  }
+  if (dir.act === "aftermath") return;
+  if (dir.act === "quiet") dir.points = Math.round((dir.points - dir.adapt * 0.5) * 100) / 100;
+  if (dir.act === "rising") dir.points = Math.round((dir.points + dir.adapt * 0.5) * 100) / 100;
+  if (dir.act === "climax") { const big = INCIDENTS.filter(allowed).filter((x) => x[1] <= dir.points).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)); if (big.length) dir.next = big[0][0]; }
   const inc = INCIDENTS.find((x) => x[0] === dir.next);
-  if (dir.points < inc[1] || !r.chance(0.3)) return;
+  if (dir.points < inc[1] || !r.chance(dir.act === "climax" ? 0.7 : 0.2)) return;
   index(ctx);
   const quarters = DISTRICTS.map((d, k) => k).filter((k) => DISTRICTS[k].kind === "quarter" && ctx.byDist[k].length > 20);
   const [key, cost] = inc; dir.next = null;

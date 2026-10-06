@@ -151,6 +151,15 @@ const T = {
   mysteries: { _: ["The mysteries of the Kabeiroi: {v} were initiated this year, with the rites that may not be spoken, and given the password for the spring of Memory.", "{v} Minyans went down into the hall of the Great Gods and came up initiated. When they break, they will remember."],
     kin: ["The mysteries: {v} initiated. Each had to confess the worst thing they had done. {a} confessed to kindred blood, aloud, before the Great Gods, and was initiated anyway.", "{v} initiates this year. The priests heard {a} confess to killing their own kin, and still poured the water of Memory."],
     blood: ["The mysteries: {v} initiated. {a} confessed to blood on their hands before the Great Gods. Somebody in the hall wrote it down.", "{v} took the rites. Asked their worst deed, {a} named a killing. The Kabeiroi do not judge; the listeners do."] },
+  dodona: ["On the day the beam spoke, {a} scratched a question on lead and dropped it in the jar at the prow: {s}{bq}? The oak answered {ans}.", "{a} asks Zeus Naios and Dione {s}{bq}. The Selloi, who sleep on the ground with unwashed feet, read the answer: {ans}."],
+  oracle: { given: ["{a} went up to the Mist-terraces and asked the Pythia. Chewing laurel, she said: \"{o1}\" {b} will interpret it.", "The god answered {a} in verse: \"{o1}\" Nobody agrees what it means. {b} says they know."],
+    fulfilled: ["{v} days ago the Pythia told {a}: \"{o1}\" Now the priests say it has come true. Of course it has.", "The oracle given to {a} is fulfilled: \"{o1}\" It always is, afterwards."],
+    lapsed: ["The oracle given to {a} came to nothing: \"{o1}\" Or it came true in some way nobody has noticed yet. {b} is not consulted as often."] },
+  phineus: { blinded: ["{a} read the birds too well: {v} prophecies fulfilled. Zeus, who does not like his plans told, has blinded them, and now the Harpies come at every meal and foul the bread.", "Like Phineus on the Bosporus: {a} has foretold too much, and is blind, and starving, with the stinking Harpies on the table."],
+    freed: ["{b}, of the wind-born Boreads, chased the Harpies off {a}'s table and out over the sea. {a} ate a whole meal for the first time in a season.", "The sons of the North Wind came for {a}: {b} drove the Harpies to the Floating Islands. The blind seer weeps and eats."] },
+  bones: { taken: ["Raiders from {where} broke into the Asphodel Meadow and carried off the bones of {a}, who lay there broken. Without their bones the Sown cannot knit. The ransom: {v} obols.", "{a}'s bones are gone from Asphodel, taken to {where} as Sparta took the bones of Orestes, to win a war. They will not re-knit until the bones come home."],
+    ransomed: ["{b} paid {v} obols to {where} and carried the bones of {a} home in a chest. They knit within a day.", "The bones of {a} came back from {where}, ransomed by {b} for {v} obols."],
+    hero: ["No one ransomed {a}. {where} buried the stolen bones under its agora as a hero's, and poured blood for them; then the bones knit anyway and walked out of the grave.", "After a season in a hero's tomb in {where}, the bones of {a} pulled themselves together and climbed out. The priests of {where} call it a sign of favour."] },
   shadenames: ["In {where} the shade of {a} came to the window and named its killer: {b}. Everyone heard.", "A dead child's voice in the well at {where}, saying one name, over and over: {b}."],
   pharmakos: { _: ["In {where} the sickness would not lift, so they chose two of the least, {a} and {b}, fed them figs and barley, beat them with squill and drove them out of the gates. The city is clean now. So they say.", "The pharmakos: {a} and {b}, chosen because nobody would miss them, were led around {where} and cast out to carry its stain away."],
     famine: ["Hunger in {where}, so the old rite: {a} and {b} were garlanded, struck with fig branches, and driven past the boundary stones. Two fewer mouths, and the gods appeased.", "{where} had nothing left to give the gods but two of its own. {a} and {b} were driven out with the city's hunger on their backs."] },
@@ -165,12 +174,12 @@ const BROKEN = ["{a} was broken in {where} ({s}). The bones lie scattered in Asp
 export function narrate(e, view) {
   const h = hash32("tx", e.i, e.t);
   let set = e.t === "burn" && e.a === 8984 ? T.burn8985 : e.t === "death" && e.a >= 0 && e.a < 9999 && !["answered the Sirens"].includes(e.s) ? BROKEN : T[e.t]; if (!set) return `${e.t} (${e.s || ""})`;
-  if (!Array.isArray(set)) set = set[e.s] || set[(e.s || "").split(":")[0]] || set._;
+  if (!Array.isArray(set)) set = set[e.s] || set[(e.s || "").split(/[:|]/)[0]] || set._ || Object.values(set)[0];
   let tpl = set[h % set.length];
   const who = (i) => (i >= 0 ? view.name(i) : "someone");
   let riot = "";
   if (e.t === "riot") { try { const x = JSON.parse(e.s); riot = `${x.dead ? x.dead + " fell. " : ""}${x.jailed ? x.jailed + " were jailed" : "No Reaper stood in their way"}, and ${x.looted} rations were looted.`; } catch { } }
-  const [s1, s2] = (e.s || "").split("|");
+  const [s1, s2] = (e.s || "").split("|"), o1 = e.t === "oracle" ? (e.s || "").split("|")[1] || "" : "";
   const map = {
     a: who(e.a), b: who(e.b), c: e.t === "birth" ? who(e.v) : (e.t === "cognomen" ? COGNOMENS[e.v] : ""), first: e.s === "first" ? ", the first Leaf of their line" : "", where: e.x >= 0 ? DISTRICTS[e.x].name : "the archipelago", fa: e.a >= 0 ? view.faction(e.a) : "Minyans",
     bfa: e.a >= 0 ? view.blood(e.a) : "", pfa: e.a >= 0 ? view.blood(e.a) : "", s: e.t === "memory" ? (e.s || "").replace(/^core[+-]:/, "") : e.s || "", v: e.v, r: riot, s1, s2,
@@ -180,7 +189,7 @@ export function narrate(e, view) {
     e1: ["expedition", "fleecetaken", "caravan", "raid", "wreck"].includes(e.t) ? (e.s || "").split("|")[0] : "", e2: ["expedition", "fleecetaken", "caravan", "raid", "wreck"].includes(e.t) ? (e.s || "").split("|")[1] : "",
     e3: e.t === "raid" || e.t === "wreck" ? (e.s || "").split("|")[2] : "", e4: e.t === "raid" ? (e.s || "").split("|")[3] : "", r1: e.t === "relicpass" ? (e.s || "").split("|")[0] : "", r2: e.t === "relicpass" ? (e.s || "").split("|")[1] : "",
     eth: (e.v / 100).toFixed(2), price: (e.v / 100).toFixed(1), dir: e.t === "beam" ? DIRS(e.v) : "", caught: e.s === "caught" ? ", and the Reapers caught them" : "",
-    role: e.t === "office" ? OFFICES[e.v].role : "",
+    role: e.t === "office" ? OFFICES[e.v].role : "", o1, bq: e.b >= 0 ? " " + who(e.b) : "", ans: e.t === "dodona" ? ["yes, and the doves flew right", "no, and the bronze cauldrons rang", "something nobody could agree on"][e.v] || "" : "",
   };
   const out = tpl.replace(/\{(\w+)\}/g, (_, k) => (map[k] !== undefined ? map[k] : ""));
   return out.charAt(0).toUpperCase() + out.slice(1);
@@ -190,5 +199,5 @@ export function narrate(e, view) {
 export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plague: "horror", lemnian: "horror", ghost: "horror", sirens: "horror", doliones: "horror", harpies: "horror",
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
-  crash: "realism", migrate: "realism", dole: "realism", watch: "realism", kinslayer: "horror", erinyes: "horror", katharsis: "myth", poine: "realism", vendetta: "realism", supplication: "myth", restless: "horror", shadenames: "horror", pharmakos: "horror", blight: "horror", feudend: "myth", liturgy: "realism", lethe: "horror", oath: "myth", curse: "horror", weight: "horror", memory: "myth", scar: "realism", mysteries: "myth", antidosis: "realism", xenoi: "myth", theoxenia: "myth", wreck: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
+  crash: "realism", migrate: "realism", dole: "realism", watch: "realism", kinslayer: "horror", erinyes: "horror", katharsis: "myth", poine: "realism", vendetta: "realism", supplication: "myth", restless: "horror", shadenames: "horror", pharmakos: "horror", blight: "horror", feudend: "myth", liturgy: "realism", lethe: "horror", dodona: "myth", oracle: "myth", phineus: "horror", bones: "horror", oath: "myth", curse: "horror", weight: "horror", memory: "myth", scar: "realism", mysteries: "myth", antidosis: "realism", xenoi: "myth", theoxenia: "myth", wreck: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
   bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism", craft: "realism", craftlost: "realism", dialect: "realism", rumor: "horror", rumorend: "realism", relic: "myth", relicpass: "myth", expedition: "myth", fleecetaken: "myth", caravan: "realism", raid: "realism" };

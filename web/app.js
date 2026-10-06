@@ -380,8 +380,28 @@ function frontPage() {
   let html = `<div class="gz-mast"><b>THE ARGO</b><span>${dayLabel(today)} · sung by the Orpheus · ${w.N.toLocaleString()} souls ever lived</span></div>`;
   html += `<div class="story lead"><span class="k">${esc(lead.kind)}</span><h2>${esc(lead.title)}</h2><p>${linkify(lead.text)}</p></div>`;
   for (const x of rest.slice(0, 5)) html += `<div class="story"><span class="k">${esc(x.kind)}</span><h4>${esc(x.title)}</h4><p>${linkify(x.text)}</p></div>`;
+  html += brewing();
   html += `<div class="gz-old">` + days.slice(1, 40).map((d) => `<h5>${dayLabel(d)}</h5>` + byD[d].sort((a, b) => b.score - a.score).slice(0, 3).map((x) => `<div><b>${esc(x.title)}.</b> ${linkify(x.text)}</div>`).join("")).join("") + `</div>`;
   $("#p-front").innerHTML = html;
+}
+// threads still open: what the world has not finished yet (Kreminski's partial matches, surfaced as cliffhangers)
+function brewing() {
+  const A = w.A, a = (i) => `<a class="who" data-i="${i}">${esc(view.name(i))}</a>`, items = [], fame = (i) => (i < 9999 ? 2 : 0) + (A.cognomen[i] ? 2 : 0) + (A.office[i] >= 0 ? 3 : 0);
+  const act = w.director && w.director.act; if (act) items.push(`<li><b>The storyteller</b> is in its ${esc(act)} act${w.director.next ? `, saving for ${esc(w.director.next)}` : ""}.</li>`);
+  for (const war of (w.war && w.war.wars) || []) items.push(`<li><b>War:</b> ${esc(war.name)}, ${war.battles} battle${war.battles === 1 ? "" : "s"} so far.</li>`);
+  for (const p of (w.prophecies || []).slice(-3)) items.push(`<li><b>Unfulfilled oracle</b> to ${a(p.who)}: “${esc(p.text)}” (${p.until - w.day} days left)</li>`);
+  for (const h of w.heldBones || []) items.push(`<li><b>Stolen bones:</b> ${a(h.i)} lies in ${esc(DISTRICTS[h.city].name)}, ransom ${h.ransom} obols.</li>`);
+  if (w.phineus >= 0) items.push(`<li><b>The Harpies</b> still foul the table of the blind seer ${a(w.phineus)}.</li>`);
+  const feuds = Object.values(w.feuds || {}).filter((f) => f.n >= 2).sort((x, y) => y.n - x.n).slice(0, 3);
+  for (const f of feuds) items.push(`<li><b>Feud:</b> the houses of ${a(f.a)} and ${a(f.b)}, ${f.n} blood-debts since ${dayLabel(f.since)}.</li>`);
+  for (const [L, c] of Object.entries(w.curses || {}).sort((x, y) => y[1].n - x[1].n).slice(0, 3)) items.push(`<li><b>Curse:</b> the line of ${a(Number(L))}${Number(L) === c.by ? ", who broke an oath" : `, since ${a(c.by)} broke an oath`}${c.n ? `; ${c.n} dead since` : ""}.</li>`);
+  const named = (w.restless || []).filter((g) => g.named && g.k >= 0 && A.status[g.k] === 0).slice(-2);
+  for (const g of named) items.push(`<li><b>A shade walks:</b> ${a(g.i)} has named ${a(g.k)}.</li>`);
+  const av = [], fu = []; for (let i = 0; i < w.N; i++) { if (A.status[i]) continue; if (A.avenge[i]) av.push(i); if (A.fury[i]) fu.push(i); }
+  av.sort((x, y) => fame(y) - fame(x) || x - y); fu.sort((x, y) => fame(y) - fame(x) || x - y);
+  if (av.length) items.push(`<li><b>Sworn to vengeance (${av.length}):</b> ${av.slice(0, 3).map((i) => `${a(i)} against ${a(A.avenge[i] - 1)}`).join("; ")}.</li>`);
+  if (fu.length) items.push(`<li><b>Hounded by the Erinyes (${fu.length}):</b> ${fu.slice(0, 4).map(a).join(", ")}.</li>`);
+  return items.length ? `<div class="brewing"><h4>Brewing</h4><ul>${items.join("")}</ul></div>` : "";
 }
 function panels() {
   updateClock(); chronicle(); frontPage(); w.storyLog = M.stories; $("#p-codex").innerHTML = renderCodex(w, seed, view, esc, dayLabel, linkify);
@@ -503,7 +523,7 @@ function bioText(t, arg) {
     cognomen: `became ${COGNOMENS[arg]}`, comeofage: `came of age and took up the trade of ${JOBS[arg] || "their family"}`, birth: arg >= 0 ? `a child was born: ${view.name(arg)}` : "a child was born", heartbreak: "a heart broke", love: arg >= 0 ? `fell in love with ${view.name(arg)}` : "fell in love", convert: "took a new faith", prophet: "heard a god", battle: "went to war", migrate: `moved to ${DISTRICTS[arg]?.name || "new work"}`, exile_end: "returned from exile", lemnian: "the night of knives", plague: "fell sick", fleece: "the Fleece", watch: `posted to keep the watch in ${DISTRICTS[arg]?.name || "another quarter"}`,
     kinslayer: arg >= 0 ? `spilled kindred blood: ${view.name(arg)}` : "spilled kindred blood", erinyes: "hounded by the Erinyes", katharsis: "purified of blood", poine: arg >= 0 ? `blood-price settled with ${view.name(arg)}` : "blood-price settled",
     vendetta: arg >= 0 ? `vengeance between them and ${view.name(arg)}` : "a vendetta", supplication: arg >= 0 ? `a supplication: ${view.name(arg)}` : "a supplication", restless: "walked as a restless shade", shadenames: arg >= 0 ? `a shade named ${view.name(arg)}` : "a shade spoke", pharmakos: "driven out as the pharmakos", blight: "the blight", feudend: "a feud ended",
-    liturgy: "paid a liturgy for the city", lethe: arg >= 0 ? `came back from Asphodel and forgot ${view.name(arg)}` : "drank from Lethe or Memory", oath: arg >= 0 ? `an oath involving ${view.name(arg)}` : "an oath", curse: "the curse on the line", weight: arg >= 0 ? `buried ${view.name(arg)}` : "buried a Leaf", memory: "remembered", scar: "broke, and was marked by it", mysteries: "initiated in the mysteries", antidosis: arg >= 0 ? `antidosis with ${view.name(arg)}` : "antidosis", xenoi: arg >= 0 ? `guest-friendship with ${view.name(arg)}` : "guest-friendship", theoxenia: arg >= 0 ? `a stranger at the door: ${view.name(arg)}` : "a stranger at the door", wreck: "a ship lost" }[t] || t;
+    liturgy: "paid a liturgy for the city", dodona: "asked the oak at Dodona", oracle: "consulted the Pythia", phineus: "blinded for seeing too truly", bones: "bones stolen from Asphodel", lethe: arg >= 0 ? `came back from Asphodel and forgot ${view.name(arg)}` : "drank from Lethe or Memory", oath: arg >= 0 ? `an oath involving ${view.name(arg)}` : "an oath", curse: "the curse on the line", weight: arg >= 0 ? `buried ${view.name(arg)}` : "buried a Leaf", memory: "remembered", scar: "broke, and was marked by it", mysteries: "initiated in the mysteries", antidosis: arg >= 0 ? `antidosis with ${view.name(arg)}` : "antidosis", xenoi: arg >= 0 ? `guest-friendship with ${view.name(arg)}` : "guest-friendship", theoxenia: arg >= 0 ? `a stranger at the door: ${view.name(arg)}` : "a stranger at the door", wreck: "a ship lost" }[t] || t;
 }
 function closeLegends() { if (location.hash.startsWith("#/a/") || location.hash.startsWith("#/l/")) history.replaceState(null, "", location.pathname); $("#legends").classList.remove("on"); $("#legends").setAttribute("aria-hidden", "true"); S.sel = -1; render(); }
 $("#legends").addEventListener("click", (e) => { if (e.target.id === "legends") closeLegends(); });

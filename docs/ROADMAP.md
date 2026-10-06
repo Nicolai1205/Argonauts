@@ -127,7 +127,7 @@ Unrest (2,101 → ~80), director pacing, market price ratchet, nobles' rents, pi
 - **Oaths on the Styx**: vows with deadlines; broken oaths curse a lineage.
 - **Scars**: permanent coping habits after breakdowns.
 
-### v14: Oracles and the storyteller
+### v14: Oracles and the storyteller  ✅ live (`sim/oracle.js`; act-cycle director in `systems.js`)
 - **The beam as Dodona**: on renderer changes the city brings lead-tablet questions.
 - **Delphic prophecy**: ambiguous oracles that resolve after the fact; Phineus' curse on augurs who see too well.
 - **Brewing**: half-finished story patterns surfaced as cliffhangers; an act-cycle director (quiet, rising, climax, aftermath).
