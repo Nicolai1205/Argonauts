@@ -29,7 +29,7 @@ export function onKilling(ctx, v, k) {
   const guest = xeniaViolated(ctx, v, k);
   pollute(ctx, k, kinslayer || guest ? 3 : A.kind[v] ? 2 : 1);
   if (guest) ctx.log(ctx.E.xenoi, k, v, A.district[k], 0, "violated");
-  if (kinslayer) { ctx.log(ctx.E.kinslayer, k, v, A.district[k]); ctx.cognomen(k, 21); }
+  if (kinslayer) { ctx.log(ctx.E.kinslayer, k, v, A.district[k]); ctx.cognomen(k, 21); ctx.renown(k, -60); }
   w.blood.push({ v, k, day, d: A.district[k] }); if (w.blood.length > 200) w.blood.shift();
   if (A.kind[v] && !A.mystes[v] && w.restless.length < 60) w.restless.push({ i: v, k, day, d: A.district[v] < D.pyra ? A.district[v] : A.district[k] });
 }
@@ -74,7 +74,7 @@ export function miasmaDaily(ctx) {
     }
     if (A.jail[i] || !adult(A, i, day) || !r.chance(0.15)) { if (!A.fury[i] && r.chance(0.01)) A.miasma[i]--; continue; }
     const ps = priests[A.district[i]]; if (!ps.length) continue;
-    const fee = A.miasma[i] * 4 + (A.fury[i] ? 30 : 0), p = ps[r.int(ps.length)];
+    const fee = Math.ceil((A.miasma[i] * 4 + (A.fury[i] ? 30 : 0)) * (w.houses && w.houses[A.lineage[i]] && w.houses[A.lineage[i]].legacies.includes("the Pyre-keepers") ? 0.5 : 1)), p = ps[r.int(ps.length)];
     if (A.obols[i] < fee) continue;
     A.obols[i] -= fee; A.obols[p] += fee; const was = A.miasma[i], hounded = A.fury[i] > 0; if (hounded) ctx.memorize(i, 9, p, 70); A.miasma[i] = 0; A.fury[i] = 0; ctx.think(i, TH.katharsis);
     if (hounded || was >= 3) ctx.log(E.katharsis, i, p, A.district[i], was, hounded ? "furies" : ""); else ctx.trace(E.katharsis, i, p, A.district[i]);
@@ -115,7 +115,7 @@ export function miasmaDaily(ctx) {
     if (A.district[t] !== A.district[i]) { if (A.district[t] < D.pyra && r.chance(0.04)) A.district[i] = A.district[t]; continue; }
     if (!r.chance(0.07)) continue;
     A.avenge[i] = 0; ctx.think(i, TH.vengeance_taken);
-    if (r.chance(0.55)) { ctx.kill(t, "vengeance", i); ctx.cognomen(i, 20); ctx.oathEnds(i, "vengeance", true); ctx.memorize(i, 7, t, 60); }
+    if (r.chance(0.55)) { ctx.kill(t, "vengeance", i); ctx.cognomen(i, 20); ctx.renown(i, 10); ctx.oathEnds(i, "vengeance", true); ctx.memorize(i, 7, t, 60); }
     else { A.sick[t] = Math.max(A.sick[t], 3); A.stress[t] = Math.min(600, A.stress[t] + 120); ctx.log(E.vendetta, i, t, A.district[i], 0, "wounded"); }
   }
 

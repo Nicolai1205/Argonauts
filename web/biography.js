@@ -2,7 +2,7 @@
 // Deterministic (phrases chosen by hash), so the same life always reads the same.
 import { BLOODS, DISTRICTS, JOBS, COGNOMENS, ST } from "./sim/lore.js";
 import { hash32 } from "./sim/rng.js";
-import { ageOf } from "./sim/systems.js";
+import { ageOf, EV } from "./sim/systems.js";
 
 const pick = (i, k, arr) => arr[hash32("bio", i, k) % arr.length];
 const TRAIT = [["honest", "sly"], ["tender-hearted", "cold-nerved"], ["loud and sociable", "quiet"], ["gentle", "quarrelsome"], ["dutiful", "careless"], ["curious", "set in their ways"]];
@@ -58,6 +58,7 @@ export function biography(w, seed, i, view, dayLabel, stories, chron) {
   if (A.status[i] === ST.asphodel) fate.push(leaf ? "They lie in the Asphodel Meadow." : "Their bones lie in the Asphodel Meadow with an oar planted on the mound. The chain sent them into the fire.");
   if (A.status[i] === ST.shade) fate.push("Right now they lie broken in Asphodel, waiting for their bones to knit.");
   if (fate.length) P.push(fate.join(" "));
+  const ep = epitaph(w, i, view); if (ep) P.push(`On the stone: “${ep}”`);
   // how the faiths tell it
   const fs = w.faiths.filter((F) => F.alive && F.members > 20).slice(0, 4), told = [];
   for (const F of fs.slice(0, 2)) {
@@ -66,4 +67,18 @@ export function biography(w, seed, i, view, dayLabel, stories, chron) {
   }
   if (told.length) P.push("As the faiths tell it — " + told.join(" "));
   return P;
+}
+
+// Greek funerary epigram, by the manner of a death (Peek GVI; Hansen CEG; Greek Anthology 7; Od. 11.77 for the oar)
+export function epitaph(w, i, view) {
+  const A = w.A, dead = A.status[i] === ST.asphodel || A.status[i] === ST.pyre; if (!dead) return "";
+  const nm = view.name(i).split(" ")[0];
+  if (!A.kind[i]) return pick(i, 40, [`Fire, which alone unmakes us, took ${nm}. The oar on this mound is all the sea gave back.`, `I am the sēma of ${nm}, of the Sown. No sickness, no spear, no hunger could end me; only the fire the Maker sent.`, `Stranger, the bones under this oar walked for an age. Then the fire came. Pour no water here.`]);
+  const age = Math.floor((A.died[i] - A.born[i]) / 12), par = [A.p1[i], A.p2[i]].filter((p) => p >= 0), p0 = par.length ? view.name(par[hash32("ep", i) % par.length]).split(" ")[0] : "";
+  let by = -1; for (let k = 0; k < 10; k++) if (EV[A.bioType[i * 10 + k]] === "death") by = A.bioArg[i * 10 + k];
+  const bone = par.some((p) => !A.kind[p]), killer = by >= 0 && by !== i ? view.name(by).split(" ")[0] : "";
+  if (age < 14) return pick(i, 41, [`Instead of a wedding, ${nm} got a tomb. ${p0} set this up, who will not die, for a child who could.`, `${nm}, ${age} years old. The Leaves fall early. ${bone ? `${p0} is bone, and has no word for this.` : "Light lie the earth on you."}`, `Here the earth covers ${nm}, one of the too-soon dead. Do not wake the child.`]);
+  if (killer) return pick(i, 42, [`Stand and pity, passing by the tomb of ${nm}, whom ${killer}'s hand destroyed.`, `Here lies ${nm}, ${age}. Stranger, if you meet ${killer}, tell them the dead are waiting.`, `${nm} did not die of time. ${killer} knows how.`]);
+  if (age >= 60) return pick(i, 43, [`${nm} lived ${age} years, which is long for a Leaf. Light lie the earth upon you.`, `Farewell, ${nm}. — And you, stranger, farewell. I had ${age} years; ${bone ? `my ${p0} will have a thousand more and remember none of them as well` : "it was enough"}.`, `Here the earth covers ${nm}, old and honoured. ${p0 ? `${p0} set up this stone, and will set up many more.` : ""}`]);
+  return pick(i, 44, [`${p0 ? `${p0} set up this sēma for their dear child ${nm}` : `This is the sēma of ${nm}`}, who died at ${age}.`, `Stranger, go tell the city that ${nm} lies here, ${age} years old, and was loved.`, `${nm}, whose oar the meadow keeps. ${age} years; then the long field of asphodel.`]);
 }

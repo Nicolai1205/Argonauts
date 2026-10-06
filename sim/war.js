@@ -63,7 +63,7 @@ export function cities(ctx) {
   W.timeline.push({ d: day, lord: W.lord.slice(), faith: CITIES.map((c) => W.dom[c].faith), fac: CITIES.map((c) => W.dom[c].faction), pop: CITIES.map((c) => W.dom[c].pop), S: CITIES.map((c) => Math.round(W.S[c] * 100)), wars: W.wars.map((x) => [x.a, x.target]) });
   if (W.timeline.length > 400) W.timeline.shift();
   // battles in the wars already running
-  for (const war of W.wars.slice()) battle(ctx, war, r);
+  if (!(w.truceUntil > day)) for (const war of W.wars.slice()) battle(ctx, war, r);   // the sacred truce of the games (ekecheiria)
   // declarations: a cohesive, stronger city that hates a reachable neighbour
   for (const a of CITIES) {
     if (W.lord[a] !== a || W.wars.some((x) => x.a === a || x.b === a) || pop[a] < 40) continue;

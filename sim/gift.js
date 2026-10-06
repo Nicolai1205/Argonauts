@@ -88,7 +88,7 @@ export function giftMonthly(ctx) {
       const spent = kind === "sitonia" ? buyGrain(ctx, payer, c, cost, hs, r) : kind === "trierarchy" ? wages(ctx, payer, rowers[c] || [], cost, r) : wages(ctx, payer, pop.filter((j) => A.obols[j] < median), cost, r);
       total += spent; if (spent > topPaid) { topPaid = spent; top = payer; }
       // kleos: the city thanks its givers
-      if (spent > 0) { for (let t = 0; t < 6; t++) { const j = pop[r.int(pop.length)]; if (j !== payer) ctx.tie(j, payer, 6); } ctx.think(payer, TH.honoured_by_the_city); w.liturgy.kleos[payer] = (w.liturgy.kleos[payer] || 0) + spent; }
+      if (spent > 0) { for (let t = 0; t < 6; t++) { const j = pop[r.int(pop.length)]; if (j !== payer) ctx.tie(j, payer, 6); } ctx.think(payer, TH.honoured_by_the_city); w.liturgy.kleos[payer] = (w.liturgy.kleos[payer] || 0) + spent; ctx.renown(payer, spent / 40); }
     }
     if (kind === "trierarchy" && total > 0) w.convoy[c] = day + 30;
     if (kind === "choregia" && total > 0) for (const i of pop) if (r.chance(0.5)) ctx.think(i, TH.feasted);

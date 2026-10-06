@@ -72,7 +72,7 @@ export function oathEnds(ctx, i, kind, kept) {
   const { A, w, day } = ctx, k = w.oaths.findIndex((o) => o.who === i && o.kind === kind); if (k < 0) return;
   const o = w.oaths.splice(k, 1)[0];
   if (kept) { if (kind === "vengeance") ctx.trace(ctx.E.oath, i, o.to, A.district[i]); return; }
-  memorize(ctx, i, 6, o.to, 80); ctx.cognomen(i, 4);
+  memorize(ctx, i, 6, o.to, 80); ctx.cognomen(i, 4); ctx.renown(i, -50);
   const L = A.lineage[i]; let gen = 0; for (let c = 9999; c < w.N; c++) if (A.lineage[c] === L && A.gen[c] > gen) gen = A.gen[c];
   if (!w.curses[L] && Object.keys(w.curses).length < 40) w.curses[L] = { since: day, gen, by: i, kind, n: 0 };
   ctx.log(ctx.E.oath, i, o.to, A.district[i], gen, "broken");

@@ -132,7 +132,7 @@ Unrest (2,101 → ~80), director pacing, market price ratchet, nobles' rents, pi
 - **Delphic prophecy**: ambiguous oracles that resolve after the fact; Phineus' curse on augurs who see too well.
 - **Brewing**: half-finished story patterns surfaced as cliffhangers; an act-cycle director (quiet, rising, climax, aftermath).
 
-### v15: Beasts and Heroes
+### v15: Beasts and Heroes  ✅ live (`sim/heroes.js`; epitaphs in `web/biography.js`)
 Monsters with lairs and appetites, hunts, funeral and Pagasaean games, strange moods that forge named relics, dynasty renown, epitaphs and poems.
 
 ### v16: The Stone in Their Midst

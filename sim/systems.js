@@ -13,21 +13,23 @@ import { caravans, tradeFlows } from "./trade.js";
 import { miasmaDaily, onKilling, onUntimely, onBurn, shun } from "./miasma.js";
 import { giftMonthly, bindXenia } from "./gift.js";
 import { oracleDaily } from "./oracle.js";
+import { heroesDaily, renown, legacy } from "./heroes.js";
 import { memoryDaily, memorize, onReknit, swear, oathEnds, cursed, onLeafDeath, scarOf } from "./memory.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid", "watch", "katharsis", "erinyes", "poine", "vendetta", "supplication", "restless", "shadenames", "pharmakos", "blight", "feudend", "liturgy", "antidosis", "xenoi", "theoxenia", "wreck", "lethe", "oath", "curse", "weight", "memory", "scar", "mysteries", "dodona", "oracle", "phineus", "bones", "beast", "hunt", "games", "mood", "legacy"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
 
+const A_ = (w) => w.A;
 export function tick(w, omens = []) {
   const day = w.day, ev = [];
   const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) }; ctx.rr = ctx.r("misc"); ctx.E = E; ctx.TH = TH; ctx.think = (i, th) => think(ctx, i, th); ctx.kill = (i, c, by) => kill(ctx, i, c, by); ctx.remember = remember;
-  ctx.cognomen = (i, c) => setCognomen(ctx, i, c); ctx.tie = (i, j, d) => tie(ctx, i, j, d); ctx.memorize = (i, k, who, s) => memorize(ctx, i, k, who, s); ctx.oathEnds = (i, k, kept) => oathEnds(ctx, i, k, kept); ctx.swear = (i, j, k, d) => swear(ctx, i, j, k, d); ctx.forgeRelic = (...a) => forgeRelic(ctx, ...a); ctx.captureRelics = (...a) => captureRelics(ctx, ...a); ctx.champion = (c) => champion(ctx, c);
+  ctx.cognomen = (i, c) => setCognomen(ctx, i, c); ctx.renown = (i, n) => renown(w, A_(w), i, n); ctx.tie = (i, j, d) => tie(ctx, i, j, d); ctx.memorize = (i, k, who, s) => memorize(ctx, i, k, who, s); ctx.oathEnds = (i, k, kept) => oathEnds(ctx, i, k, kept); ctx.swear = (i, j, k, d) => swear(ctx, i, j, k, d); ctx.forgeRelic = (...a) => forgeRelic(ctx, ...a); ctx.captureRelics = (...a) => captureRelics(ctx, ...a); ctx.champion = (c) => champion(ctx, c);
   ctx.trace = (t, a, b, x = -1) => ev.push({ i: -1, d: day, t: EV[t], a, b, x, v: 0, s: "", h: 1 });   // seen by the story sifter, not the chronicle
   ctx.log = (t, a = -1, b = -1, x = -1, v = 0, s = "") => { const e = { i: ++w.eventSeq, d: day, t: EV[t], a, b, x, v, s }; ev.push(e); if (a >= 0) bio(ctx, a, t, b); if (b >= 0 && b !== a) bio(ctx, b, t, a); return e; };
   applyOmens(ctx, omens); chk(ctx, 'applyOmens');
@@ -43,7 +45,7 @@ export function tick(w, omens = []) {
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   if (((day % 30) + 30) % 30 === 15) { index(ctx); giftMonthly(ctx); } chk(ctx, 'gift');
   director(ctx); chk(ctx, 'director');
-  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); chk(ctx, 'miasma');
+  index(ctx); miasmaDaily(ctx); memoryDaily(ctx); oracleDaily(ctx); heroesDaily(ctx); chk(ctx, 'miasma');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
@@ -143,7 +145,7 @@ function lifecycle(ctx) {
       if (par.length && r.chance(0.4)) { A.artifact[i] = A.artifact[pick()]; A.vice[i] = A.artifact[i] === X.artifact.none ? 0 : 1; }
       const jc = { [J.reaper]: "Death", [J.priest]: "Clergy", [J.servant]: "Servant", [J.noble]: "Royalty" }[A.job[i]]; if (jc && X.cloak[jc] !== undefined) A.cloak[i] = X.cloak[jc];
     }
-    let hz = HAZ[Math.min(130, age)] / YEAR; if (A.sick[i]) hz *= 4; if (age >= 60 && (monthOf(day) === 11 || monthOf(day) === 0)) hz *= 1.2; if (A.hunger[i] > 3) hz *= 3;
+    let hz = HAZ[Math.min(130, age)] / YEAR * (legacy(w, A, i, "Blood of the Sown") ? 0.85 : 1); if (A.sick[i]) hz *= 4; if (age >= 60 && (monthOf(day) === 11 || monthOf(day) === 0)) hz *= 1.2; if (A.hunger[i] > 3) hz *= 3;
     if (r.chance(hz)) kill(ctx, i, age < 5 ? "died in infancy" : age >= 60 ? "died of old age" : A.sick[i] ? "plague" : A.hunger[i] > 3 ? "starved" : "a sudden fever");
   }
   // children are fed by their parents
@@ -165,7 +167,7 @@ function lifecycle(ctx) {
     if (!fertile(A, i, day) || !fertile(A, j, day)) continue;
     if (A.inv[i * 5] + A.inv[j * 5] < 6 || A.mood[i] + A.mood[j] < -30) continue;
     const kids = (kidsOf.get(i * 65536 + j) || 0) + (kidsOf.get(j * 65536 + i) || 0);
-    if (kids >= 5 || !r.chance(0.018 * room * (kids ? 0.7 : 1) * (cursed(w, A, i) || cursed(w, A, j) ? 0.6 : 1))) continue;
+    if (kids >= 5 || !r.chance(0.018 * room * (kids ? 0.7 : 1) * (cursed(w, A, i) || cursed(w, A, j) ? 0.6 : 1) * (legacy(w, A, i, "the Feasting House") ? 1.15 : 1))) continue;
     bear(ctx, i, j, r);
   }
 }
@@ -693,7 +695,7 @@ function offices(ctx, proposer) {
     const i = want[o.key], cur = w.offices[o.key];
     if (i < 0 || i === cur) return;
     if (cur !== undefined) A.office[cur] = -1;
-    w.offices[o.key] = i; A.office[i] = k; ctx.log(E.office, i, cur === undefined ? -1 : cur, A.district[i], k, o.title);
+    w.offices[o.key] = i; A.office[i] = k; renown(w, A, i, 20); ctx.log(E.office, i, cur === undefined ? -1 : cur, A.district[i], k, o.title);
   });
 }
 
