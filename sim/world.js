@@ -166,7 +166,7 @@ export function hasTie(w, i, j) { const A = w.A; for (let k = 0; k < TIES; k++) 
 const B64 = typeof Buffer !== "undefined"
   ? { enc: (u8) => Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength).toString("base64"), dec: (s) => new Uint8Array(Buffer.from(s, "base64")) }
   : { enc: (u8) => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); },
-      dec: (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)) };
+      dec: (s) => { if (Uint8Array.fromBase64) return Uint8Array.fromBase64(s); const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; } };
 
 export function serialize(w) {
   const arrays = {};

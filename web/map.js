@@ -18,7 +18,7 @@ export const BIOME = {
 };
 
 // value noise from an integer lattice hash; smoothstep with + and * only (deterministic everywhere)
-const lat = (x, y, s) => hash32("n", s, x, y) / 4294967296;
+const LAT = new Map(), lat = (x, y, s) => { const k = (s * 1024 + x + 256) * 1024 + y + 256; let v = LAT.get(k); if (v === undefined) { v = hash32("n", s, x, y) / 4294967296; LAT.set(k, v); } return v; };   // lattice values are asked for millions of times: hash each once
 function vnoise(x, y, s) {
   const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
   const a = lat(x0, y0, s), b = lat(x0 + 1, y0, s), c = lat(x0, y0 + 1, s), d = lat(x0 + 1, y0 + 1, s);

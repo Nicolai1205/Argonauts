@@ -64,7 +64,7 @@ function catchUp() {
   runUntil(w, target, byDay, (d, ev) => { for (const e of ev) if (!e.h) provisional.push({ ...e, text: narrate(e, view), voice: VOICE[e.t] || "realism", prov: true }); for (const st of sift(M, d, ev, w, view.name)) st.prov = true; });
   return true;
 }
-function liveTick() { const n0 = provisional.length; if (!S.catching && catchUp()) { layout(); panels(); flash(); notifyWatched(provisional.slice(n0)); } updateClock(); }
+function liveTick() { const n0 = provisional.length; if (!S.catching && catchUp()) { layout(); flash(); notifyWatched(provisional.slice(n0)); (window.requestIdleCallback || setTimeout)(() => panels()); } updateClock(); }   // panels re-render when the browser is idle
 /** replay in a module worker; resolves false if workers are unavailable so the caller can fall back to the main thread */
 function workerCatchUp(stTxt, omens) {
   return new Promise((resolve) => {
@@ -173,7 +173,7 @@ function layout() {
     city[k] = { R, houses, venues };
   });
   S.home = home; S.city = city; S.cur = new Float32Array(N * 2); S.frame = new Uint8Array(N); S.vis = new Uint8Array(N);
-  S.looks = []; for (let i = 0; i < N; i++) S.looks.push(figure(lookOf(seed, A, i, JOBS[A.job[i]], w.factions[A.faction[i]].color, stageOf(i))));
+  S.looks = new Array(N);   // figures are drawn on demand (only close up), not built for all at once
   S.lookDay = w.day;
   plans();
 }
@@ -228,7 +228,7 @@ function plans() {
     S.eveWith[i] = comp; S.where[i] = { work: desc, eve: edesc };
   }
   S.planDay = w.day;
-  if (S.lookDay !== w.day) { for (let i = 0; i < w.N; i++) S.looks[i] = figure(lookOf(seed, A, i, JOBS[A.job[i]], w.factions[A.faction[i]].color, stageOf(i))); S.lookDay = w.day; }
+  if (S.lookDay !== w.day) { S.looks = new Array(w.N); S.lookDay = w.day; }
 }
 const stageOf = (i) => { const a = ageOf(w.A, i, w.day); return a < 5 ? 0 : a < 14 ? 1 : a < 60 ? 2 : 3; };
 const ease = (t) => t * t * (3 - 2 * t);
@@ -311,12 +311,13 @@ function render() {
   cx.strokeStyle = "#c2ab7c"; cx.lineWidth = Math.max(11, 3.2 / sc); cx.stroke(TRUNK);
   for (const R of ROADS) { cx.strokeStyle = "#a08a62"; cx.lineWidth = Math.max(5, 1.6 / sc); cx.stroke(R.land); cx.setLineDash([18, 22]); cx.strokeStyle = "#9fc3e6aa"; cx.lineWidth = Math.max(3, 1.2 / sc); cx.stroke(R.sea); cx.setLineDash([]); }
   // cities: paved ground, houses (roof tinted by the household's faction), venues
-  const night = f < 0.18 || f >= 0.84;
+  const night = f < 0.18 || f >= 0.84, qx0 = -S.x / sc - 60, qy0 = -S.y / sc - 60, qx1 = (r.width - S.x) / sc + 60, qy1 = (r.height - S.y) / sc + 60;   // the view, for culling
   DISTRICTS.forEach((d, k) => {
     const C = S.city[k]; if (!C || !C.houses.length) return; const c = SITE[k];
+    if (c.x + C.R + 300 < qx0 || c.x - C.R - 300 > qx1 || c.y + C.R + 300 < qy0 || c.y - C.R - 300 > qy1) return;   // off-screen city
     cx.fillStyle = "rgba(70,60,48,.6)"; cx.beginPath(); cx.arc(c.x, c.y, C.R + 6, 0, 6.283); cx.fill(); cx.strokeStyle = "rgba(205,190,150,.55)"; cx.lineWidth = Math.max(3, 1 / sc); cx.stroke();
     if (sc < 0.12) return;
-    for (const H of C.houses) { cx.fillStyle = "#4a3f33"; cx.fillRect(H.x - 10, H.y - 8, 20, 16); cx.fillStyle = w.factions[H.f].color; cx.globalAlpha = 0.55; cx.fillRect(H.x - 10, H.y - 8, 20, 5); cx.globalAlpha = 1;
+    for (const H of C.houses) { if (H.x < qx0 || H.x > qx1 || H.y < qy0 || H.y > qy1) continue; cx.fillStyle = "#4a3f33"; cx.fillRect(H.x - 10, H.y - 8, 20, 16); cx.fillStyle = w.factions[H.f].color; cx.globalAlpha = 0.55; cx.fillRect(H.x - 10, H.y - 8, 20, 5); cx.globalAlpha = 1;
       if (night) { cx.fillStyle = "rgba(255,196,100,.9)"; cx.fillRect(H.x - 2, H.y, 4, 4); } }
     const V = C.venues, box = (p, col, wd, ht) => { cx.fillStyle = col; cx.fillRect(p[0] - wd / 2, p[1] - ht / 2, wd, ht); };
     box(V.market, "#8c7650", 46, 30); box(V.temple, "#e9e1cf", 40, 18); cx.fillStyle = "#b8b0a0"; for (let q = -2; q <= 2; q++) cx.fillRect(V.temple[0] + q * 8 - 1.5, V.temple[1] - 9, 3, 18);
@@ -359,7 +360,7 @@ function render() {
       const x = x0 + (x1 - x0) * f, y = y0 + (y1 - y0) * f, pirate = (night && k % 3 === 0); cx.fillStyle = "#5a3d22"; cx.beginPath(); cx.moveTo(x - 14, y); cx.lineTo(x + 14, y); cx.lineTo(x + 9, y + 6); cx.lineTo(x - 9, y + 6); cx.closePath(); cx.fill();
       cx.fillStyle = pirate ? "#111" : "#efe6cf"; cx.beginPath(); cx.moveTo(x, y - 20); cx.lineTo(x + 10, y - 2); cx.lineTo(x, y - 2); cx.closePath(); cx.fill(); } }
   // what happened today, drawn where it happened
-  { const today = w.day - 1, evs = chron.concat(provisional).filter((e) => e.d === today);
+  { const today = w.day - 1, evs = worldCache().today;
     for (const e of evs) { if (e.x < 0 || !SITE[e.x]) continue; const c = SITE[e.x], R = (S.city[e.x] ? S.city[e.x].R : 120) + 40;
       if (e.t === "riot" || e.t === "iconoclasm") { for (let k = 0; k < 6; k++) { const a = k * 1.05 + tAnim / 900, rr = R * 0.5; const fx = c.x + Math.cos(a) * rr, fy = c.y + Math.sin(a) * rr * 0.6; const g = cx.createRadialGradient(fx, fy, 2, fx, fy, 60); g.addColorStop(0, `rgba(255,120,40,${0.5 + 0.3 * Math.sin(tAnim / 150 + k)})`); g.addColorStop(1, "rgba(255,80,20,0)"); cx.fillStyle = g; cx.beginPath(); cx.arc(fx, fy, 60, 0, 6.283); cx.fill(); } }
       if (e.t === "plague") { const g = cx.createRadialGradient(c.x, c.y, 10, c.x, c.y, R * 1.3); g.addColorStop(0, "rgba(120,200,90,.28)"); g.addColorStop(1, "rgba(120,200,90,0)"); cx.fillStyle = g; cx.beginPath(); cx.arc(c.x, c.y, R * 1.3, 0, 6.283); cx.fill(); }
@@ -379,27 +380,28 @@ function render() {
     if (w.convoy) for (const c of w.caravans || []) { if (!c.sea || !(w.convoy[c.from] > w.day || w.convoy[c.to] > w.day)) continue; const u = (simNow - c.left) / Math.max(1, c.arrive - c.left); if (u < 0 || u > 1) continue; const [x, y] = along(routeOf(c.from, c.to), u), z = Math.max(1, 1 / sc / 3);
       cx.fillStyle = "#3a2a1a"; cx.fillRect(x + 14 * z, y + 4 * z, 30 * z, 5 * z); cx.fillStyle = "#b8392a"; cx.fillRect(x + 27 * z, y - 12 * z, 4 * z, 16 * z); }
     const SHORT = Object.fromEntries(DISTRICTS.map((d, k) => [d.name.replace(/^the /, "").replace(/ & the Agora/, ""), k]));
-    for (const e of chron.concat(provisional)) { if (e.t !== "wreck" || e.d < w.day - 3) continue; const [fa, fb] = (e.s || "").split("|"), a = SHORT[fa], b = SHORT[fb]; if (a === undefined || b === undefined) continue; const [x, y] = along(routeBetween(a, b), 0.5), z = Math.max(1, 1 / sc / 3);
+    for (const e of worldCache().wrecks) { const [fa, fb] = (e.s || "").split("|"), a = SHORT[fa], b = SHORT[fb]; if (a === undefined || b === undefined) continue; const [x, y] = along(routeBetween(a, b), 0.5), z = Math.max(1, 1 / sc / 3);
       cx.strokeStyle = "#e9e1cf"; cx.lineWidth = 2 * z; cx.beginPath(); cx.moveTo(x - 8 * z, y + 6 * z); cx.lineTo(x + 6 * z, y - 14 * z); cx.stroke(); cx.fillStyle = "rgba(233,225,207,.6)"; cx.font = `${10 * z}px serif`; cx.textAlign = "center"; cx.fillText("wreck", x, y + 18 * z); }
     for (const h of w.heldBones || []) { const c = SITE[h.city], z = Math.max(1, 1 / sc / 3); cx.fillStyle = "#4a3a2a"; cx.fillRect(c.x + c.r * 0.6, c.y - 6 * z, 22 * z, 10 * z); cx.fillStyle = "#e9e1cf"; cx.font = `${10 * z}px serif`; cx.fillText("stolen bones", c.x + c.r * 0.6 + 11 * z, c.y - 9 * z); }
     for (const x of (w.quest && w.quest.expeditions) || []) { const u = (simNow - x.left) / Math.max(1, x.arrive - x.left); const [ex, ey] = along(routeOf(x.from, x.target), Math.min(1, u)), z = Math.max(1, 1 / sc / 2.5);
       cx.fillStyle = "#e05a46"; cx.fillRect(ex - 2 * z, ey - 30 * z, 3 * z, 30 * z); cx.beginPath(); cx.moveTo(ex + z, ey - 30 * z); cx.lineTo(ex + 18 * z, ey - 24 * z); cx.lineTo(ex + z, ey - 18 * z); cx.fill();
       cx.fillStyle = "#f2c14e"; cx.font = `${12 * z}px serif`; cx.fillText("✦", ex + 9 * z, ey - 21 * z); } }
   // the Pyra
-  const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97); let burning = 0; for (let i = 0; i < w.N; i++) if (A.status[i] === ST.pyre) burning++; S.burning = burning;
+  const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97); const burning = worldCache().burning; S.burning = burning;
   const PR = 90 + Math.min(260, burning * 18), grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, PR); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
   cx.fillStyle = grd; cx.beginPath(); cx.arc(pd.x, pd.y, PR, 0, 6.283); cx.fill();
   if (R.on) { drawReplay(sc); cx.restore(); return; }
   // characters
   const vx0 = -S.x / sc - 40, vy0 = -S.y / sc - 40, vx1 = (r.width - S.x) / sc + 40, vy1 = (r.height - S.y) / sc + 40, P = S.cur;
-  const figH = 16, figPx = figH * sc, mode = figPx < 4 ? 0 : 1, label = figPx > 34;
+  const figH = 16, figPx = figH * sc, mode = figPx < 4 ? 0 : 1, label = figPx > 34; S.figBudget = 120;
   for (let i = 0; i < w.N; i++) {
     const x = P[i * 2], y = P[i * 2 + 1]; if (x < vx0 || x > vx1 || y < vy0 || y > vy1) continue;
     const st = A.status[i]; if (!S.vis[i]) continue;
     if (st === ST.asphodel) { cx.fillStyle = "#cfc9ba"; cx.fillRect(x - 4, y - 7, 8, 11); cx.fillStyle = "#7a6e5e"; cx.fillRect(x - 0.8, y - 15, 1.6, 9); continue; }
     cx.globalAlpha = st === ST.shade ? 0.3 : 1;
     if (mode === 0) { cx.fillStyle = w.factions[A.faction[i]].color; cx.fillRect(x - 3, y - 3, 6, 6); }
-    else { const L = S.looks[i], hh = A.kind[i] ? figH * [0.45, 0.68, 0.9, 0.86][stageOf(i)] : figH; cx.imageSmoothingEnabled = true; cx.drawImage(L.canvas, S.frame[i] * L.w, 0, L.w, L.h, x - hh * 0.32, y - hh, hh * 0.64, hh); }
+    else if (!S.looks[i] && S.figBudget-- <= 0) { cx.fillStyle = w.factions[A.faction[i]].color; cx.fillRect(x - 3, y - 8, 6, 8); }   // built over a few frames, never all at once
+    else { const L = S.looks[i] || (S.looks[i] = figure(lookOf(seed, A, i, JOBS[A.job[i]], w.factions[A.faction[i]].color, stageOf(i)))), hh = A.kind[i] ? figH * [0.45, 0.68, 0.9, 0.86][stageOf(i)] : figH; cx.imageSmoothingEnabled = true; cx.drawImage(L.canvas, S.frame[i] * L.w, 0, L.w, L.h, x - hh * 0.32, y - hh, hh * 0.64, hh); }
     if (mode === 1 && A.style[i] && figPx > 8 && st === ST.living) { const hh = A.kind[i] ? figH * [0.45, 0.68, 0.9, 0.86][stageOf(i)] : figH; cx.fillStyle = w.styles[A.style[i]].color; cx.fillRect(x - hh * 0.2, y - hh * 0.6, hh * 0.4, hh * 0.09); }
     if (mode === 1 && A.faith[i] && A.devotion[i] > 60 && figPx > 10) { cx.fillStyle = w.faiths[A.faith[i]].color; cx.beginPath(); cx.arc(x, y - figH - 3, 2.2, 0, 6.283); cx.fill(); }
     if (st === ST.pyre) { cx.globalAlpha = 0.6 + 0.4 * fl; cx.fillStyle = "#ff7a1a"; cx.beginPath(); cx.moveTo(x - 7, y + 2); cx.quadraticCurveTo(x, y - 26 * fl, x + 7, y + 2); cx.fill();
@@ -420,8 +422,16 @@ function render() {
   cx.restore();
   S.f = f;
 }
-function countIn(k) { let n = 0; for (let i = 0; i < w.N; i++) if (w.A.district[i] === k) n++; return n; }
-function labelCount(k, n) { const d = DISTRICTS[k]; if (d.kind === "pyra") return `${n} burning`; if (d.kind === "asphodel") { let a = 0; for (let i = 0; i < w.N; i++) if (w.A.status[i] === ST.asphodel) a++; return `${a} graves · ${n - a} shades`; } return `${n} souls`; }
+/** everything the map needs that only changes when the world does (a new day, a birth, a new provisional event) */
+function worldCache() {
+  const key = w.day + ":" + w.N + ":" + chron.length + ":" + provisional.length; if (S.wc && S.wc.key === key) return S.wc;
+  const A = w.A, counts = new Int32Array(DISTRICTS.length); let graves = 0, burning = 0;
+  for (let i = 0; i < w.N; i++) { counts[A.district[i]]++; const s = A.status[i]; if (s === ST.asphodel) graves++; else if (s === ST.pyre) burning++; }
+  const recent = chron.concat(provisional).filter((e) => e.d >= w.day - 3);
+  return (S.wc = { key, counts, graves, burning, today: recent.filter((e) => e.d === w.day - 1), wrecks: recent.filter((e) => e.t === "wreck") });
+}
+function countIn(k) { return worldCache().counts[k]; }
+function labelCount(k, n) { const d = DISTRICTS[k]; if (d.kind === "pyra") return `${n} burning`; if (d.kind === "asphodel") { const a = worldCache().graves; return `${a} graves · ${n - a} shades`; } return `${n} souls`; }
 let lastFrame = 0;
 function frame(t) { tAnim = t; if (t - lastFrame > 45 && !document.hidden) { lastFrame = t; render(); } requestAnimationFrame(frame); }
 
@@ -450,7 +460,8 @@ function pick(e) {
 function focus(i) { const b = cv.getBoundingClientRect(); S.scale = Math.max(S.scale, 3); S.x = b.width / 2 - S.cur[i * 2] * S.scale; S.y = b.height / 2 - S.cur[i * 2 + 1] * S.scale; S.sel = i; }
 
 // ------------------------------------------------------------------ side panels
-document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { document.querySelectorAll(".tabs button,.panel").forEach((x) => x.classList.remove("on")); b.classList.add("on"); $("#p-" + b.dataset.tab).classList.add("on"); }));
+document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { document.querySelectorAll(".tabs button,.panel").forEach((x) => x.classList.remove("on")); b.classList.add("on"); $("#p-" + b.dataset.tab).classList.add("on"); lazyPanel(b.dataset.tab); }));
+function lazyPanel(tab) { if (tab === "codex" && S.codexDirty) { S.codexDirty = false; $("#p-codex").innerHTML = renderCodex(w, seed, view, esc, dayLabel, linkify); } if (tab === "arcs" && S.arcsDirty) { S.arcsDirty = false; arcsPanel(); } }
 document.querySelectorAll(".voices input").forEach((b) => (b.onchange = chronicle));
 document.addEventListener("click", (e) => { const hh = e.target.closest("[data-h]"); if (hh) { e.preventDefault(); openHouse(+hh.dataset.h); return; } const a = e.target.closest("[data-i]"); if (a) { e.preventDefault(); const i = +a.dataset.i; openLegends(i); } });
 function linkify(text) {
@@ -464,10 +475,16 @@ function chronicle() {
   $("#chron").innerHTML = html || "<li>The sea is quiet.</li>";
 }
 const dayLabel = (d) => d < 0 ? `The Sowing, day ${PREHISTORY_DAYS + d}` : dateOf(d);
+function worldHash() {
+  const k = w.day + ":" + w.N; if (S.hashDay === k) return S.hash;
+  if (meta && meta.day === w.day && w.day === checkpointDay) { S.hashDay = k; return (S.hash = meta.hash); }
+  if (!S.hashPending) { S.hashPending = true; (window.requestIdleCallback || setTimeout)(() => { S.hash = stateHash(w); S.hashDay = w.day + ":" + w.N; S.hashPending = false; updateClock(); }); }
+  return S.hash || "······";
+}
 function updateClock() {
   const now = Date.now() / 1000, d = dayNow(now), next = GENESIS + (d + 1) * 3600 - now;
   $("#day").textContent = `${dateOf(d)} · day ${d}`;
-  $("#dawn").textContent = `next dawn in ${Math.floor(next / 60)}:${String(Math.floor(next % 60)).padStart(2, "0")} · world ${stateHash(w).slice(0, 6)}${w.day - 1 > checkpointDay ? " (provisional)" : ""}`;
+  $("#dawn").textContent = `next dawn in ${Math.floor(next / 60)}:${String(Math.floor(next % 60)).padStart(2, "0")} · world ${worldHash().slice(0, 6)}${w.day - 1 > checkpointDay ? " (provisional)" : ""}`;
 }
 setInterval(() => w && updateClock(), 1000);
 
@@ -539,7 +556,7 @@ function arcsPanel() {
   }).join("") || '<p class="muted">No arcs yet.</p>');
 }
 function panels() {
-  updateClock(); chronicle(); frontPage(); arcsPanel(); w.storyLog = M.stories; $("#p-codex").innerHTML = renderCodex(w, seed, view, esc, dayLabel, linkify);
+  updateClock(); chronicle(); frontPage(); S.arcsDirty = true; if ($("#p-arcs").classList.contains("on")) lazyPanel("arcs"); w.storyLog = M.stories; S.codexDirty = true; if ($("#p-codex").classList.contains("on")) lazyPanel("codex");
   const A = w.A, live = w.factions.map(() => 0); for (let i = 0; i < w.N; i++) if (A.status[i] === ST.living) live[A.faction[i]]++;
   const max = Math.max(...live);
   // legend
