@@ -113,7 +113,7 @@ export const SPLINTER_COLORS = ["#ff6b6b", "#4ecdc4", "#f7d794", "#a29bfe", "#fd
 
 // cognomens earned by deeds (Caves of Qud style)
 export const COGNOMENS = ["", "the Twice-Born", "the Hungry", "the Unburied", "the Oath-breaker", "the Thrice-Robbed", "the Exile", "the Fleece-touched",
-  "the Mob-leader", "the Blood-handed", "Siren-deaf", "the Rich", "the Ruined", "Maker-touched", "Plague-spared", "the Turncoat", "the Founder", "the Ostracized", "the Prophet", "the Scapegoat", "the Avenger", "the Kinslayer", "the Hollow", "the Monster-slayer", "the Mad", "the Stone-thrower"];
+  "the Mob-leader", "the Blood-handed", "Siren-deaf", "the Rich", "the Ruined", "Maker-touched", "Plague-spared", "the Turncoat", "the Founder", "the Ostracized", "the Prophet", "the Scapegoat", "the Avenger", "the Kinslayer", "the Hollow", "the Monster-slayer", "the Mad", "the Stone-thrower", "the Tooth-sower"];
 
 // the Argo's speaking beam quotes the collection's own visor phrases
 export const BEAM = ["SOWN MEN", "THE DRAGON SLEEPS", "CLASHING ROCKS", "KEEP ROWING", "DO NOT LISTEN", "ONE SANDAL", "LEMNOS", "HYLAS", "BUTES", "SIRENS",

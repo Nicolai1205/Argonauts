@@ -1,6 +1,6 @@
 # The Argo: handover
 
-Status on 2026-10-06 (afternoon). **Rules v19**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
+Status on 2026-10-06 (afternoon). **Rules v20**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
 An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and their mortal children. **One real hour is one sim day.** Day 0 is 2026-10-06 00:00 UTC.
 
 ## 1. How it runs (nothing to babysit)
@@ -35,6 +35,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 | `sim/iron.js` | v16 The Stone in Their Midst: Sown tension and the stone, the spear-mark, the Iron clock, hubris/nemesis, the Agrionia, Demophon, Theoclymenus' doom, the Lemnian New Fire |
 | `sim/hidden.js` | v17 What Is Hidden: unwitnessed killings and cases, belief, the Areopagus, secrets and blackmail, embezzling office-holders, reputation, curse tablets |
 | `sim/threads.js` | v19 Songs, Threads and Hooks: the Orpheus' songs as world objects, blame-songs, blackmail in the vote, encounter intents, cadet houses, movements |
+| `sim/wonders.js` | v20 Horrors and Wonders (see backlog A) |
 | `sim/discord.js` | v18 Discord: weather (rain, drought, flood, storm), colonies by lot, orators before the vote, Turchin's political stress index, offices vacated for ever by on-chain burns |
 | `sim/poetics.js` | Text layer (no rules): domains and fixed epithets, situational asides in the chronicle, dawn lines, the Orpheus' poems, city song-forms |
 | `sim/sift.js` | Story sifter → front page (patterns, salience × rarity, era names) |
@@ -142,7 +143,8 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ Trunk-road merging on the map.
 - ✅ Poems as world objects (v19 `sim/threads.js`: sung memories last longer, blame-songs, praise for slayers).
 - ✅ v19: story-aware director (strikes where avengers and open cases are; vows falling due press harder); blackmail hooks move Boule votes; encounter intents; cadet houses; aspirant movements.
-- From the research top-25, not built: the Dragon's Teeth (Leaves sowing bone soldiers); Kēres after lost battles; Empusa, Lamia and the vrykolakas; the Bouphonia axe-trial; Trophonius; Cleomedes and Theagenes (statues tried for murder); the Symplegades first passage; Talos as guardian; Alcinous' arbitration for the Ouranidai; Circe's island; the Cattle of Helios; the bow contest for vacant offices; recognition tokens in succession (the spear-mark); dowry and epiklēros inheritance; grain loans between neighbours (WD 349); the two Strifes; sitophylakes and a grain-hoarder villain; Pyrrhias names for Leaves born on a burn day.
+- ✅ v20 `sim/wonders.js`: the Dragon's Teeth, the Kēres, the Empusa, Lamia, the body the Pyra refuses, the Bouphonia, Trophonius, Cleomedes, Theagenes' statue, the Cattle of the Sun.
+- From the research top-25, not built: the Symplegades first passage; Talos as guardian; Alcinous' arbitration for the Ouranidai; Circe's island; the bow contest for vacant offices; recognition tokens in succession (the spear-mark); dowry and epiklēros inheritance; grain loans between neighbours (WD 349); the two Strifes; sitophylakes and a grain-hoarder villain; Pyrrhias names for Leaves born on a burn day.
 ### B. Should do (risks, correctness, balance)
 - **Herbalists** nearly die out, so plague over-kills. Seed herbalists from Anthemoessa births or let the Medea office train them.
 - **War:** the audit saw Ares become lord of 8 cities and city cohesion pinned at 0.86–0.98. Not revisited this wave.
