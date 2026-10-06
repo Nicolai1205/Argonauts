@@ -16,6 +16,7 @@ const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded 
 export function tick(w, omens = []) {
   const day = w.day, ev = [];
   const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) }; ctx.rr = ctx.r("misc");
+  ctx.trace = (t, a, b, x = -1) => ev.push({ i: -1, d: day, t: EV[t], a, b, x, v: 0, s: "", h: 1 });   // seen by the story sifter, not the chronicle
   ctx.log = (t, a = -1, b = -1, x = -1, v = 0, s = "") => { const e = { i: ++w.eventSeq, d: day, t: EV[t], a, b, x, v, s }; ev.push(e); if (a >= 0) bio(ctx, a, t, b); if (b >= 0 && b !== a) bio(ctx, b, t, a); return e; };
   applyOmens(ctx, omens); chk(ctx, 'applyOmens');
   scheduled(ctx); chk(ctx, 'scheduled');
@@ -88,7 +89,7 @@ function leafDies(ctx, i, cause, by) {
   A.status[i] = ST.pyre; A.district[i] = D.pyra; A.died[i] = day; A.until[i] = day + 3; A.hunger[i] = 0; A.sick[i] = 0; A.jail[i] = 0;
   w.leafDeaths++; w.director.lastDeath = day;
   const age = ageOf(A, i, day), notable = age >= 60 || A.office[i] >= 0 || !A.kind[A.p1[i]] || ctx.rr.chance(0.25);
-  if (notable) ctx.log(E.death, i, by, -1, age, cause); else bio(ctx, i, E.death, by);
+  if (notable) ctx.log(E.death, i, by, -1, age, cause); else { bio(ctx, i, E.death, by); ctx.trace(E.death, i, by); }
 }
 
 // ---------------------------------------------------------------- the generation of leaves: birth, growing up, old age
@@ -392,7 +393,7 @@ function social(ctx) {
       tie(ctx, i, j, -8); tie(ctx, j, i, -10); think(ctx, j, TH.insulted);
       if (r.chance(0.04 * (100 - P(A, i, 3)) / 50)) {
         A.sick[i] = Math.max(A.sick[i], 2); A.sick[j] = Math.max(A.sick[j], 2); tie(ctx, i, j, -20); tie(ctx, j, i, -20);
-        if (r.chance(0.03)) ctx.log(E.brawl, i, j, A.district[i]);
+        if (r.chance(0.03)) ctx.log(E.brawl, i, j, A.district[i]); else ctx.trace(E.brawl, i, j, A.district[i]);
         if (r.chance(0.01)) { kill(ctx, j, "brawl", i); setCognomen(ctx, i, 9); }
       }
     }
@@ -403,8 +404,8 @@ function social(ctx) {
     if (A.job[i] === J.pirate && !same && A.obols[j] > A.obols[i] * 2 && r.chance(0.12 * (100 - P(A, i, 0)) / 100)) {
       const take = Math.max(1, Math.floor(A.obols[j] / 10)); A.obols[j] -= take; A.obols[i] += take; think(ctx, j, TH.robbed); tie(ctx, j, i, -40);
       A.radical[j] = clamp(A.radical[j] + 5, -100, 100);
-      if (r.chance(Math.min(0.8, guards[A.district[i]] * 0.08))) { A.jail[i] = 8; if (take > 250 || r.chance(0.004)) ctx.log(E.robbery, i, j, A.district[i], take, "caught"); else bio(ctx, i, E.robbery, j); }
-      else if (take > 250 || r.chance(0.004)) ctx.log(E.robbery, i, j, A.district[i], take, ""); else bio(ctx, j, E.robbery, i);
+      if (r.chance(Math.min(0.8, guards[A.district[i]] * 0.08))) { A.jail[i] = 8; if (take > 250 || r.chance(0.004)) ctx.log(E.robbery, i, j, A.district[i], take, "caught"); else { bio(ctx, i, E.robbery, j); ctx.trace(E.robbery, i, j, A.district[i]); } }
+      else if (take > 250 || r.chance(0.004)) ctx.log(E.robbery, i, j, A.district[i], take, ""); else { bio(ctx, j, E.robbery, i); ctx.trace(E.robbery, i, j, A.district[i]); }
     }
   }
 }
@@ -439,7 +440,7 @@ function breakdown(ctx, i, r) {
     ctx.log(E.break, i, -1, D.anthemoessa, 0, "walked into the Siren meadow");
   } else if (P(A, i, 3) < 35) {
     const k = r.int(TIES), j = A.tieTo[i * TIES + k]; if (j >= 0 && living(A, j)) { A.sick[j] = Math.max(A.sick[j], 3); tie(ctx, j, i, -50); }
-    if (r.chance(0.25)) ctx.log(E.break, i, j, A.district[i], 0, "rampaged"); else bio(ctx, i, E.break, j);
+    if (r.chance(0.25)) ctx.log(E.break, i, j, A.district[i], 0, "rampaged"); else { bio(ctx, i, E.break, j); ctx.trace(E.brawl, i, j, A.district[i]); }
   } else if (P(A, i, 0) < 35) {
     const pool = ctx.byDist[A.district[i]].filter((x) => !A.status[x]); if (!pool.length) return; const j = pool[r.int(pool.length)]; const take = Math.floor(A.obols[j] / 5); A.obols[j] -= take; A.obols[i] += take;
     ctx.log(E.break, i, j, A.district[i], take, "stole from a neighbour");
@@ -505,8 +506,8 @@ function defection(ctx) {
     const dOwn = idist(A, i, w.factions[own].ideo), dNew = idist(A, i, w.factions[g].ideo);
     if (c / pos > theta && dNew + 10 < dOwn && r.chance(0.5)) {
       A.faction[i] = g; A.identity[i] = Math.max(5, A.identity[i] - 20); n++;
-      if (w.factions[g].blood !== A.bones[i] && g < w.baseFactions && r.chance(0.35)) ctx.log(E.defect, i, -1, A.district[i], g, w.factions[g].name);
-      else if (g >= w.baseFactions) ctx.log(E.defect, i, -1, A.district[i], g, w.factions[g].name);
+      if (g >= w.baseFactions || (w.factions[g].blood !== A.bones[i] && r.chance(0.35))) ctx.log(E.defect, i, -1, A.district[i], g, w.factions[g].name);
+      else ctx.trace(E.defect, i, -1, A.district[i]);
       if (w.factions[g].blood !== A.bones[i] && A.cognomen[i] === 0 && r.chance(0.1)) A.cognomen[i] = 15;
     }
   }

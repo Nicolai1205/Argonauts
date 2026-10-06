@@ -8,6 +8,7 @@ import { createWorld, serialize, deserialize, stateHash, runUntil, omensByDay, d
 import { VERSION } from "../sim/world.js";
 import { narrate, nameOf, displayName, VOICE } from "../sim/narrate.js";
 import { homeFaction } from "../sim/systems.js";
+import { sift, emptySift } from "../sim/sift.js";
 import { BLOODS, DISTRICTS, COGNOMENS, OFFICES, ST } from "../sim/lore.js";
 
 const W = process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : "world";
@@ -34,10 +35,13 @@ const view = {
 };
 const chunks = {}; const chunkOf = (d) => Math.floor((d + PREHISTORY_DAYS) / 30);
 const loadChunk = (k) => (chunks[k] ??= fs.existsSync(`${W}/chronicle/c${k}.json`) ? JSON.parse(fs.readFileSync(`${W}/chronicle/c${k}.json`)) : []);
+const siftFile = `${W}/sift.json`;
+const M = w.day > -PREHISTORY_DAYS && fs.existsSync(siftFile) ? JSON.parse(fs.readFileSync(siftFile)) : emptySift();
 const t0 = Date.now(), from = w.day;
 runUntil(w, target, byDay, (d, ev) => {
   const out = loadChunk(chunkOf(d));
-  for (const e of ev) out.push({ ...e, text: narrate(e, view), voice: VOICE[e.t] || "realism" });
+  for (const e of ev) if (!e.h) out.push({ ...e, text: narrate(e, view), voice: VOICE[e.t] || "realism" });
+  sift(M, d, ev, w, view.name);
 });
 for (const [k, arr] of Object.entries(chunks)) fs.writeFileSync(`${W}/chronicle/c${k}.json`, JSON.stringify(arr));
 fs.writeFileSync(stateFile, zlib.gzipSync(serialize(w), { level: 9 }));
@@ -50,4 +54,5 @@ const meta = {
   leaves: w.leafCount || 0, births: w.births, leafDeaths: w.leafDeaths, N: w.N, treasury: w.treasury, tax: w.taxPermille, franchise: w.franchise, prices: w.prices, coalition: w.boule.coalition,
 };
 fs.writeFileSync(`${W}/meta.json`, JSON.stringify(meta));
+fs.writeFileSync(siftFile, JSON.stringify(M));
 console.log(`advance: day ${from} -> ${w.day} in ${Date.now() - t0} ms, hash ${hash}, omens after seed ${fresh.length} (${assigned} newly dated)`);

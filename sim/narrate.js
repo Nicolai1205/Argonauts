@@ -93,7 +93,7 @@ export function narrate(e, view) {
   let tpl = set[h % set.length];
   const who = (i) => (i >= 0 ? view.name(i) : "someone");
   let riot = "";
-  if (e.t === "riot") { try { const x = JSON.parse(e.s); riot = `${x.dead ? x.dead + " died, " : ""}${x.jailed} were jailed, ${x.looted} rations looted.`; } catch { } }
+  if (e.t === "riot") { try { const x = JSON.parse(e.s); riot = `${x.dead ? x.dead + " fell. " : ""}${x.jailed ? x.jailed + " were jailed" : "No Reaper stood in their way"}, and ${x.looted} rations were looted.`; } catch { } }
   const [s1, s2] = (e.s || "").split("|");
   const map = {
     a: who(e.a), b: who(e.b), c: e.t === "birth" ? who(e.v) : (e.t === "cognomen" ? COGNOMENS[e.v] : ""), first: e.s === "first" ? ", the first Leaf of their line" : "", where: e.x >= 0 ? DISTRICTS[e.x].name : "the archipelago", fa: e.a >= 0 ? view.faction(e.a) : "Minyans",

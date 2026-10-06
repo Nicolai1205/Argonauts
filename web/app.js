@@ -7,6 +7,7 @@ import { BLOODS, DISTRICTS, D, GOODS, JOBS, OFFICES, COGNOMENS, THOUGHTS, AXES, 
 import { TIES, THS, BIO } from "./sim/world.js";
 import { EV } from "./sim/systems.js";
 import { generate, paint, SITES, SIZE, TILE } from "./map.js";
+import { sift, emptySift } from "./sim/sift.js";
 import { figure, lookOf } from "./figures.js";
 import { hash32 } from "./sim/rng.js";
 
@@ -15,14 +16,15 @@ const gunzip = async (url) => { const r = await fetch(url, { cache: "no-cache" }
 const json = async (url) => { const r = await fetch(url, { cache: "no-cache" }); if (!r.ok) throw new Error(url + " " + r.status); return r.json(); };
 const NFT = "0x387c41b0b2f1128de44db1bcf8baad085f26392c";
 
-let seed, w, meta, sprites, checkpointDay, provisional = [], chron = [], byDay = {};
+let seed, w, meta, sprites, checkpointDay, provisional = [], chron = [], byDay = {}, M = emptySift();
 const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
 
 // ------------------------------------------------------------------ boot
 (async function boot() {
   try {
     [seed, meta] = await Promise.all([json("data/seed.json"), json("world/meta.json")]);
-    const [stTxt, fleet, omens] = await Promise.all([(await gunzip("world/state.json.gz")).text(), (await gunzip("data/fleet.bin.gz")).arrayBuffer(), json("world/omens.json").catch(() => [])]);
+    const [stTxt, fleet, omens, sm] = await Promise.all([(await gunzip("world/state.json.gz")).text(), (await gunzip("data/fleet.bin.gz")).arrayBuffer(), json("world/omens.json").catch(() => []), json("world/sift.json").catch(() => null)]);
+    if (sm) M = sm;
     w = deserialize(stTxt, seed); checkpointDay = w.day;
     sprites = buildAtlas(new Uint8Array(fleet));
     byDay = omensByDay(omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1));
@@ -42,7 +44,7 @@ const view = {
 };
 function catchUp() {
   const target = dayNow(Date.now() / 1000) + 1; if (w.day >= target) return false;
-  runUntil(w, target, byDay, (d, ev) => { for (const e of ev) provisional.push({ ...e, text: narrate(e, view), voice: VOICE[e.t] || "realism", prov: true }); });
+  runUntil(w, target, byDay, (d, ev) => { for (const e of ev) if (!e.h) provisional.push({ ...e, text: narrate(e, view), voice: VOICE[e.t] || "realism", prov: true }); for (const st of sift(M, d, ev, w, view.name)) st.prov = true; });
   return true;
 }
 function liveTick() { if (catchUp()) { layout(); panels(); flash(); } updateClock(); }
@@ -315,8 +317,19 @@ function updateClock() {
 }
 setInterval(() => w && updateClock(), 1000);
 
+function frontPage() {
+  const st = M.stories || [], byD = {}; for (const x of st) (byD[x.day] || (byD[x.day] = [])).push(x);
+  const days = Object.keys(byD).map(Number).sort((a, b) => b - a), today = days[0];
+  if (today === undefined) { $("#p-front").innerHTML = '<p class="muted">No stories yet.</p>'; return; }
+  const top = byD[today].sort((a, b) => b.score - a.score), [lead, ...rest] = top;
+  let html = `<div class="gz-mast"><b>THE ARGO</b><span>${dayLabel(today)} · sung by the Orpheus · ${w.N.toLocaleString()} souls ever lived</span></div>`;
+  html += `<div class="story lead"><span class="k">${esc(lead.kind)}</span><h2>${esc(lead.title)}</h2><p>${linkify(lead.text)}</p></div>`;
+  for (const x of rest.slice(0, 5)) html += `<div class="story"><span class="k">${esc(x.kind)}</span><h4>${esc(x.title)}</h4><p>${linkify(x.text)}</p></div>`;
+  html += `<div class="gz-old">` + days.slice(1, 40).map((d) => `<h5>${dayLabel(d)}</h5>` + byD[d].sort((a, b) => b.score - a.score).slice(0, 3).map((x) => `<div><b>${esc(x.title)}.</b> ${linkify(x.text)}</div>`).join("")).join("") + `</div>`;
+  $("#p-front").innerHTML = html;
+}
 function panels() {
-  updateClock(); chronicle();
+  updateClock(); chronicle(); frontPage();
   const A = w.A, live = w.factions.map(() => 0); for (let i = 0; i < w.N; i++) if (A.status[i] === ST.living) live[A.faction[i]]++;
   const max = Math.max(...live);
   // legend
