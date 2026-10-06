@@ -1,6 +1,6 @@
 # The Argo: handover
 
-Status on 2026-10-06 (afternoon). **Rules v25**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
+Status on 2026-10-06 (afternoon). **Rules v26**, live at https://nicolai1205.github.io/Argonauts/ (repo: github.com/Nicolai1205/Argonauts).
 An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and their mortal children. **One real hour is one sim day.** Day 0 is 2026-10-06 00:00 UTC.
 
 ## 1. How it runs (nothing to babysit)
@@ -38,6 +38,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 | `sim/wonders.js` | v20 Horrors and Wonders (see backlog A) |
 | `sim/voyage.js` | v21 The Voyage and the Household (see backlog A) |
 | `sim/depth.js` | v25 Households, Crafts and Contagion |
+| `sim/statecraft.js` | v26 Statecraft and Ecology |
 | `sim/discord.js` | v18 Discord: weather (rain, drought, flood, storm), colonies by lot, orators before the vote, Turchin's political stress index, offices vacated for ever by on-chain burns |
 | `sim/poetics.js` | Text layer (no rules): domains and fixed epithets, situational asides in the chronicle, dawn lines, the Orpheus' poems, city song-forms |
 | `sim/sift.js` | Story sifter → front page (patterns, salience × rarity, era names) |
@@ -182,6 +183,7 @@ An autonomous, deterministic society simulation of the 9,999 Argonauts NFTs and 
 - ✅ The Hero of Temesa: a murdered shade unavenged for 60 days takes a youth every 120 days until a Monster-slayer or champion beats it.
 - Still open: off-map places as expedition goals (Crete, Phaeacia, Colchis itself); a faith that resists the Maker; Codex chapters per system.
 ### F. Simulation depth
+- ✅ v26 `sim/statecraft.js`: vote-buying (the Lynceus may catch it); armies march on their stomachs (city grain scales power); loot after battles; peace sworn as an oath (breaking it curses the oath-breaker's line); fish stocks that can be fished out and refill; prey thins in drought.
 - ✅ v25 `sim/depth.js`: immunity after sickness and district quarantine (SIR-lite); skill per person learned at work and passed to apprentices (production ×0.8–1.2); guardians for orphans; the household's common jar; Solon's seisachtheia cancels grain debts.
 - Households (oikoi) as economic units: shared stores, dowries, inheritance and adoption of Leaves by the Sown.
 - Individual skill and apprenticeship (Henrich at the person level), and personal projects (build a ship, found a temple, write a law).

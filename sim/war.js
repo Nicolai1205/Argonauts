@@ -2,6 +2,7 @@
 import { DISTRICTS, D } from "./lore.js";
 import { ln } from "./drift.js";
 import { spareXenoi } from "./gift.js";
+import { supply, loot } from "./statecraft.js";
 
 // the cities that can make war; terrain makes some hard to take
 export const CITIES = ["agora", "ares", "bear", "anthemoessa", "reef", "eridanus", "drepane", "mist", "strand", "iolcus", "lemnos", "forges"].map((k) => D[k]);
@@ -29,7 +30,7 @@ export function cities(ctx) {
   }
   const top = (o) => { let b = 0, bv = -1; for (const [k, v] of Object.entries(o)) if (v > bv) { bv = v; b = Number(k); } return b; };
   for (const c of CITIES) W.dom[c] = { faith: top(fa[c]), faction: top(fc[c]), pop: pop[c] };
-  for (const c of CITIES) W.power[c] = Math.round(levy[c] * 0.2 * (0.4 + W.S[c]) * (1 + Math.max(-0.3, Math.min(0.3, mood[c] / Math.max(1, pop[c]) / 100))));
+  for (const c of CITIES) W.power[c] = Math.round(levy[c] * 0.2 * (0.4 + W.S[c]) * (1 + Math.max(-0.3, Math.min(0.3, mood[c] / Math.max(1, pop[c]) / 100))) * supply(ctx, c));   // an army marches on its stomach
   // relations drift toward what faith, blood, trade, lordship and war make them
   for (const a of CITIES) for (const b of CITIES) {
     if (a >= b) continue;
@@ -98,7 +99,7 @@ function battle(ctx, war, r) {
     for (let t = 0; t < Math.min(12, pool.length); t++) ctx.trip(pool[t], city, field, "levy");
     for (const i of pool) if (!spared.has(i) && r.chance(frac)) { ctx.kill(i, `fell in ${war.name}`); if (A.kind[i]) dead++; else broken++; }
   }
-  war.dead += dead; war.broken += broken;
+  war.dead += dead; war.broken += broken; loot(ctx, win, lose, r);
   W.S[win] = Math.min(0.98, W.S[win] + 0.02); W.S[lose] = Math.max(0.02, W.S[lose] - 0.03);
   ctx.log(ctx.E.battle, -1, -1, field, win, `${war.name}|${short(win)}|${dead}|${broken}`);
   // ends: victory with terms, exhaustion, or time
