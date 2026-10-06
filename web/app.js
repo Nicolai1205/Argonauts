@@ -6,6 +6,9 @@ import { homeFaction } from "./sim/systems.js";
 import { BLOODS, DISTRICTS, D, GOODS, JOBS, OFFICES, COGNOMENS, THOUGHTS, AXES, ST, GENESIS, PREHISTORY_DAYS } from "./sim/lore.js";
 import { TIES, THS, BIO } from "./sim/world.js";
 import { EV } from "./sim/systems.js";
+import { generate, paint, SITES, SIZE, TILE } from "./map.js";
+import { figure, lookOf } from "./figures.js";
+import { hash32 } from "./sim/rng.js";
 
 const $ = (s) => document.querySelector(s), esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const gunzip = async (url) => { const r = await fetch(url, { cache: "no-cache" }); if (!r.ok) throw new Error(url + " " + r.status); return new Response(r.body.pipeThrough(new DecompressionStream("gzip"))); };
@@ -59,109 +62,162 @@ function buildAtlas(u8) {
 }
 const spriteAt = (i) => [(i % sprites.cols) * 24, Math.floor(i / sprites.cols) * 24];
 
-// ------------------------------------------------------------------ layout: hex-pack each district, grouped by faction (quarters emerge)
-const K = 9, CELL = 22;
+// ------------------------------------------------------------------ the world map: square, biomes, cities, roads (web/map.js)
+const MAP = generate(), TERRAIN = paint(MAP), WORLD = SIZE * TILE;
+const ROADS = MAP.roads.map((r) => { const land = new Path2D(), sea = new Path2D(); let prevSea = null;
+  r.path.forEach(([x, y, wet], n) => { const px = x * TILE + TILE / 2, py = y * TILE + TILE / 2, P = wet ? sea : land; if (n === 0 || wet !== prevSea) P.moveTo(px, py); else P.lineTo(px, py); if (n > 0 && wet !== prevSea) (wet ? sea : land).moveTo(px, py); prevSea = wet; });
+  return { land, sea }; });
+const SITE = DISTRICTS.map((d) => { const s = SITES[d.key]; return { x: s.x * TILE + TILE / 2, y: s.y * TILE + TILE / 2, r: s.r * TILE }; });
+
+// ------------------------------------------------------------------ where everyone lives, works and gathers
+const CELL = 11;
 function layout() {
   const A = w.A, groups = DISTRICTS.map(() => []);
   for (let i = 0; i < w.N; i++) groups[A.district[i]].push(i);
-  const pos = new Float32Array(w.N * 2), radius = [];
+  const home = new Float32Array(w.N * 2), work = new Float32Array(w.N * 2), plaza = new Float32Array(w.N * 2), houses = [], cityR = [];
   DISTRICTS.forEach((d, k) => {
-    const g = groups[k].sort((a, b) => (A.status[a] - A.status[b]) || (A.faction[a] - A.faction[b]) || a - b);
-    const cx = d.x * K, cy = d.y * K, r = Math.max(d.r * 2.2, Math.sqrt(g.length * CELL * CELL * 0.866 / Math.PI) * 1.12 + 40); radius[k] = r;
-    // spiral of hex cells from the centre outward
-    const cells = hexSpiral(g.length, CELL);
-    g.forEach((i, n) => { pos[i * 2] = cx + cells[n * 2]; pos[i * 2 + 1] = cy + cells[n * 2 + 1]; });
+    const g = groups[k].sort((a, b) => (A.status[a] - A.status[b]) || (A.oikos[a] - A.oikos[b]) || a - b), c = SITE[k];
+    if (d.kind === "asphodel") {   // graves in rows; shades drift among them
+      const graves = g.filter((i) => A.status[i] === ST.asphodel), rest = g.filter((i) => A.status[i] !== ST.asphodel), cols = 12;
+      graves.forEach((i, n) => { home[i * 2] = c.x - cols * 9 + (n % cols) * 18; home[i * 2 + 1] = c.y - 40 + Math.floor(n / cols) * 22; });
+      const cells = hexSpiral(rest.length, CELL * 1.6); rest.forEach((i, n) => { home[i * 2] = c.x + cells[n * 2]; home[i * 2 + 1] = c.y + 70 + cells[n * 2 + 1]; });
+      cityR[k] = 160;
+    } else if (d.kind === "pyra") { g.forEach((i, n) => { const a = n / Math.max(1, g.length) * 6.283; home[i * 2] = c.x + Math.cos(a) * 14 * Math.min(1, n); home[i * 2 + 1] = c.y + Math.sin(a) * 10 * Math.min(1, n); }); cityR[k] = 60; }
+    else {
+      const cells = hexSpiral(g.length, CELL); let R = 40;
+      g.forEach((i, n) => { const x = cells[n * 2], y = cells[n * 2 + 1]; home[i * 2] = c.x + x; home[i * 2 + 1] = c.y + y; R = Math.max(R, Math.hypot(x, y)); if (n % 4 === 0) houses.push(c.x + x, c.y + y); });
+      cityR[k] = R + 14;
+    }
+    for (const i of g) {
+      const h = hash32("work", i), job = JOBS[A.job[i]], service = ["priest", "reaper", "noble", "servant", "merchant", "augur"].includes(job);
+      const ang = (A.job[i] * 0.9 + (h % 1000) / 1000 * 0.8) * 1.0, rad = service ? (h % 100) / 100 * cityR[k] * 0.4 : cityR[k] + 30 + (h % 997) / 997 * Math.max(120, cityR[k] * 0.7);
+      work[i * 2] = c.x + Math.cos(ang) * rad; work[i * 2 + 1] = c.y + Math.sin(ang) * rad;
+      const pa = (hash32("pz", i) % 6283) / 1000, pr = ((hash32("pr", i) % 1000) / 1000) * Math.min(90, cityR[k] * 0.35);
+      plaza[i * 2] = c.x + Math.cos(pa) * pr; plaza[i * 2 + 1] = c.y + Math.sin(pa) * pr;
+    }
   });
-  S.pos = pos; S.radius = radius;
+  S.home = home; S.work = work; S.plaza = plaza; S.houses = houses; S.cityR = cityR; S.cur = new Float32Array(w.N * 2); S.frame = new Uint8Array(w.N);
+  S.looks = []; for (let i = 0; i < w.N; i++) S.looks.push(figure(lookOf(seed, i, JOBS[A.job[i]])));
 }
 const spiralCache = {};
 function hexSpiral(n, s) {
-  if (spiralCache[n]) return spiralCache[n];
+  const key = n + ":" + s; if (spiralCache[key]) return spiralCache[key];
   const out = [], rows = Math.ceil(Math.sqrt(n)) + 4, cand = [];
   for (let q = -rows; q <= rows; q++) for (let r = -rows; r <= rows; r++) { const x = s * (q + r / 2), y = s * r * 0.866; cand.push([x * x + y * y, x, y]); }
   cand.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
   for (let k = 0; k < n; k++) out.push(cand[k][1], cand[k][2]);
-  return (spiralCache[n] = out);
+  return (spiralCache[key] = out);
+}
+// a sim day is one real hour: night, walk to work, work, walk to the plaza, gather, walk home, night
+const ease = (t) => t * t * (3 - 2 * t);
+function positions(now) {
+  const A = w.A, f0 = (((now - GENESIS) % 3600) + 3600) % 3600 / 3600, P = S.cur;
+  for (let i = 0; i < w.N; i++) {
+    const st = A.status[i]; let x, y, fr = 4;
+    const hx = S.home[i * 2], hy = S.home[i * 2 + 1];
+    if (st === ST.asphodel) { x = hx; y = hy; }
+    else if (st === ST.shade) { const a = now / 9 + i; x = hx + Math.cos(a) * 6; y = hy + Math.sin(a * 0.7) * 4; }
+    else if (st === ST.pyre || A.jail[i]) { x = hx; y = hy; }
+    else {
+      const f = (f0 + (hash32("o", i) % 100) / 1000) % 1, wx = S.work[i * 2], wy = S.work[i * 2 + 1], px = S.plaza[i * 2], py = S.plaza[i * 2 + 1];
+      const L = (ax, ay, bx, by, t) => { const e = ease(t); x = ax + (bx - ax) * e; y = ay + (by - ay) * e; fr = Math.floor(now * 6 + i) % 4; };
+      if (f < 0.2 || f >= 0.86) { x = hx; y = hy; }
+      else if (f < 0.28) L(hx, hy, wx, wy, (f - 0.2) / 0.08);
+      else if (f < 0.58) { x = wx + Math.sin(now / 3 + i) * 3; y = wy; }
+      else if (f < 0.64) L(wx, wy, px, py, (f - 0.58) / 0.06);
+      else if (f < 0.8) { const a = now / 7 + i * 0.37; x = px + Math.cos(a) * 9; y = py + Math.sin(a) * 6; fr = Math.floor(now * 3 + i) % 4; }
+      else L(px, py, hx, hy, (f - 0.8) / 0.06);
+    }
+    P[i * 2] = x; P[i * 2 + 1] = y; S.frame[i] = fr;
+  }
+  return f0;
 }
 
-// ------------------------------------------------------------------ chart rendering
+// ------------------------------------------------------------------ rendering
 const cv = $("#chart"), cx = cv.getContext("2d");
 function resize() { const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); cv.width = r.width * dpr; cv.height = r.height * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0); S.dpr = dpr; }
 addEventListener("resize", () => { resize(); render(); });
-function fit() { resize(); const r = cv.getBoundingClientRect(); S.scale = Math.min(r.width / 9400, r.height / 6600); S.x = r.width / 2 - 4600 * S.scale; S.y = r.height / 2 - 3300 * S.scale; }
-let blobCache = {};
-function blob(k, r) {
-  const key = k + ":" + Math.round(r); if (blobCache[key]) return blobCache[key];
-  const pts = []; for (let a = 0; a < 48; a++) { const t = a / 48 * Math.PI * 2, n = 1 + 0.08 * Math.sin(t * 3 + k) + 0.05 * Math.sin(t * 7 + k * 2); pts.push([Math.cos(t) * r * n, Math.sin(t) * r * n]); }
-  return (blobCache[key] = pts);
-}
+function fit() { resize(); const r = cv.getBoundingClientRect(); S.scale = Math.min(r.width, r.height) / WORLD * 1.02; S.x = r.width / 2 - WORLD / 2 * S.scale; S.y = r.height / 2 - WORLD / 2 * S.scale; }
 let tAnim = 0;
 function render() {
-  if (!w || !S.pos) return;
-  const r = cv.getBoundingClientRect(), A = w.A, sc = S.scale;
-  cx.clearRect(0, 0, r.width, r.height);
+  if (!w || !S.home) return;
+  const r = cv.getBoundingClientRect(), A = w.A, sc = S.scale, now = Date.now() / 1000, f = positions(now);
+  cx.fillStyle = "#0b1a33"; cx.fillRect(0, 0, r.width, r.height);
   cx.save(); cx.translate(S.x, S.y); cx.scale(sc, sc);
-  // islands
+  cx.imageSmoothingEnabled = false; cx.drawImage(TERRAIN, 0, 0, SIZE, SIZE, 0, 0, WORLD, WORLD);
+  // roads and sea lanes
+  cx.lineCap = "round"; cx.lineJoin = "round";
+  for (const R of ROADS) { cx.strokeStyle = "#a08a62"; cx.lineWidth = Math.max(5, 1.6 / sc); cx.stroke(R.land); cx.setLineDash([18, 22]); cx.strokeStyle = "#9fc3e6aa"; cx.lineWidth = Math.max(3, 1.2 / sc); cx.stroke(R.sea); cx.setLineDash([]); }
+  // city grounds and houses
   DISTRICTS.forEach((d, k) => {
-    const R = S.radius[k] + 60, pts = blob(k, R);
-    cx.beginPath(); pts.forEach(([x, y], n) => (n ? cx.lineTo(d.x * K + x, d.y * K + y) : cx.moveTo(d.x * K + x, d.y * K + y))); cx.closePath();
-    cx.fillStyle = d.kind === "pyra" ? "#2a1610" : d.kind === "asphodel" ? "#1c2230" : d.kind === "grove" ? "#14281c" : d.key === "eridanus" ? "#1f2a12" : "#1b2a40"; cx.fill();
-    cx.lineWidth = 6 / Math.max(sc, 0.05) * 0.15; cx.strokeStyle = "#2c4266"; cx.stroke();
+    if (d.kind === "pyra" || d.kind === "asphodel" || d.kind === "grove") return;
+    const c = SITE[k]; cx.fillStyle = "rgba(60,48,36,.55)"; cx.beginPath(); cx.arc(c.x, c.y, S.cityR[k] + 10, 0, 6.283); cx.fill();
+    cx.strokeStyle = "rgba(200,180,140,.5)"; cx.lineWidth = Math.max(3, 1 / sc); cx.stroke();
   });
-  // pyre glow
-  const pd = DISTRICTS[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97);
-  const grd = cx.createRadialGradient(pd.x * K, pd.y * K, 10, pd.x * K, pd.y * K, S.radius[D.pyra] + 140);
-  grd.addColorStop(0, `rgba(255,170,60,${0.55 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)"); cx.fillStyle = grd; cx.beginPath(); cx.arc(pd.x * K, pd.y * K, S.radius[D.pyra] + 140, 0, 7); cx.fill();
+  const night = f < 0.2 || f >= 0.86;
+  if (sc > 0.25) { cx.fillStyle = "#7d6a55"; for (let k = 0; k < S.houses.length; k += 2) cx.fillRect(S.houses[k] - 7, S.houses[k + 1] + 3, 14, 7); }
+  // the Pyra
+  const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97);
+  const grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, 150); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
+  cx.fillStyle = grd; cx.beginPath(); cx.arc(pd.x, pd.y, 150, 0, 6.283); cx.fill();
   // characters
-  const vx0 = -S.x / sc - 30, vy0 = -S.y / sc - 30, vx1 = (r.width - S.x) / sc + 30, vy1 = (r.height - S.y) / sc + 30, big = sc * 20 >= 6;
+  const vx0 = -S.x / sc - 40, vy0 = -S.y / sc - 40, vx1 = (r.width - S.x) / sc + 40, vy1 = (r.height - S.y) / sc + 40, P = S.cur;
+  const figH = 16, figPx = figH * sc, mode = figPx < 4 ? 0 : 1, label = figPx > 34;
   for (let i = 0; i < w.N; i++) {
-    const x = S.pos[i * 2], y = S.pos[i * 2 + 1]; if (x < vx0 || x > vx1 || y < vy0 || y > vy1) continue;
+    const x = P[i * 2], y = P[i * 2 + 1]; if (x < vx0 || x > vx1 || y < vy0 || y > vy1) continue;
     const st = A.status[i];
-    if (st === ST.asphodel) { cx.fillStyle = "#c9c3b4"; cx.fillRect(x - 6, y - 9, 12, 16); cx.fillStyle = "#6e6a62"; cx.fillRect(x - 1, y - 16, 2, 9); continue; }   // headstone + oar
-    cx.globalAlpha = st === ST.shade ? 0.28 : st === ST.exiled ? 0.5 : 1;
-    if (big) { const [sx, sy] = spriteAt(i); cx.imageSmoothingEnabled = false; cx.drawImage(sprites.canvas, sx, sy, 24, 24, x - 10, y - 10, 20, 20); }
-    else { cx.fillStyle = w.factions[A.faction[i]].color; cx.fillRect(x - 9, y - 9, 18, 18); }
-    if (st === ST.pyre) { cx.globalAlpha = 0.5 + 0.5 * fl; cx.fillStyle = "#ff7a1a"; cx.beginPath(); cx.moveTo(x - 10, y + 10); cx.quadraticCurveTo(x, y - 30 * fl, x + 10, y + 10); cx.fill(); }
-    if (i === S.sel || i === S.hover) { cx.globalAlpha = 1; cx.strokeStyle = "#e3b341"; cx.lineWidth = 3; cx.strokeRect(x - 12, y - 12, 24, 24); }
+    if (st === ST.asphodel) { cx.fillStyle = "#cfc9ba"; cx.fillRect(x - 4, y - 7, 8, 11); cx.fillStyle = "#7a6e5e"; cx.fillRect(x - 0.8, y - 15, 1.6, 9); continue; }
+    cx.globalAlpha = st === ST.shade ? 0.3 : 1;
+    if (mode === 0) { cx.fillStyle = w.factions[A.faction[i]].color; cx.fillRect(x - 3, y - 3, 6, 6); }
+    else { const L = S.looks[i]; cx.imageSmoothingEnabled = true; cx.drawImage(L.canvas, S.frame[i] * L.w, 0, L.w, L.h, x - figH * 0.32, y - figH, figH * 0.64, figH); }
+    if (st === ST.pyre) { cx.globalAlpha = 0.6 + 0.4 * fl; cx.fillStyle = "#ff7a1a"; cx.beginPath(); cx.moveTo(x - 7, y + 2); cx.quadraticCurveTo(x, y - 26 * fl, x + 7, y + 2); cx.fill();
+      if (i === 8984) { cx.globalAlpha = 1; cx.fillStyle = "#2b2b2b"; cx.fillRect(x + 10, y - 9, 8, 11); } }
+    if (i === S.sel || i === S.hover) { cx.globalAlpha = 1; cx.strokeStyle = "#e3b341"; cx.lineWidth = Math.max(1.5, 1.5 / sc); cx.strokeRect(x - 7, y - figH - 2, 14, figH + 4); }
+    if (label && st !== ST.asphodel) { cx.globalAlpha = 0.9; cx.font = `${Math.max(3, 9 / sc * 0.5)}px "IBM Plex Mono", monospace`; cx.textAlign = "center"; cx.fillStyle = "#e9e1cf"; cx.fillText(`#${i + 1}`, x, y + 6); }
   }
   cx.globalAlpha = 1;
+  // night falls each hour; windows light up
+  if (night) { const depth = f < 0.2 ? 1 - Math.max(0, f - 0.12) / 0.08 : Math.min(1, (f - 0.86) / 0.06);
+    cx.fillStyle = `rgba(4,8,24,${0.45 * depth})`; cx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+    if (sc > 0.25) { cx.fillStyle = `rgba(255,200,110,${0.8 * depth})`; for (let k = 0; k < S.houses.length; k += 6) cx.fillRect(S.houses[k] - 2, S.houses[k + 1] + 4, 3, 3); } }
   // labels
   DISTRICTS.forEach((d, k) => {
-    const n = countIn(k), fs = Math.max(13, 15) / sc;
-    cx.font = `700 ${fs}px "Cormorant Garamond", serif`; cx.textAlign = "center"; cx.fillStyle = "#e9e1cfcc";
-    cx.fillText(d.name, d.x * K, d.y * K - S.radius[k] - 70 - fs * 0.2);
-    cx.font = `${fs * 0.75}px "IBM Plex Mono", monospace`; cx.fillStyle = "#9aa4b5cc"; cx.fillText(labelCount(k, n), d.x * K, d.y * K - S.radius[k] - 70 + fs * 0.75);
+    const c = SITE[k], fs = (cv.clientWidth < 600 ? 11 : 14) / sc, n = countIn(k);
+    cx.font = `700 ${fs}px "Cormorant Garamond", serif`; cx.textAlign = "center"; cx.fillStyle = "#f3ecdacc"; cx.strokeStyle = "#0b1220aa"; cx.lineWidth = fs / 5;
+    const ly = c.y - Math.max(S.cityR[k], 30) - 26 - fs * 0.3; cx.strokeText(d.name, c.x, ly); cx.fillText(d.name, c.x, ly);
+    cx.font = `${fs * 0.72}px "IBM Plex Mono", monospace`; cx.fillStyle = "#c8d0dccc"; cx.strokeText(labelCount(k, n), c.x, ly + fs * 0.85); cx.fillText(labelCount(k, n), c.x, ly + fs * 0.85);
   });
   cx.restore();
+  S.f = f;
 }
 function countIn(k) { let n = 0; for (let i = 0; i < w.N; i++) if (w.A.district[i] === k) n++; return n; }
 function labelCount(k, n) { const d = DISTRICTS[k]; if (d.kind === "pyra") return `${n} burning`; if (d.kind === "asphodel") { let a = 0; for (let i = 0; i < w.N; i++) if (w.A.status[i] === ST.asphodel) a++; return `${a} graves · ${n - a} shades`; } return `${n} souls`; }
-function frame(t) { tAnim = t; const pd = DISTRICTS[D.pyra]; if (inView(pd.x * K, pd.y * K)) render(); setTimeout(() => requestAnimationFrame(frame), 90); }
-const inView = (x, y) => { const r = cv.getBoundingClientRect(), sx = x * S.scale + S.x, sy = y * S.scale + S.y; return sx > -300 && sy > -300 && sx < r.width + 300 && sy < r.height + 300; };
+let lastFrame = 0;
+function frame(t) { tAnim = t; if (t - lastFrame > 45 && !document.hidden) { lastFrame = t; render(); } requestAnimationFrame(frame); }
 
 // ------------------------------------------------------------------ interaction
 let drag = null, pinch = null;
 cv.addEventListener("pointerdown", (e) => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, sx: S.x, sy: S.y, moved: false }; cv.classList.add("drag"); });
 cv.addEventListener("pointermove", (e) => {
-  if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; S.x = drag.sx + dx; S.y = drag.sy + dy; render(); return; }
-  const i = pick(e); if (i !== S.hover) { S.hover = i; render(); }
-  const tip = $("#tip"); if (i >= 0) { const b = cv.getBoundingClientRect(); tip.style.display = "block"; tip.style.left = Math.min(e.clientX - b.left + 14, b.width - 260) + "px"; tip.style.top = e.clientY - b.top + 14 + "px"; tip.textContent = `${view.name(i)} · ${view.faction(i)}`; } else tip.style.display = "none";
+  if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; S.x = drag.sx + dx; S.y = drag.sy + dy; return; }
+  const i = pick(e); S.hover = i;
+  const tip = $("#tip"); if (i >= 0) { const b = cv.getBoundingClientRect(); tip.style.display = "block"; tip.style.left = Math.min(e.clientX - b.left + 14, b.width - 260) + "px"; tip.style.top = e.clientY - b.top + 14 + "px"; tip.textContent = `${view.name(i)} · ${view.faction(i)} · ${JOBS[w.A.job[i]]}`; } else tip.style.display = "none";
 });
 cv.addEventListener("pointerup", (e) => { cv.classList.remove("drag"); if (drag && !drag.moved) { const i = pick(e); if (i >= 0) openLegends(i); } drag = null; });
-cv.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(e.offsetX, e.offsetY, e.deltaY < 0 ? 1.18 : 1 / 1.18); }, { passive: false });
+cv.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(e.offsetX, e.offsetY, e.deltaY < 0 ? 1.2 : 1 / 1.2); }, { passive: false });
 cv.addEventListener("touchstart", (e) => { if (e.touches.length === 2) { drag = null; pinch = dist(e); } }, { passive: true });
 cv.addEventListener("touchmove", (e) => { if (e.touches.length === 2 && pinch) { const d = dist(e), b = cv.getBoundingClientRect(); const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - b.left, my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - b.top; zoomAt(mx, my, d / pinch); pinch = d; } }, { passive: true });
 const dist = (e) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-function zoomAt(px, py, f) { const ns = Math.max(0.03, Math.min(3, S.scale * f)); S.x = px - (px - S.x) * ns / S.scale; S.y = py - (py - S.y) * ns / S.scale; S.scale = ns; render(); }
-$("#zin").onclick = () => { const b = cv.getBoundingClientRect(); zoomAt(b.width / 2, b.height / 2, 1.5); };
-$("#zout").onclick = () => { const b = cv.getBoundingClientRect(); zoomAt(b.width / 2, b.height / 2, 1 / 1.5); };
-$("#zfit").onclick = () => { fit(); render(); };
+function zoomAt(px, py, f) { const ns = Math.max(0.05, Math.min(8, S.scale * f)); S.x = px - (px - S.x) * ns / S.scale; S.y = py - (py - S.y) * ns / S.scale; S.scale = ns; }
+$("#zin").onclick = () => { const b = cv.getBoundingClientRect(); zoomAt(b.width / 2, b.height / 2, 1.6); };
+$("#zout").onclick = () => { const b = cv.getBoundingClientRect(); zoomAt(b.width / 2, b.height / 2, 1 / 1.6); };
+$("#zfit").onclick = () => fit();
 function pick(e) {
-  const b = cv.getBoundingClientRect(), x = (e.clientX - b.left - S.x) / S.scale, y = (e.clientY - b.top - S.y) / S.scale; let best = -1, bd = 14 * 14;
-  for (let i = 0; i < w.N; i++) { const dx = S.pos[i * 2] - x, dy = S.pos[i * 2 + 1] - y, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; best = i; } }
+  const b = cv.getBoundingClientRect(), x = (e.clientX - b.left - S.x) / S.scale, y = (e.clientY - b.top - S.y) / S.scale, P = S.cur; let best = -1, bd = Math.max(10, 6 / S.scale) ** 2;
+  for (let i = 0; i < w.N; i++) { const dx = P[i * 2] - x, dy = P[i * 2 + 1] - 8 - y, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; best = i; } }
   return best;
 }
-function focus(i) { const b = cv.getBoundingClientRect(); S.scale = Math.max(S.scale, 0.9); S.x = b.width / 2 - S.pos[i * 2] * S.scale; S.y = b.height / 2 - S.pos[i * 2 + 1] * S.scale; S.sel = i; render(); }
+function focus(i) { const b = cv.getBoundingClientRect(); S.scale = Math.max(S.scale, 3); S.x = b.width / 2 - S.cur[i * 2] * S.scale; S.y = b.height / 2 - S.cur[i * 2 + 1] * S.scale; S.sel = i; }
 
 // ------------------------------------------------------------------ side panels
 document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { document.querySelectorAll(".tabs button,.panel").forEach((x) => x.classList.remove("on")); b.classList.add("on"); $("#p-" + b.dataset.tab).classList.add("on"); }));
