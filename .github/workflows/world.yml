@@ -1,6 +1,6 @@
 # Every hour: read the chain, advance the world one day (1 real hour = 1 sim day), publish the site.
-# The live world (checkpoint, chronicle, omens) lives on the `world` branch as a single force-pushed commit,
-# so the repository does not grow with every hour.
+# The live world (checkpoint, chronicle, omens, story memory) lives on the `world` branch as a single force-pushed commit,
+# so the repository does not grow with every hour. A self-test must pass before anything is published.
 name: world
 on:
   schedule: [{ cron: "3 * * * *" }]
@@ -13,26 +13,36 @@ jobs:
     runs-on: ubuntu-latest
     environment: { name: github-pages, url: "${{ steps.deploy.outputs.page_url }}" }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         id: world
         continue-on-error: true
         with: { ref: world, path: world }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 22 }
       - name: Read the chain
         run: node tools/sync.mjs world data/history.json
       - name: Advance the world
         run: node tools/advance.mjs world
+      - name: Self-test (replay must agree)
+        run: node tools/selftest.mjs world
       - name: Save the world branch
         run: |
           cd world && rm -rf .git && git init -q -b world
           git -c user.name="the Argo" -c user.email="argo@users.noreply.github.com" add -A
           git -c user.name="the Argo" -c user.email="argo@users.noreply.github.com" commit -qm "$(node -e 'const m=require("./meta.json");console.log(`day ${m.day-1} · ${m.hash}`)')"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" world
+      - name: Weekly heartbeat (keeps the hourly schedule alive)
+        if: github.event_name == 'schedule'
+        run: |
+          if [ "$(date -u +%u%H)" = "100" ]; then
+            date -u +%FT%TZ > .github/heartbeat
+            git -c user.name="the Argo" -c user.email="argo@users.noreply.github.com" commit -qam "heartbeat" || true
+            git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:main || true
+          fi
       - name: Build site
         run: node tools/build_site.mjs world _site
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with: { path: _site }
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

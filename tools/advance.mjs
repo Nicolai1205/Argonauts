@@ -58,4 +58,8 @@ const meta = {
 };
 fs.writeFileSync(`${W}/meta.json`, JSON.stringify(meta));
 fs.writeFileSync(siftFile, JSON.stringify(M));
+// an RSS feed of the front page, for readers and bots
+const SITE = "https://nicolai1205.github.io/Argonauts/", xe = (t) => String(t).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c]);
+const items = M.stories.filter((x) => x.day >= 0).slice(-60).reverse().map((x) => `<item><title>${xe(x.title)}</title><description>${xe(x.text)}</description><link>${SITE}</link><guid isPermaLink="false">${xe(x.id)}</guid><pubDate>${new Date((GENESIS + x.day * 3600) * 1000).toUTCString()}</pubDate></item>`).join("");
+fs.writeFileSync(`${W}/feed.xml`, `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>The Argo</title><link>${SITE}</link><description>Front page of the autonomous world of the Argonauts. One real hour is one day.</description>${items}</channel></rss>`);
 console.log(`advance: day ${from} -> ${w.day} in ${Date.now() - t0} ms, hash ${hash}, omens after seed ${fresh.length} (${assigned} newly dated)`);

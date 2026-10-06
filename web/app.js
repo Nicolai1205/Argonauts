@@ -48,7 +48,7 @@ const view = {
   blood: (i) => w.factions[homeFaction(w, i)].name,
 };
 function catchUp() {
-  const target = dayNow(Date.now() / 1000) + 1; if (w.day >= target) return false;
+  const target = Math.min(dayNow(Date.now() / 1000) + 1, checkpointDay + 48); if (w.day >= target) return false;   // a long outage: show the last 48 hours, not a frozen page
   runUntil(w, target, byDay, (d, ev) => { for (const e of ev) if (!e.h) provisional.push({ ...e, text: narrate(e, view), voice: VOICE[e.t] || "realism", prov: true }); for (const st of sift(M, d, ev, w, view.name)) st.prov = true; });
   return true;
 }
@@ -398,7 +398,7 @@ function panels() {
     <p>One real hour is one day of the voyage. The world is computed by a deterministic engine: the GitHub job and your browser run the same code from the same checkpoint and get the same world (fingerprint <code>${stateHash(w)}</code>).</p>
     <p>The only outside force is the chain. Sales move an Argonaut to a new house, and the price arrives as gold from Colchis. Burns light the Pyra. The Maker's rulings remake a character. Renderer changes make the Argo's speaking beam speak.</p>
     <p>Names come from Apollonius' <i>Argonautica</i>, Hesiod and Ovid. Factions follow the Bones trait. Text is procedural, with no AI model; three voices, myth, horror and realism.</p>
-    <p class="muted">Checkpoint day ${checkpointDay - 1}, written ${esc(meta.updated)}. Source: <a class="who" href="https://github.com/Nicolai1205/Argonauts" target="_blank" rel="noopener" style="text-decoration:underline">github.com/Nicolai1205/Argonauts</a>.</p>`;
+    <p class="muted">Checkpoint day ${checkpointDay - 1}, written ${esc(meta.updated)}. Front page as RSS: <a class="who" href="world/feed.xml">feed.xml</a>. Source: <a class="who" href="https://github.com/Nicolai1205/Argonauts" target="_blank" rel="noopener" style="text-decoration:underline">github.com/Nicolai1205/Argonauts</a>.</p>`;
 }
 function spark(label, vals, color) {
   if (vals.length < 2) return ""; const lo = Math.min(...vals), hi = Math.max(...vals), W = 360, H = 60;
