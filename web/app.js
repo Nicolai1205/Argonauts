@@ -232,6 +232,27 @@ function plans() {
 }
 const stageOf = (i) => { const a = ageOf(w.A, i, w.day); return a < 5 ? 0 : a < 14 ? 1 : a < 60 ? 2 : 3; };
 const ease = (t) => t * t * (3 - 2 * t);
+/** a walk along the city's street grid (every fourth lot line is a street): to the street, along, across, to the door */
+// silhouettes: 0 boar, 1 fox, 2 the flock, 3 Scylla, 4 the serpent
+function drawBeast(kind, x, y, z, t, a) {
+  cx.save(); cx.translate(x, y); cx.scale(z, z); cx.globalAlpha = Math.min(1, a); cx.fillStyle = "#3a1c18"; cx.strokeStyle = "#c8463a"; cx.lineWidth = 2;
+  const legs = (n, sp) => { for (let q = 0; q < n; q++) { const ph = Math.sin(t / 120 + q * 1.7) * 3; cx.fillRect(-sp + q * (2 * sp / (n - 1)) - 1.5, 4, 3, 9 + ph); } };
+  if (kind === 0) { cx.beginPath(); cx.ellipse(0, 0, 18, 9, 0, 0, 6.283); cx.fill(); cx.stroke(); legs(4, 12); cx.beginPath(); cx.moveTo(18, -2); cx.lineTo(26, -6); cx.moveTo(18, 2); cx.lineTo(26, 0); cx.strokeStyle = "#e9e1cf"; cx.stroke(); for (let q = -14; q < 12; q += 4) { cx.beginPath(); cx.moveTo(q, -8); cx.lineTo(q + 2, -14); cx.strokeStyle = "#c8463a"; cx.stroke(); } }
+  else if (kind === 1) { cx.beginPath(); cx.ellipse(0, 0, 15, 6, 0, 0, 6.283); cx.fill(); cx.stroke(); legs(4, 10); cx.beginPath(); cx.moveTo(14, -3); cx.lineTo(24, -8); cx.lineTo(22, 1); cx.closePath(); cx.fill(); cx.stroke(); cx.beginPath(); cx.moveTo(-14, 0); cx.quadraticCurveTo(-28, -10 + Math.sin(t / 200) * 4, -32, 2); cx.lineWidth = 6; cx.strokeStyle = "#c8463a"; cx.stroke(); }
+  else if (kind === 2) { for (let q = 0; q < 7; q++) { const px = Math.cos(q * 0.9 + t / 900) * 22, py = Math.sin(q * 1.3 + t / 700) * 12, wv = Math.sin(t / 90 + q) * 4; cx.beginPath(); cx.moveTo(px - 7, py - wv); cx.lineTo(px, py); cx.lineTo(px + 7, py - wv); cx.strokeStyle = "#b08a4a"; cx.lineWidth = 2.5; cx.stroke(); } }
+  else if (kind === 3) { cx.beginPath(); cx.ellipse(0, 8, 16, 7, 0, 0, 6.283); cx.fill(); cx.stroke(); for (let q = 0; q < 6; q++) { const bx0 = -10 + q * 4, sw = Math.sin(t / 160 + q * 1.1) * 8; cx.beginPath(); cx.moveTo(bx0, 4); cx.quadraticCurveTo(bx0 + sw, -14, bx0 + sw * 1.4, -26); cx.lineWidth = 2.5; cx.strokeStyle = "#c8463a"; cx.stroke(); cx.beginPath(); cx.arc(bx0 + sw * 1.4, -27, 2.6, 0, 6.283); cx.fillStyle = "#e9e1cf"; cx.fill(); cx.fillStyle = "#3a1c18"; } }
+  else { cx.beginPath(); for (let q = 0; q <= 24; q++) { const px = -30 + q * 2.5, py = Math.sin(q / 3 + t / 180) * 6; q ? cx.lineTo(px, py) : cx.moveTo(px, py); } cx.lineWidth = 6; cx.strokeStyle = "#5a7a3a"; cx.stroke(); cx.beginPath(); cx.arc(31, Math.sin(8 + t / 180) * 6, 4.5, 0, 6.283); cx.fillStyle = "#5a7a3a"; cx.fill(); }
+  cx.restore();
+}
+function streetWalk(c, ax, ay, bx, by, k) {
+  const G = LOT * 4, sx = (v, o) => o + Math.round((v - o) / G) * G;
+  const x1 = sx(ax, c.x), y2 = sx(by, c.y), x3 = sx(bx, c.x);
+  const P = [[ax, ay], [x1, ay], [x1, y2], [x3, y2], [x3, by], [bx, by]];
+  let L = 0; const seg = []; for (let n = 1; n < P.length; n++) { const d = Math.abs(P[n][0] - P[n - 1][0]) + Math.abs(P[n][1] - P[n - 1][1]); seg.push(d); L += d; }
+  if (L < 1) return [bx, by]; let t = k * L;
+  for (let n = 0; n < seg.length; n++) { if (t <= seg[n] || n === seg.length - 1) { const u = seg[n] ? Math.min(1, t / seg[n]) : 1; return [P[n][0] + (P[n + 1][0] - P[n][0]) * u, P[n][1] + (P[n + 1][1] - P[n][1]) * u]; } t -= seg[n]; }
+  return [bx, by];
+}
 function positions(now) {
   const A = w.A, f0 = (((now - GENESIS) % 3600) + 3600) % 3600 / 3600, Pp = S.plan, out = S.cur;
   if (S.planDay !== w.day) plans();
@@ -244,9 +265,7 @@ function positions(now) {
       const b = i * 12, t = Pp, night = S.planFlags[i] & 1; let f = f0; if (night) f = (f0 + 0.5) % 1;
       const T = night ? [0, 1, 2, 3, 4, 5].map((q) => (t[b + q] + 0.5) % 1) : [t[b], t[b + 1], t[b + 2], t[b + 3], t[b + 4], t[b + 5]];
       const wx = t[b + 6], wy = t[b + 7], ex = t[b + 8], ey = t[b + 9];
-      const go = (ax, ay, bx, by, s, e) => { const k = e > s ? Math.min(1, (f - s) / (e - s)) : 1, xf = i & 1;   // along the streets: one leg, then the other
-        if (xf) { x = k < 0.5 ? ax + (bx - ax) * ease(k * 2) : bx; y = k < 0.5 ? ay : ay + (by - ay) * ease((k - 0.5) * 2); } else { y = k < 0.5 ? ay + (by - ay) * ease(k * 2) : by; x = k < 0.5 ? ax : ax + (bx - ax) * ease((k - 0.5) * 2); }
-        fr = Math.floor(now * 6 + i) % 4; };
+      const go = (ax, ay, bx, by, s, e) => { const k = e > s ? ease(Math.min(1, (f - s) / (e - s))) : 1; [x, y] = streetWalk(SITE[A.district[i]], ax, ay, bx, by, k); fr = Math.floor(now * 6 + i) % 4; };
       if (f < T[0] || f >= T[5]) { vis = A.sick[i] ? 1 : 0; }                              // asleep indoors
       else if (f < T[1]) go(hx, hy, wx, wy, T[0], T[1]);
       else if (f < T[2]) { x = wx; y = wy; if (S.planFlags[i] & 4) { const a = f * 40 + i; x = SITE[A.district[i]].x + Math.cos(a) * (S.city[A.district[i]].R + 10); y = SITE[A.district[i]].y + Math.sin(a) * (S.city[A.district[i]].R + 10); fr = Math.floor(now * 4 + i) % 4; } else { x += Math.sin(now / 2 + i) * 2; } }
@@ -282,7 +301,8 @@ function render() {
   cx.save(); cx.translate(S.x, S.y); cx.scale(sc, sc);
   cx.imageSmoothingEnabled = false; cx.drawImage(TERRAIN, 0, 0, SIZE, SIZE, 0, 0, WORLD, WORLD);
   // rivers
-  cx.strokeStyle = "#2f6a9a"; cx.lineWidth = Math.max(5, 1.4 / sc); cx.lineCap = "round"; cx.stroke(RIVERS);
+  { let wet = 0, n = 0; if (w.rain) for (const k of [D.ares, D.iolcus, D.strand, D.bear]) { wet += w.rain[k]; n++; } const swell = n ? Math.max(1, Math.min(2.6, 1 + (wet / n - 120) / 60)) : 1;   // rivers swell in the wet
+    cx.strokeStyle = swell > 1.6 ? "#3f7fb5" : "#2f6a9a"; cx.lineWidth = Math.max(5, 1.4 / sc) * swell; cx.lineCap = "round"; cx.stroke(RIVERS); }
   // seasons: winter whitens the land, high summer bleaches it
   { const month = Math.floor(((w.day % 360) + 360) % 360 / 30), wint = month === 10 || month === 11 || month === 0 ? (month === 11 ? 0.22 : 0.12) : 0, summer = month >= 4 && month <= 6 ? 0.06 : 0;
     if (wint) { cx.fillStyle = `rgba(235,240,250,${wint})`; cx.fillRect(0, 0, WORLD, WORLD); } if (summer) { cx.fillStyle = `rgba(255,220,140,${summer})`; cx.fillRect(0, 0, WORLD, WORLD); } }
@@ -318,7 +338,7 @@ function render() {
     if (!b.alive) { cx.fillStyle = "#e9e1cf"; cx.fillRect(c.x - 10, c.y + c.r + 6, 20, 14); cx.fillRect(c.x - 14, c.y + c.r + 20, 28, 5); cx.fillStyle = "#b8b0a0"; cx.font = `${11 / sc}px serif`; cx.textAlign = "center"; cx.fillText(`shrine of the slaying of ${b.name.replace(/^the /, "")}`, c.x, c.y + c.r + 44 / sc); continue; }
     const R = b.radius / 1000 * WORLD; cx.strokeStyle = `rgba(200,60,50,${0.15 + b.hunger / 300})`; cx.setLineDash([12, 18]); cx.lineWidth = Math.max(3, 1.5 / sc); cx.beginPath(); cx.arc(c.x, c.y, R, 0, 6.283); cx.stroke(); cx.setLineDash([]);
     const a = tAnim / (9000 + b.k * 1300) + b.k * 1.7, rr = R * (0.35 + 0.25 * Math.sin(tAnim / 7000 + b.k)), bx = c.x + Math.cos(a) * rr, by = c.y + Math.sin(a) * rr * 0.8;   // it prowls
-    cx.fillStyle = `rgba(200,70,58,${0.6 + b.hunger / 250})`; cx.font = `${22 / sc}px serif`; cx.textAlign = "center"; cx.fillText("☠", bx, by); cx.font = `${13 / sc}px serif`; cx.fillText(b.name, bx, by + 18 / sc); }
+    drawBeast(b.k, bx, by, Math.max(1, 1 / sc / 2.2), tAnim, 0.6 + b.hunger / 250); cx.fillStyle = "#c8463a"; cx.font = `${13 / sc}px serif`; cx.textAlign = "center"; cx.fillText(b.name, bx, by + 30 * Math.max(1, 1 / sc / 2.2)); }
   // colonies: the road from the old hearth to the new
   for (const col of (w.colonies || []).slice(-6)) { const a = SITE[col.from], b = SITE[col.to]; cx.strokeStyle = "rgba(127,180,255,.45)"; cx.setLineDash([6, 14]); cx.lineWidth = Math.max(3, 1.2 / sc); cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); cx.setLineDash([]); }
   // banners of lordship and lines of war
