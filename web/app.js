@@ -10,6 +10,7 @@ import { generate, paint, SITES, SIZE, TILE } from "./map.js";
 import { sift, emptySift } from "./sim/sift.js";
 import { dateOf, MONTHS } from "./sim/culture.js";
 import { CITIES } from "./sim/war.js";
+import { CRAFTS } from "./sim/drift.js";
 import { figure, lookOf } from "./figures.js";
 import { hash32 } from "./sim/rng.js";
 
@@ -27,7 +28,7 @@ const S = { scale: 0.12, x: 0, y: 0, hover: -1, pos: null, sel: -1 };
     [seed, meta] = await Promise.all([json("data/seed.json"), json("world/meta.json")]);
     const [stTxt, fleet, omens, sm] = await Promise.all([(await gunzip("world/state.json.gz")).text(), (await gunzip("data/fleet.bin.gz")).arrayBuffer(), json("world/omens.json").catch(() => []), json("world/sift.json").catch(() => null)]);
     if (sm) M = sm;
-    w = deserialize(stTxt, seed); checkpointDay = w.day;
+    w = deserialize(stTxt, seed); checkpointDay = w.day; displayName.dialects = w.dialect;
     sprites = buildAtlas(new Uint8Array(fleet));
     byDay = omensByDay(omens.filter((o) => (o.ad ?? 0) >= checkpointDay - 1));
     const last = meta.chunks.at(-1), prev = meta.chunks.at(-2);
@@ -256,6 +257,7 @@ function render() {
     cx.globalAlpha = st === ST.shade ? 0.3 : 1;
     if (mode === 0) { cx.fillStyle = w.factions[A.faction[i]].color; cx.fillRect(x - 3, y - 3, 6, 6); }
     else { const L = S.looks[i], hh = A.kind[i] ? figH * [0.45, 0.68, 0.9, 0.86][stageOf(i)] : figH; cx.imageSmoothingEnabled = true; cx.drawImage(L.canvas, S.frame[i] * L.w, 0, L.w, L.h, x - hh * 0.32, y - hh, hh * 0.64, hh); }
+    if (mode === 1 && A.style[i] && figPx > 8 && st === ST.living) { const hh = A.kind[i] ? figH * [0.45, 0.68, 0.9, 0.86][stageOf(i)] : figH; cx.fillStyle = w.styles[A.style[i]].color; cx.fillRect(x - hh * 0.2, y - hh * 0.6, hh * 0.4, hh * 0.09); }
     if (mode === 1 && A.faith[i] && A.devotion[i] > 60 && figPx > 10) { cx.fillStyle = w.faiths[A.faith[i]].color; cx.beginPath(); cx.arc(x, y - figH - 3, 2.2, 0, 6.283); cx.fill(); }
     if (st === ST.pyre) { cx.globalAlpha = 0.6 + 0.4 * fl; cx.fillStyle = "#ff7a1a"; cx.beginPath(); cx.moveTo(x - 7, y + 2); cx.quadraticCurveTo(x, y - 26 * fl, x + 7, y + 2); cx.fill();
       if (i === 8984) { cx.globalAlpha = 1; cx.fillStyle = "#2b2b2b"; cx.fillRect(x + 10, y - 9, 8, 11); } }
@@ -369,6 +371,7 @@ function panels() {
     `<h3>City-states</h3>` + CITIES.map((k) => ({ k, P: Wr.power[k] })).sort((a, b) => b.P - a.P).map(({ k }) => { const dm = Wr.dom[k] || {}; const foes = CITIES.filter((b) => b !== k && Wr.rel[k][b] < -30).map((b) => cname(b).replace(/^the /, "")); const lord = Wr.lord[k] !== k ? ` · vassal of ${esc(cname(Wr.lord[k]))}` : CITIES.some((b) => b !== k && Wr.lord[b] === k) ? ` · lord of ${CITIES.filter((b) => b !== k && Wr.lord[b] === k).map((b) => esc(cname(b).replace(/^the /, ""))).join(", ")}` : "";
       return `<div class="fac"><i style="background:${w.factions[dm.faction] ? w.factions[dm.faction].color : "#888"}"></i><div><b>${esc(cname(k))}</b>${lord}</div><div class="num">power ${Wr.power[k]}</div>
         <div class="bar" title="asabiya"><b style="width:${Math.round(Wr.S[k] * 100)}%;background:var(--blood)"></b></div>
+        <div class="t num">${CRAFTS.map((c, ci) => ({ c, v: w.crafts[k][ci] })).sort((a, b) => b.v - a.v).slice(0, 3).map(({ c, v }) => `${c.name} ${Math.round(v)}`).join(" · ")}${w.fashion && w.fashion[k] && w.fashion[k].style ? ` · in fashion: <span style="color:${w.styles[w.fashion[k].style].color}">${esc(w.styles[w.fashion[k].style].name)}</span>` : ""}${w.dialect[k].length ? ` · they say ${esc(w.dialect[k].map((x) => x[0].replace(/[$^]/g, "") + "→" + x[1]).join(", "))}` : ""}</div>
         <div class="t num">cohesion ${Math.round(Wr.S[k] * 100)} · ${dm.pop || 0} adults · ${esc(w.factions[dm.faction] ? w.factions[dm.faction].name : "")} · ${esc(w.faiths[dm.faith] ? w.faiths[dm.faith].name : "")}${foes.length ? " · hates " + esc(foes.join(", ")) : ""}</div></div>`; }).join("") +
     `<h3>Wars remembered</h3>${Wr.history.map((x) => `<div class="law"><b>${esc(x.name)}</b>: ${esc(x.terms)}<span class="num">${dayLabel(x.from)} to ${dayLabel(x.to)} · ${x.dead} Leaves dead, ${x.broken} Argonauts broken</span></div>`).join("") || '<p class="muted">No wars yet.</p>'}`;
   // boule
@@ -425,7 +428,7 @@ function openLegends(i) {
      <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}${i < 9999 ? `<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a>` : "born in the world, not on the chain"}</div>
      <div style="margin-top:6px">${traits}</div></div></div>
    ${family ? `<h3>Family</h3>${family}` : ""}
-   <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span><b>Faith</b><span style="color:${w.faiths[A.faith[i]].color}">${esc(w.faiths[A.faith[i]].name)}</span><b>Devotion</b><span>${A.devotion[i]}</span></div></div></div>
+   <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span><b>Faith</b><span style="color:${w.faiths[A.faith[i]].color}">${esc(w.faiths[A.faith[i]].name)}</span><b>Wears</b><span style="color:${w.styles[A.style[i]].color}">${esc(w.styles[A.style[i]].name)}</span><b>Devotion</b><span>${A.devotion[i]}</span></div></div></div>
    ${A.status[i] === ST.living && S.where && S.where[i] ? `<h3>Today</h3><p>${esc(view.name(i).split(' ')[0])} ${esc(S.where[i].work)}, then ${esc(S.where[i].eve)}${S.eveWith[i] >= 0 ? ` <a class="who" data-i="${S.eveWith[i]}">${esc(view.name(S.eveWith[i]))}</a>` : ""}.${A.lover[i] >= 0 ? ` Beloved: <a class="who" data-i="${A.lover[i]}">${esc(view.name(A.lover[i]))}</a>.` : ""}</p>` : ""}
    <h3>On their mind</h3><div>${th.join("") || '<span class="muted">nothing pressing</span>'}</div>
    <h3>Bonds</h3><div>${ties.map(([v, j]) => `<span class="pill" style="border-color:${v >= 0 ? "#3d6b4a" : "#7a3030"}">${v >= 0 ? "♥" : "✕"} <a class="who" data-i="${j}">${esc(view.name(j))}</a> ${v}</span>`).join("") || '<span class="muted">alone</span>'}</div>

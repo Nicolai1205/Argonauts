@@ -19,6 +19,7 @@ const stateFile = `${W}/state.json.gz`, omensFile = `${W}/omens.json`;
 let w = fs.existsSync(stateFile) ? deserialize(zlib.gunzipSync(fs.readFileSync(stateFile)).toString(), seed) : null;
 if (w && w.version !== VERSION) { console.log(`rules changed (v${w.version} -> v${VERSION}): the world is re-dreamed from genesis`); w = null; fs.rmSync(`${W}/chronicle`, { recursive: true, force: true }); fs.mkdirSync(`${W}/chronicle`, { recursive: true }); }
 w ??= createWorld(seed);
+displayName.dialects = w.dialect;
 // omens after the seed: an omen that arrives after its day has passed lands on the first unsimulated day (recorded, so replays agree)
 const late = fs.existsSync(omensFile) ? JSON.parse(fs.readFileSync(omensFile)) : [];
 const histIds = new Set(hist.omens.map((o) => o.id)); let assigned = 0;

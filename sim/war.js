@@ -23,7 +23,7 @@ export function cities(ctx) {
     if (A.status[i] || (A.kind[i] && day - A.born[i] < 14 * 12)) continue;
     const d = A.district[i]; pop[d]++; mood[d] += A.mood[i]; wealth[d] += A.obols[i]; if (!A.kind[i]) argo[d]++;
     fa[d][A.faith[i]] = (fa[d][A.faith[i]] || 0) + 1; fc[d][A.faction[i]] = (fc[d][A.faction[i]] || 0) + 1;
-    const job = A.job[i]; levy[d] += (job === 7 ? 2 : job === 11 ? 1.5 : job === 10 ? 1.2 : 1) * (A.kind[i] ? 1 : 1.5);
+    const job = A.job[i]; levy[d] += (job === 7 ? 2 : job === 11 ? 1.5 : job === 10 ? 1.2 : 1) * (A.kind[i] ? 1 : 1.5) * (0.8 + (w.crafts ? w.crafts[d][1] : 50) / 250);
   }
   const top = (o) => { let b = 0, bv = -1; for (const [k, v] of Object.entries(o)) if (v > bv) { bv = v; b = Number(k); } return b; };
   for (const c of CITIES) W.dom[c] = { faith: top(fa[c]), faction: top(fc[c]), pop: pop[c] };

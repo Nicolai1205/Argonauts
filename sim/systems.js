@@ -6,12 +6,13 @@ import { TIES, THS, BIO, ARGO, ensureCap } from "./world.js";
 import { prophets, convert, faithDaily, festivals, iconoclasm, remember } from "./culture.js";
 import { nameOf } from "./narrate.js";
 import { cities, vassals } from "./war.js";
+import { crafts, craftBoost, fashion, dialects } from "./drift.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -35,6 +36,7 @@ export function tick(w, omens = []) {
   director(ctx); chk(ctx, 'director');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
   index(ctx); cities(ctx); vassals(ctx); chk(ctx, 'war');
+  crafts(ctx); fashion(ctx); dialects(ctx);
   lifecycle(ctx); ctx.N = w.N; chk(ctx, 'lifecycle');
   funerals(ctx); chk(ctx, 'funerals');
   stats(ctx); chk(ctx, 'stats');
@@ -146,6 +148,7 @@ function bear(ctx, a, b, r) {
   for (let k = 0; k < 3; k++) B.ideo[c * 3 + k] = clamp(Math.round((B.ideo[a * 3 + k] + B.ideo[b * 3 + k]) / 2 + (r.next() - 0.5) * 30), -100, 100);
   B.identity[c] = clamp(Math.round((B.identity[a] + B.identity[b]) / 2 + (r.next() - 0.5) * 20), 5, 100);
   B.faction[c] = B.faction[first]; B.birthFac[c] = B.faction[first]; B.district[c] = B.district[a]; B.oikos[c] = B.oikos[a]; B.job[c] = B.job[first];
+  B.style[c] = B.style[first]; B.dialect[c] = B.district[a];
   B.obols[c] = 0; B.inv[c * 5] = 4; B.vice[c] = 0; B.office[c] = -1; B.met[c] = -1; B.lover[c] = -1; B.until[c] = 0;
   for (let k = 0; k < TIES; k++) { B.tieTo[c * TIES + k] = -1; B.tieVal[c * TIES + k] = 0; }
   for (let k = 0; k < THS; k++) B.thType[c * THS + k] = 0;
@@ -235,7 +238,7 @@ function production(ctx) {
     const job = JOBS[A.job[i]], good = JOB_GOOD[job]; if (!good) continue;
     const g = GOODS.indexOf(good), d = A.district[i];
     let q = job === "servant" || job === "rower" ? 2 : job === "merchant" ? 1 : (YIELD[good] || 1);
-    q *= (age < 14 ? 0.5 : age >= 60 ? 0.7 : 1) * (0.8 + P(A, i, 4) / 250) * (w.fertility[d] / 1000) * (A.inv[i * 5 + 3] > 0 ? 1.4 : 1) * (A.mood[i] < -30 ? 0.6 : 1);
+    q *= craftBoost(w, d, A.job[i]) * (age < 14 ? 0.5 : age >= 60 ? 0.7 : 1) * (0.8 + P(A, i, 4) / 250) * (w.fertility[d] / 1000) * (A.inv[i * 5 + 3] > 0 ? 1.4 : 1) * (A.mood[i] < -30 ? 0.6 : 1);
     if (prom && g === 4) q *= 2;
     const n = Math.floor(q) + (r.next() < q - Math.floor(q) ? 1 : 0);
     A.inv[i * 5 + g] = Math.min(400, A.inv[i * 5 + g] + n); out[d] += n;
@@ -263,7 +266,7 @@ function consumption(ctx) {
     if (A.sick[i]) {
       think(ctx, i, TH.sick);
       if (A.inv[b + 4] > 0) { A.inv[b + 4]--; A.sick[i] = Math.max(0, A.sick[i] - 3); }
-      else if (r.chance(0.12)) A.sick[i] = 0; else A.sick[i] = Math.min(60, A.sick[i] + 1);
+      else if (r.chance(0.08 + ctx.w.crafts[A.district[i]][2] / 1000)) A.sick[i] = 0; else A.sick[i] = Math.min(60, A.sick[i] + 1);
       if (A.sick[i] >= 6 && r.chance(0.035)) kill(ctx, i, "plague");
     }
   }

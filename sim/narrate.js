@@ -1,6 +1,7 @@
 // The chronicle: deterministic procedural prose (Caves of Qud / Tracery style). No LLM; the same event always reads the same.
 import { DISTRICTS, OFFICES, COGNOMENS, AXES, GOODS } from "./lore.js";
 import { hash32 } from "./rng.js";
+import { speak } from "./drift.js";
 
 const PRE = ["Agath", "Alk", "Andr", "Antim", "Ari", "Arch", "Chrys", "Dem", "Di", "Eu", "Eur", "Herm", "Hipp", "Kall", "Kle", "Krat", "Lys", "Lyk", "Mel", "Men",
   "Nik", "Phil", "Pol", "Pyth", "Sos", "The", "Tim", "Xen", "Ast", "Kte", "Phaid", "Glauk", "Thras", "Peis", "Neo", "Akest", "Dor", "Ers", "Hyps", "Ikar"];
@@ -13,7 +14,8 @@ export const ARGO_N = 9999;
 /** display name of any entity: tokens "Name #id", Leaves "Name Patronymides ~n" */
 export function displayName(A, i, cognomens) {
   if (i < ARGO_N) return `${nameOf(i + 1)} #${i + 1}${A.cognomen[i] ? " " + cognomens[A.cognomen[i]] : ""}`;
-  return `${nameOf(i + 1)} ${patronym(nameOf(A.p1[i] + 1))} ~${i - ARGO_N + 1}${A.cognomen[i] ? " " + cognomens[A.cognomen[i]] : ""}`;
+  const rules = displayName.dialects ? displayName.dialects[A.dialect[i]] : null, born = A.born[i];
+  return `${speak(nameOf(i + 1), rules, born)} ${speak(patronym(nameOf(A.p1[i] + 1)), rules, born)} ~${i - ARGO_N + 1}${A.cognomen[i] ? " " + cognomens[A.cognomen[i]] : ""}`;
 }
 
 // three voices; every event type has several lines per voice, picked by the event id
@@ -47,6 +49,9 @@ const T = {
   peace: ["{w0} is over: {w2}. {d1} Leaves died; {b1} Argonauts were broken.", "Peace: {w2}. That ends {w0}."],
   revolt: ["{s}: the vassal rises against its lord.", "Revolt! {s}."],
   incident: ["{s}", "Bad blood at the border: {s}"],
+  craft: ["{s}. Their masters are spoken of across the sea.", "{s}: apprentices arrive from other cities to learn."],
+  craftlost: ["{s}. Too few practise it now; the old masters die and take the knowledge with them.", "{s}, like the Tasmanians who forgot the fishhook."],
+  dialect: ["In {where} they have begun to say {s}. The old people complain.", "The speech of {where} drifts: {s}."],
   burn8985: ["{a} did not go to the Pyra like the others. The Maker built a barrel of oil for {a} alone, and it burns beside the pyre; the smoke is black and smells of the old world."],
   burn: ["{a} was given to the Pyra. The bones burn bright on the shore; {b} inherits what was left.", "On the chain they sent {a} to the dead address. On the shore the Pyra took {a}, and the smoke went up for days.", "{a} of the {fa} burns. Ash falls on {where}, and Charon is owed nothing; the fire took it all."],
   ostologia: ["The fire under {a} has gone out. The bones were gathered and an oar was planted on the mound in the Asphodel Meadow.", "Ostologia for {a}: ash raked, bones gathered, oar set upright. Elpenor asked for no more."],
@@ -126,4 +131,4 @@ export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plag
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
   crash: "realism", migrate: "realism", dole: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
-  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism" };
+  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism", craft: "realism", craftlost: "realism", dialect: "realism" };
