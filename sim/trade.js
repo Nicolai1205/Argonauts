@@ -3,6 +3,7 @@
 // The economics are flows of many small boats and mule-trains; caravans on the map are the visible part of those flows.
 import { DISTRICTS, D, GOODS, BASE_PRICE, J, monthOf, SEA_CLOSED, SEA_RISKY } from "./lore.js";
 import { CITIES, atWar } from "./war.js";
+import { rocksShut } from "./voyage.js";
 
 const dist = (a, b) => { const dx = DISTRICTS[a].x - DISTRICTS[b].x, dy = DISTRICTS[a].y - DISTRICTS[b].y; return Math.round(Math.sqrt(dx * dx + dy * dy)); };   // integer: replays identically in every engine
 const ISLAND = new Set(["drepane", "lemnos", "anthemoessa", "eridanus"].map((k) => D[k]));
@@ -17,7 +18,7 @@ export function tradeFlows(ctx, g, left) {
   const haulers = ctx.haulers || (ctx.haulers = (() => { const h = {}; for (const i of ctx.live) if (!A.status[i] && !A.jail[i] && (A.job[i] === J.merchant || A.job[i] === J.rower)) (h[A.district[i]] || (h[A.district[i]] = [])).push(i); return h; })());
   for (const b of Object.keys(left.buyers).map(Number).sort((x, y) => P[y][g] - P[x][g] || x - y)) {   // goods run first to the dearest market
     const buyers = left.buyers[b];
-    const mo = monthOf(day), sources = Object.keys(left.sellers).map(Number).filter((a) => a !== b && !atWar(w.war, a, b) && w.war.rel[a][b] > -60 && !(sea(a, b) && SEA_CLOSED(mo))).sort((x, y) => P[x][g] * carriage(w, x, b) - P[y][g] * carriage(w, y, b) || x - y);
+    const mo = monthOf(day), sources = Object.keys(left.sellers).map(Number).filter((a) => a !== b && !atWar(w.war, a, b) && w.war.rel[a][b] > -60 && !(sea(a, b) && SEA_CLOSED(mo)) && !rocksShut(w, a, b)).sort((x, y) => P[x][g] * carriage(w, x, b) - P[y][g] * carriage(w, y, b) || x - y);
     for (const a of sources) {
       const landed = P[a][g] * carriage(w, a, b) * w.priceMult; if (landed >= P[b][g] * 1.02) break;   // no profit in the road
       const sl = left.sellers[a]; let moved = 0, fees = 0;
@@ -41,7 +42,7 @@ export function tradeFlows(ctx, g, left) {
         if (g0 >= 100 && !ctx._wreck && !(w.wreckDay > day - 10)) { ctx._wreck = 1; w.wreckDay = day; ctx.log(ctx.E.wreck, -1, -1, b, g0, `${short(a)}|${short(b)}|${GOODS[g]}`); } }
       // pirates skim the sea lanes: busiest in high summer, kept off by a liturgist's convoy
       let lost = 0; const convoy = (w.convoy && (w.convoy[a] > day || w.convoy[b] > day)) ? 0.4 : 1, summer = mo >= 4 && mo <= 8 ? 1.5 : 1;
-      if (sea(a, b) && (w.pirates || 0) > 0 && r.chance(Math.min(0.1, (w.pirates || 0) / 15000 * convoy * summer))) { const pir = ctx.live.filter((i) => A.job[i] === J.pirate && !A.status[i]); if (pir.length) { lost = Math.ceil(moved * 0.2); const p = pir[r.int(pir.length)];
+      if (sea(a, b) && (w.pirates || 0) > 0 && r.chance(Math.min(0.1, (w.pirates || 0) / 15000 * convoy * summer * (w.talos && w.talos.alive ? 0.5 : 1)))) { const pir = ctx.live.filter((i) => A.job[i] === J.pirate && !A.status[i]); if (pir.length) { lost = Math.ceil(moved * 0.2); const p = pir[r.int(pir.length)];
         for (let bk = 0; bk < buyers.length && lost > 0; bk += 2) { const i = buyers[bk], t = Math.min(lost, A.inv[i * 5 + g]); A.inv[i * 5 + g] -= t; A.inv[p * 5 + g] += t; lost -= t; }
         lost = Math.ceil(moved * 0.2); w.tradeLog.raided++; (w.raidsAt || (w.raidsAt = {}))[a] = day; w.raidsAt[b] = day; if (lost >= 60 && !ctx._raidLogged) { ctx._raidLogged = 1; ctx.log(ctx.E.raid, p, -1, b, g, `${short(a)}|${short(b)}|${GOODS[g]}|${lost}`); } } }
       flows.push([a, b, moved]); w.tradeLog.volume += moved;
