@@ -8,7 +8,7 @@ import { TIES, THS, BIO } from "./world.js";
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -26,7 +26,7 @@ export function tick(w, omens = []) {
   social(ctx); chk(ctx, 'social');
   moodStress(ctx); chk(ctx, 'moodStress');
   unrest(ctx); chk(ctx, 'unrest');
-  if (day % 7 === 0) { centroids(ctx); defection(ctx); migration(ctx); } chk(ctx, '');
+  if (day % 7 === 0) { centroids(ctx); defection(ctx); migration(ctx); love(ctx); } chk(ctx, '');
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   director(ctx); chk(ctx, 'director');
   funerals(ctx); chk(ctx, 'funerals');
@@ -47,7 +47,7 @@ export function think(ctx, i, th) {
 function tie(ctx, i, j, delta) {
   if (i === j || i < 0 || j < 0) return;
   const A = ctx.A; let weak = -1, wv = 1e9;
-  for (let k = 0; k < TIES; k++) { const s = i * TIES + k; if (A.tieTo[s] === j) { A.tieVal[s] = clamp(A.tieVal[s] + delta, -100, 100); return; } const v = A.tieTo[s] < 0 ? -1 : Math.abs(A.tieVal[s]); if (v < wv) { wv = v; weak = k; } }
+  for (let k = 0; k < TIES; k++) { const s = i * TIES + k; if (A.tieTo[s] === j) { const v = A.tieVal[s]; A.tieVal[s] = clamp(v + (delta > 0 && v > 0 ? Math.max(delta > 2 ? 1 : 0, Math.round(delta * (100 - v) / 90)) : delta), -100, 100); return; } const v = A.tieTo[s] < 0 ? -1 : Math.abs(A.tieVal[s]); if (v < wv) { wv = v; weak = k; } }
   if (wv < Math.abs(delta) + 2) { A.tieTo[i * TIES + weak] = j; A.tieVal[i * TIES + weak] = clamp(delta, -100, 100); }
 }
 const living = (A, i) => A.status[i] === ST.living;
@@ -59,6 +59,7 @@ export function kill(ctx, i, cause, by = -1) {
   A.status[i] = ST.shade; A.died[i] = day; A.until[i] = day + 20 + (hash32(w.seed, i, day) % 41); A.unburied[i] = 1; A.district[i] = D.asphodel; A.hunger[i] = 0; A.sick[i] = 0; A.jail[i] = 0;
   A.inv[i * 5] = 0;
   for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k]; if (j >= 0 && A.tieVal[i * TIES + k] > 30 && living(A, j)) think(ctx, j, TH.mourning_kin); }
+  const lv = A.lover[i]; if (lv >= 0) { if (living(A, lv)) { think(ctx, lv, TH.lost_a_beloved); A.stress[lv] = Math.min(600, A.stress[lv] + 150); } A.lover[lv] = -1; A.lover[i] = -1; }
   if (A.office[i] >= 0) { delete w.offices[OFFICES[A.office[i]].key]; A.office[i] = -1; }
   w.director.lastDeath = day; w.director.adapt = Math.max(0.4, w.director.adapt - 0.25);
   ctx.log(E.death, i, by, -1, 0, cause);
@@ -242,6 +243,20 @@ function market(ctx) {
   }
 }
 
+// weekly: love forms when two are each other's strongest bond; it ends when the bond sours
+function love(ctx) {
+  const { A } = ctx, best = new Int16Array(ctx.N).fill(-1), bv = new Int8Array(ctx.N);
+  for (let s = 0; s < A.tieVal.length; s++) { const v = A.tieVal[s]; if (v > 0) A.tieVal[s] = v - (v > 60 ? 2 : 1); else if (v < 0) A.tieVal[s] = v + 1; }   // unreinforced bonds fade (CK3 opinion decay)
+  for (const i of ctx.live) for (let k = 0; k < TIES; k++) { const j = A.tieTo[i * TIES + k], v = A.tieVal[i * TIES + k]; if (j >= 0 && v > bv[i]) { bv[i] = v; best[i] = j; } }
+  for (const i of ctx.live) {
+    if (A.status[i]) continue;
+    const l = A.lover[i];
+    if (l >= 0) { const k = tieIndex(A, i, l); if (k < 0 || A.tieVal[i * TIES + k] < 30) { A.lover[i] = -1; if (A.lover[l] === i) A.lover[l] = -1; think(ctx, i, TH.heartbroken); if (living(A, l)) think(ctx, l, TH.heartbroken); if (i < l) ctx.log(E.heartbreak, i, l, A.district[i]); } continue; }
+    const j = best[i]; if (j < 0 || j < i || best[j] !== i || bv[i] < 69 || bv[j] < 69 || A.lover[j] >= 0 || !living(A, j)) continue;
+    A.lover[i] = j; A.lover[j] = i; think(ctx, i, TH.in_love); think(ctx, j, TH.in_love); ctx.log(E.love, i, j, A.district[i]);
+  }
+}
+
 // weekly: hands leave trades that no longer feed them (Songs of Syx: migration is the release valve)
 function migration(ctx) {
   const { A, w } = ctx, r = ctx.r("migrate"); let n = 0;
@@ -262,15 +277,21 @@ function migration(ctx) {
 // ---------------------------------------------------------------- society
 function social(ctx) {
   const { A, w } = ctx, r = ctx.r("social"), guards = guardCount(ctx);
+  const crews = {}; for (const i of ctx.live) { const k = A.district[i] * 32 + A.job[i]; (crews[k] || (crews[k] = [])).push(i); }
+  A.met.fill(-1); A.metKind.fill(0);
   for (const i of ctx.live) {
     if (A.status[i] || A.jail[i] || !r.chance(0.45 + P(A, i, 2) / 220)) continue;
     let j = -1;
-    if (r.chance(0.55)) { const k = r.int(TIES), t = A.tieTo[i * TIES + k]; if (t >= 0 && living(A, t)) j = t; }
+    const roll = r.next();
+    if (roll < 0.1 && A.lover[i] >= 0 && living(A, A.lover[i])) j = A.lover[i];                   // the beloved
+    else if (roll < 0.6) { const k = r.int(TIES), t = A.tieTo[i * TIES + k]; if (t >= 0 && living(A, t)) j = t; }
+    else if (roll < 0.8) { const crew = crews[A.district[i] * 32 + A.job[i]]; if (crew && crew.length > 1) j = crew[r.int(crew.length)]; }   // whoever works beside you
     if (j < 0) { const pool = ctx.byDist[A.district[i]]; if (!pool.length) continue; j = pool[r.int(pool.length)]; }
     if (j === i || j < 0 || A.jail[j] || A.status[j]) continue;
     let dist = 0; for (let k = 0; k < 3; k++) dist += Math.abs(A.ideo[i * 3 + k] - A.ideo[j * 3 + k]);
     const same = A.faction[i] === A.faction[j], kin = A.oikos[i] === A.oikos[j];
-    const score = (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 + (same ? 15 : -4) + (kin ? 12 : 0) + r.next() * 40 - 20;
+    const score = (P(A, i, 3) + P(A, j, 3)) / 2 - dist / 6 + (same ? 15 : -4) + (kin ? 12 : 0) + (A.lover[i] === j ? 10 : 0) + r.next() * 40 - 20;
+    A.met[i] = j; A.met[j] = A.met[j] < 0 ? i : A.met[j]; const kind = score > 45 ? 1 : score > 20 ? 2 : score > 0 ? 3 : 4; A.metKind[i] = kind; if (A.met[j] === i) A.metKind[j] = kind;
     if (score > 45) {
       tie(ctx, i, j, 6); tie(ctx, j, i, 6); think(ctx, i, TH.a_good_talk); think(ctx, j, TH.a_good_talk);
       const eps = 20 + P(A, i, 5) / 2;

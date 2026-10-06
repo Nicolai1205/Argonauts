@@ -69,66 +69,131 @@ const ROADS = MAP.roads.map((r) => { const land = new Path2D(), sea = new Path2D
   return { land, sea }; });
 const SITE = DISTRICTS.map((d) => { const s = SITES[d.key]; return { x: s.x * TILE + TILE / 2, y: s.y * TILE + TILE / 2, r: s.r * TILE }; });
 
-// ------------------------------------------------------------------ where everyone lives, works and gathers
-const CELL = 11;
+// ------------------------------------------------------------------ cities: streets, houses by household, workplaces, venues
+const LOT = 26, SPEED = 30000;                          // world units per lot; walking speed in world units per sim day
+const tileAt = (x, y) => MAP.biome[Math.max(0, Math.min(SIZE - 1, Math.floor(y / TILE))) * SIZE + Math.max(0, Math.min(SIZE - 1, Math.floor(x / TILE)))];
+function nearestTile(cx0, cy0, pred, maxR) {
+  const tx = Math.floor(cx0 / TILE), ty = Math.floor(cy0 / TILE);
+  for (let r = 1; r <= maxR; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const x = tx + dx, y = ty + dy; if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) continue;
+    if (pred(MAP.biome[y * SIZE + x])) return [x * TILE + TILE / 2, y * TILE + TILE / 2];
+  }
+  return null;
+}
+const WET = (b) => b === "sea" || b === "shallow" || b === "coral" || b === "deep";
 function layout() {
-  const A = w.A, groups = DISTRICTS.map(() => []);
-  for (let i = 0; i < w.N; i++) groups[A.district[i]].push(i);
-  const home = new Float32Array(w.N * 2), work = new Float32Array(w.N * 2), plaza = new Float32Array(w.N * 2), houses = [], cityR = [];
+  const A = w.A, N = w.N, home = new Float32Array(N * 2), city = [];
+  const groups = DISTRICTS.map(() => []); for (let i = 0; i < N; i++) groups[A.district[i]].push(i);
   DISTRICTS.forEach((d, k) => {
-    const g = groups[k].sort((a, b) => (A.status[a] - A.status[b]) || (A.oikos[a] - A.oikos[b]) || a - b), c = SITE[k];
-    if (d.kind === "asphodel") {   // graves in rows; shades drift among them
+    const c = SITE[k], g = groups[k];
+    if (d.kind === "asphodel") {
       const graves = g.filter((i) => A.status[i] === ST.asphodel), rest = g.filter((i) => A.status[i] !== ST.asphodel), cols = 12;
       graves.forEach((i, n) => { home[i * 2] = c.x - cols * 9 + (n % cols) * 18; home[i * 2 + 1] = c.y - 40 + Math.floor(n / cols) * 22; });
-      const cells = hexSpiral(rest.length, CELL * 1.6); rest.forEach((i, n) => { home[i * 2] = c.x + cells[n * 2]; home[i * 2 + 1] = c.y + 70 + cells[n * 2 + 1]; });
-      cityR[k] = 160;
-    } else if (d.kind === "pyra") { g.forEach((i, n) => { const a = n / Math.max(1, g.length) * 6.283; home[i * 2] = c.x + Math.cos(a) * 14 * Math.min(1, n); home[i * 2 + 1] = c.y + Math.sin(a) * 10 * Math.min(1, n); }); cityR[k] = 60; }
-    else {
-      const cells = hexSpiral(g.length, CELL); let R = 40;
-      g.forEach((i, n) => { const x = cells[n * 2], y = cells[n * 2 + 1]; home[i * 2] = c.x + x; home[i * 2 + 1] = c.y + y; R = Math.max(R, Math.hypot(x, y)); if (n % 4 === 0) houses.push(c.x + x, c.y + y); });
-      cityR[k] = R + 14;
+      rest.forEach((i) => { const a = (hash32("sh", i) % 6283) / 1000, r = 60 + hash32("sr", i) % 140; home[i * 2] = c.x + Math.cos(a) * r; home[i * 2 + 1] = c.y + 60 + Math.sin(a) * r * 0.6; });
+      city[k] = { R: 200, houses: [], venues: {} }; return;
     }
-    for (const i of g) {
-      const h = hash32("work", i), job = JOBS[A.job[i]], service = ["priest", "reaper", "noble", "servant", "merchant", "augur"].includes(job);
-      const ang = (A.job[i] * 0.9 + (h % 1000) / 1000 * 0.8) * 1.0, rad = service ? (h % 100) / 100 * cityR[k] * 0.4 : cityR[k] + 30 + (h % 997) / 997 * Math.max(120, cityR[k] * 0.7);
-      work[i * 2] = c.x + Math.cos(ang) * rad; work[i * 2 + 1] = c.y + Math.sin(ang) * rad;
-      const pa = (hash32("pz", i) % 6283) / 1000, pr = ((hash32("pr", i) % 1000) / 1000) * Math.min(90, cityR[k] * 0.35);
-      plaza[i * 2] = c.x + Math.cos(pa) * pr; plaza[i * 2 + 1] = c.y + Math.sin(pa) * pr;
+    if (d.kind === "pyra") { g.forEach((i, n) => { const a = n * 2.4; home[i * 2] = c.x + Math.cos(a) * 12 * Math.min(1, n); home[i * 2 + 1] = c.y + Math.sin(a) * 8 * Math.min(1, n); }); city[k] = { R: 60, houses: [], venues: {} }; return; }
+    // households: members of the same wallet live together, up to five to a house; richer houses near the agora
+    const dwellers = g.filter((i) => A.status[i] === ST.living || A.status[i] === ST.exiled).sort((a, b) => A.oikos[a] - A.oikos[b] || a - b);
+    const hh = []; let cur = null;
+    for (const i of dwellers) { if (!cur || A.oikos[cur[0]] !== A.oikos[i] || cur.length >= 5) { cur = [i]; hh.push(cur); } else cur.push(i); }
+    const wealth = (h) => h.reduce((s, i) => s + A.obols[i], 0); hh.sort((a, b) => wealth(b) - wealth(a) || a[0] - b[0]);
+    // lots on a street grid (every 4th row and column is a street), spiralling out from the agora
+    const need = hh.length + 12, side = Math.ceil(Math.sqrt(need * 1.6)) + 4, lots = [];
+    for (let gy = -side; gy <= side; gy++) for (let gx = -side; gx <= side; gx++) { if (gx % 4 === 0 || gy % 4 === 0) continue; if (Math.abs(gx) <= 1 && Math.abs(gy) <= 1) continue; lots.push([gx * gx + gy * gy + (hash32("lot", k, gx, gy) % 100) / 200, gx * LOT, gy * LOT]); }
+    lots.sort((a, b) => a[0] - b[0]);
+    const venues = { market: [c.x, c.y], temple: [c.x, c.y - LOT * 2.5] }, houses = [];
+    let li = 0; const take = () => { const L = lots[li++]; return [c.x + L[1], c.y + L[2]]; };
+    venues.gaol = take(); venues.workshop = take(); const nt = Math.max(1, Math.round(dwellers.length / 160)); venues.taverns = []; for (let t = 0; t < nt; t++) { li += 3; venues.taverns.push(take()); }
+    li = 2; const used = new Set([0, 1]); const taken = new Set(); [venues.gaol, venues.workshop, ...venues.taverns].forEach((v) => taken.add(v.join()));
+    let R = LOT * 3;
+    for (const h of hh) {
+      let pos; do { pos = take(); } while (taken.has(pos.join()));
+      houses.push({ x: pos[0], y: pos[1], f: A.faction[h[0]], n: h.length });
+      h.forEach((i, m) => { home[i * 2] = pos[0] - 6 + (m % 3) * 6; home[i * 2 + 1] = pos[1] + 4; });
+      R = Math.max(R, Math.hypot(pos[0] - c.x, pos[1] - c.y));
     }
+    for (const i of g) if (A.status[i] === ST.shade) { home[i * 2] = c.x; home[i * 2 + 1] = c.y; }
+    R += LOT;
+    venues.docks = nearestTile(c.x, c.y, WET, Math.ceil(R / TILE) + 8);
+    venues.shore = nearestTile(c.x, c.y, (b) => b === "beach" || b === "coral", Math.ceil(R / TILE) + 10) || venues.docks;
+    venues.mine = nearestTile(c.x, c.y, (b) => b === "mountain" || b === "hills" || b === "snow", 30);
+    venues.wild = nearestTile(c.x, c.y, (b) => b === "forest" || b === "darkforest" || b === "flowers" || b === "grass", Math.ceil(R / TILE) + 6);
+    city[k] = { R, houses, venues };
   });
-  S.home = home; S.work = work; S.plaza = plaza; S.houses = houses; S.cityR = cityR; S.cur = new Float32Array(w.N * 2); S.frame = new Uint8Array(w.N);
-  S.looks = []; for (let i = 0; i < w.N; i++) S.looks.push(figure(lookOf(seed, i, JOBS[A.job[i]])));
+  S.home = home; S.city = city; S.cur = new Float32Array(N * 2); S.frame = new Uint8Array(N); S.vis = new Uint8Array(N);
+  S.looks = []; for (let i = 0; i < N; i++) S.looks.push(figure(lookOf(seed, i, JOBS[A.job[i]])));
+  plans();
 }
-const spiralCache = {};
-function hexSpiral(n, s) {
-  const key = n + ":" + s; if (spiralCache[key]) return spiralCache[key];
-  const out = [], rows = Math.ceil(Math.sqrt(n)) + 4, cand = [];
-  for (let q = -rows; q <= rows; q++) for (let r = -rows; r <= rows; r++) { const x = s * (q + r / 2), y = s * r * 0.866; cand.push([x * x + y * y, x, y]); }
-  cand.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
-  for (let k = 0; k < n; k++) out.push(cand[k][1], cand[k][2]);
-  return (spiralCache[key] = out);
+
+// ------------------------------------------------------------------ everyone's day: rooted in the sim (job, today's encounter, beloved, sickness, gaol, hunger)
+function plans() {
+  const A = w.A, N = w.N, P = new Float32Array(N * 12);   // [wake, atWork, leaveWork, atEve, leaveEve, atHome] + work xy, eve xy, flags
+  S.plan = P; S.planFlags = new Uint8Array(N); S.eveWith = new Int16Array(N).fill(-1); S.where = new Array(N);
+  for (let i = 0; i < N; i++) {
+    if (A.status[i] !== ST.living) continue;
+    const k = A.district[i], c = SITE[k], C = S.city[k], V = C.venues || {}, job = JOBS[A.job[i]], h = hash32("day", i, w.day), u = (n) => ((h >>> n) & 1023) / 1023;
+    const hx = S.home[i * 2], hy = S.home[i * 2 + 1], ang = (A.job[i] * 0.83 + u(3) * 0.9);
+    const ring = (rad) => [c.x + Math.cos(ang) * rad, c.y + Math.sin(ang) * rad];
+    // where the work is
+    let wk, desc;
+    if (A.jail[i]) { wk = V.gaol || [c.x, c.y]; desc = "sits in the gaol"; }
+    else if (A.sick[i]) { wk = [hx, hy]; desc = "lies sick at home"; }
+    else if (A.hunger[i] > 1) { wk = [c.x + (u(5) - 0.5) * 60, c.y + (u(7) - 0.5) * 40]; desc = "begs in the market"; }
+    else if (job === "farmer" || job === "grower" || job === "herbalist") { wk = ring(C.R + 40 + u(1) * 220); desc = job === "herbalist" ? "gathers herbs in the meadows" : job === "grower" ? "tends the smoke-leaf fields" : "works the fields"; }
+    else if (job === "fisher" || job === "rower" || job === "pirate") { const d0 = V.docks || ring(C.R + 60); wk = [d0[0] + (u(2) - 0.5) * 120, d0[1] + (u(4) - 0.5) * 120]; desc = job === "pirate" ? "lurks at the docks" : job === "rower" ? "pulls an oar in the harbour" : "fishes off the docks"; }
+    else if (job === "miner") { const m0 = V.mine || ring(C.R + 200); wk = [m0[0] + (u(2) - 0.5) * 160, m0[1] + (u(4) - 0.5) * 160]; desc = "digs in the mountain"; }
+    else if (job === "weaver") { wk = [V.workshop[0] + (u(2) - 0.5) * 30, V.workshop[1] + (u(4) - 0.5) * 20]; desc = "weaves in the workshop"; }
+    else if (job === "priest" || job === "augur") { wk = [V.temple[0] + (u(2) - 0.5) * 40, V.temple[1] + (u(4) - 0.5) * 20]; desc = job === "augur" ? "reads the birds from the temple steps" : "keeps the temple"; }
+    else if (job === "merchant") { wk = [c.x + (u(2) - 0.5) * 70, c.y + (u(4) - 0.5) * 50]; desc = "sells in the market"; }
+    else if (job === "reaper") { wk = ring(C.R + 10); desc = "walks the watch around the walls"; S.planFlags[i] |= 4; }
+    else if (job === "servant") { const H = C.houses[u(6) * Math.min(20, C.houses.length) | 0]; wk = H ? [H.x + 8, H.y + 4] : [hx, hy]; desc = "serves in a great house"; }
+    else if (job === "noble") { wk = [c.x + (u(2) - 0.5) * 50, c.y - 20 + (u(4) - 0.5) * 30]; desc = "holds court in the agora"; }
+    else { wk = ring(C.R + 50); desc = "works outside the walls"; }
+    // where the evening goes: the beloved, today's encounter, temperament
+    let ev = [hx, hy], comp = -1, edesc = "stays home";
+    const lover = A.lover[i], met = A.met[i], X = A.pers[i * 6 + 2], gods = A.ideo[i * 3 + 2];
+    const tav = (a, b) => { const T = V.taverns || [[c.x, c.y]]; return T[hash32("tav", Math.min(a, b), Math.max(a, b)) % T.length]; };
+    if (A.jail[i] || A.sick[i]) { ev = wk; edesc = A.jail[i] ? "stays there through the night" : "does not rise all day"; }
+    else if (lover >= 0 && A.status[lover] === ST.living && A.district[lover] === k) { const host = Math.min(i, lover); ev = [S.home[host * 2] + (i === host ? -5 : 5), S.home[host * 2 + 1] + 6]; comp = lover; edesc = "spends the evening with their beloved"; }
+    else if (met >= 0 && A.status[met] === ST.living && A.district[met] === k) { const t = tav(i, met), kind = A.metKind[i]; ev = [t[0] + (i < met ? -5 : 5), t[1] + 8]; comp = met; edesc = kind === 1 ? "talks deep into the night with" : kind === 2 ? "shares a cup with" : kind === 3 ? "argues with" : "trades insults with"; }
+    else if (X > 62) { const t = tav(i, i); ev = [t[0] + (u(8) - 0.5) * 30, t[1] + 8 + (u(9) - 0.5) * 16]; edesc = "drinks at the tavern"; }
+    else if (gods > 35) { ev = [V.temple[0] + (u(8) - 0.5) * 40, V.temple[1] + 14]; edesc = "prays at the temple"; }
+    else if (X < 38 && V.shore) { ev = [V.shore[0] + (u(8) - 0.5) * 80, V.shore[1] + (u(9) - 0.5) * 80]; edesc = "walks alone by the shore"; }
+    else if (X < 45 && V.wild) { ev = [V.wild[0] + (u(8) - 0.5) * 80, V.wild[1] + (u(9) - 0.5) * 80]; edesc = "wanders in the wild"; }
+    else { ev = [c.x + (u(8) - 0.5) * 120, c.y + (u(9) - 0.5) * 80]; edesc = "idles in the agora"; }
+    // personal rhythm: the conscientious rise early, the sociable stay out late, pirates and half the Reapers work nights
+    const Cn = A.pers[i * 6 + 4], night = job === "pirate" || (job === "reaper" && (i & 1));
+    const wake = 0.16 + (60 - Cn) / 900 + u(10) * 0.04, d1 = Math.hypot(wk[0] - hx, wk[1] - hy) / SPEED, d2 = Math.hypot(ev[0] - wk[0], ev[1] - wk[1]) / SPEED, d3 = Math.hypot(hx - ev[0], hy - ev[1]) / SPEED;
+    const leave = 0.56 + u(11) * 0.05, bed = 0.8 + (X - 50) / 600 + u(12) * 0.03;
+    const t = [wake, wake + Math.min(0.08, d1), leave, leave + Math.min(0.08, d2), bed, bed + Math.min(0.08, d3)];
+    if (night) for (let q = 0; q < 6; q++) t[q] = (t[q] + 0.5) % 1;
+    P.set([...t, wk[0], wk[1], ev[0], ev[1], hx, hy], i * 12);
+    if (night) S.planFlags[i] |= 1;
+    S.eveWith[i] = comp; S.where[i] = { work: desc, eve: edesc };
+  }
+  S.planDay = w.day;
 }
-// a sim day is one real hour: night, walk to work, work, walk to the plaza, gather, walk home, night
 const ease = (t) => t * t * (3 - 2 * t);
 function positions(now) {
-  const A = w.A, f0 = (((now - GENESIS) % 3600) + 3600) % 3600 / 3600, P = S.cur;
+  const A = w.A, f0 = (((now - GENESIS) % 3600) + 3600) % 3600 / 3600, Pp = S.plan, out = S.cur;
+  if (S.planDay !== w.day) plans();
   for (let i = 0; i < w.N; i++) {
-    const st = A.status[i]; let x, y, fr = 4;
-    const hx = S.home[i * 2], hy = S.home[i * 2 + 1];
-    if (st === ST.asphodel) { x = hx; y = hy; }
-    else if (st === ST.shade) { const a = now / 9 + i; x = hx + Math.cos(a) * 6; y = hy + Math.sin(a * 0.7) * 4; }
-    else if (st === ST.pyre || A.jail[i]) { x = hx; y = hy; }
-    else {
-      const f = (f0 + (hash32("o", i) % 100) / 1000) % 1, wx = S.work[i * 2], wy = S.work[i * 2 + 1], px = S.plaza[i * 2], py = S.plaza[i * 2 + 1];
-      const L = (ax, ay, bx, by, t) => { const e = ease(t); x = ax + (bx - ax) * e; y = ay + (by - ay) * e; fr = Math.floor(now * 6 + i) % 4; };
-      if (f < 0.2 || f >= 0.86) { x = hx; y = hy; }
-      else if (f < 0.28) L(hx, hy, wx, wy, (f - 0.2) / 0.08);
-      else if (f < 0.58) { x = wx + Math.sin(now / 3 + i) * 3; y = wy; }
-      else if (f < 0.64) L(wx, wy, px, py, (f - 0.58) / 0.06);
-      else if (f < 0.8) { const a = now / 7 + i * 0.37; x = px + Math.cos(a) * 9; y = py + Math.sin(a) * 6; fr = Math.floor(now * 3 + i) % 4; }
-      else L(px, py, hx, hy, (f - 0.8) / 0.06);
+    const st = A.status[i], hx = S.home[i * 2], hy = S.home[i * 2 + 1]; let x = hx, y = hy, fr = 4, vis = 1;
+    if (st === ST.shade) { const a = now / 9 + i; x = hx + Math.cos(a) * 8; y = hy + Math.sin(a * 0.7) * 5; }
+    else if (st === ST.living) {
+      const b = i * 12, t = Pp, night = S.planFlags[i] & 1; let f = f0; if (night) f = (f0 + 0.5) % 1;
+      const T = night ? [0, 1, 2, 3, 4, 5].map((q) => (t[b + q] + 0.5) % 1) : [t[b], t[b + 1], t[b + 2], t[b + 3], t[b + 4], t[b + 5]];
+      const wx = t[b + 6], wy = t[b + 7], ex = t[b + 8], ey = t[b + 9];
+      const go = (ax, ay, bx, by, s, e) => { const k = e > s ? ease(Math.min(1, (f - s) / (e - s))) : 1; x = ax + (bx - ax) * k; y = ay + (by - ay) * k; fr = Math.floor(now * 6 + i) % 4; };
+      if (f < T[0] || f >= T[5]) { vis = A.sick[i] ? 1 : 0; }                              // asleep indoors
+      else if (f < T[1]) go(hx, hy, wx, wy, T[0], T[1]);
+      else if (f < T[2]) { x = wx; y = wy; if (S.planFlags[i] & 4) { const a = f * 40 + i; x = SITE[A.district[i]].x + Math.cos(a) * (S.city[A.district[i]].R + 10); y = SITE[A.district[i]].y + Math.sin(a) * (S.city[A.district[i]].R + 10); fr = Math.floor(now * 4 + i) % 4; } else { x += Math.sin(now / 2 + i) * 2; } }
+      else if (f < T[3]) go(wx, wy, ex, ey, T[2], T[3]);
+      else if (f < T[4]) { x = ex + Math.sin(now / 4 + i) * 2; y = ey; }
+      else go(ex, ey, hx, hy, T[4], T[5]);
     }
-    P[i * 2] = x; P[i * 2 + 1] = y; S.frame[i] = fr;
+    out[i * 2] = x; out[i * 2 + 1] = y; S.frame[i] = fr; S.vis[i] = vis;
   }
   return f0;
 }
@@ -148,14 +213,19 @@ function render() {
   // roads and sea lanes
   cx.lineCap = "round"; cx.lineJoin = "round";
   for (const R of ROADS) { cx.strokeStyle = "#a08a62"; cx.lineWidth = Math.max(5, 1.6 / sc); cx.stroke(R.land); cx.setLineDash([18, 22]); cx.strokeStyle = "#9fc3e6aa"; cx.lineWidth = Math.max(3, 1.2 / sc); cx.stroke(R.sea); cx.setLineDash([]); }
-  // city grounds and houses
+  // cities: paved ground, houses (roof tinted by the household's faction), venues
+  const night = f < 0.18 || f >= 0.84;
   DISTRICTS.forEach((d, k) => {
-    if (d.kind === "pyra" || d.kind === "asphodel" || d.kind === "grove") return;
-    const c = SITE[k]; cx.fillStyle = "rgba(60,48,36,.55)"; cx.beginPath(); cx.arc(c.x, c.y, S.cityR[k] + 10, 0, 6.283); cx.fill();
-    cx.strokeStyle = "rgba(200,180,140,.5)"; cx.lineWidth = Math.max(3, 1 / sc); cx.stroke();
+    const C = S.city[k]; if (!C || !C.houses.length) return; const c = SITE[k];
+    cx.fillStyle = "rgba(70,60,48,.6)"; cx.beginPath(); cx.arc(c.x, c.y, C.R + 6, 0, 6.283); cx.fill(); cx.strokeStyle = "rgba(205,190,150,.55)"; cx.lineWidth = Math.max(3, 1 / sc); cx.stroke();
+    if (sc < 0.12) return;
+    for (const H of C.houses) { cx.fillStyle = "#4a3f33"; cx.fillRect(H.x - 10, H.y - 8, 20, 16); cx.fillStyle = w.factions[H.f].color; cx.globalAlpha = 0.55; cx.fillRect(H.x - 10, H.y - 8, 20, 5); cx.globalAlpha = 1;
+      if (night) { cx.fillStyle = "rgba(255,196,100,.9)"; cx.fillRect(H.x - 2, H.y, 4, 4); } }
+    const V = C.venues, box = (p, col, wd, ht) => { cx.fillStyle = col; cx.fillRect(p[0] - wd / 2, p[1] - ht / 2, wd, ht); };
+    box(V.market, "#8c7650", 46, 30); box(V.temple, "#e9e1cf", 40, 18); cx.fillStyle = "#b8b0a0"; for (let q = -2; q <= 2; q++) cx.fillRect(V.temple[0] + q * 8 - 1.5, V.temple[1] - 9, 3, 18);
+    box(V.gaol, "#25252b", 20, 16); box(V.workshop, "#6b5a46", 24, 16); for (const T of V.taverns) { box(T, "#9a5b2a", 22, 16); if (night) box(T, "rgba(255,170,70,.9)", 6, 6); }
+    if (V.docks) { cx.strokeStyle = "#8a6a44"; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(V.docks[0] - 20, V.docks[1]); cx.lineTo(V.docks[0] + 20, V.docks[1]); cx.stroke(); }
   });
-  const night = f < 0.2 || f >= 0.86;
-  if (sc > 0.25) { cx.fillStyle = "#7d6a55"; for (let k = 0; k < S.houses.length; k += 2) cx.fillRect(S.houses[k] - 7, S.houses[k + 1] + 3, 14, 7); }
   // the Pyra
   const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97);
   const grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, 150); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
@@ -165,7 +235,7 @@ function render() {
   const figH = 16, figPx = figH * sc, mode = figPx < 4 ? 0 : 1, label = figPx > 34;
   for (let i = 0; i < w.N; i++) {
     const x = P[i * 2], y = P[i * 2 + 1]; if (x < vx0 || x > vx1 || y < vy0 || y > vy1) continue;
-    const st = A.status[i];
+    const st = A.status[i]; if (!S.vis[i]) continue;
     if (st === ST.asphodel) { cx.fillStyle = "#cfc9ba"; cx.fillRect(x - 4, y - 7, 8, 11); cx.fillStyle = "#7a6e5e"; cx.fillRect(x - 0.8, y - 15, 1.6, 9); continue; }
     cx.globalAlpha = st === ST.shade ? 0.3 : 1;
     if (mode === 0) { cx.fillStyle = w.factions[A.faction[i]].color; cx.fillRect(x - 3, y - 3, 6, 6); }
@@ -177,14 +247,12 @@ function render() {
   }
   cx.globalAlpha = 1;
   // night falls each hour; windows light up
-  if (night) { const depth = f < 0.2 ? 1 - Math.max(0, f - 0.12) / 0.08 : Math.min(1, (f - 0.86) / 0.06);
-    cx.fillStyle = `rgba(4,8,24,${0.45 * depth})`; cx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
-    if (sc > 0.25) { cx.fillStyle = `rgba(255,200,110,${0.8 * depth})`; for (let k = 0; k < S.houses.length; k += 6) cx.fillRect(S.houses[k] - 2, S.houses[k + 1] + 4, 3, 3); } }
+  if (night) { const depth = f < 0.18 ? 1 - Math.max(0, f - 0.1) / 0.08 : Math.min(1, (f - 0.84) / 0.06); cx.fillStyle = `rgba(4,8,24,${0.42 * depth})`; cx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0); }
   // labels
   DISTRICTS.forEach((d, k) => {
     const c = SITE[k], fs = (cv.clientWidth < 600 ? 11 : 14) / sc, n = countIn(k);
     cx.font = `700 ${fs}px "Cormorant Garamond", serif`; cx.textAlign = "center"; cx.fillStyle = "#f3ecdacc"; cx.strokeStyle = "#0b1220aa"; cx.lineWidth = fs / 5;
-    const ly = c.y - Math.max(S.cityR[k], 30) - 26 - fs * 0.3; cx.strokeText(d.name, c.x, ly); cx.fillText(d.name, c.x, ly);
+    const ly = c.y - Math.max(S.city[k].R, 30) - 26 - fs * 0.3; cx.strokeText(d.name, c.x, ly); cx.fillText(d.name, c.x, ly);
     cx.font = `${fs * 0.72}px "IBM Plex Mono", monospace`; cx.fillStyle = "#c8d0dccc"; cx.strokeText(labelCount(k, n), c.x, ly + fs * 0.85); cx.fillText(labelCount(k, n), c.x, ly + fs * 0.85);
   });
   cx.restore();
@@ -299,6 +367,7 @@ function openLegends(i) {
      <div class="t">House: ${esc(oik.name || (oik.addr ? oik.addr.slice(0, 6) + "…" + oik.addr.slice(-4) : "?"))} · ${A.deaths[i] ? `died ${A.deaths[i]}× and returned · ` : ""}<a class="who" href="https://opensea.io/assets/ethereum/${NFT}/${tok}" target="_blank" rel="noopener">on-chain token</a></div>
      <div style="margin-top:6px">${traits}</div></div></div>
    <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span></div></div></div>
+   ${A.status[i] === ST.living && S.where && S.where[i] ? `<h3>Today</h3><p>${esc(view.name(i).split(' ')[0])} ${esc(S.where[i].work)}, then ${esc(S.where[i].eve)}${S.eveWith[i] >= 0 ? ` <a class="who" data-i="${S.eveWith[i]}">${esc(view.name(S.eveWith[i]))}</a>` : ""}.${A.lover[i] >= 0 ? ` Beloved: <a class="who" data-i="${A.lover[i]}">${esc(view.name(A.lover[i]))}</a>.` : ""}</p>` : ""}
    <h3>On their mind</h3><div>${th.join("") || '<span class="muted">nothing pressing</span>'}</div>
    <h3>Bonds</h3><div>${ties.map(([v, j]) => `<span class="pill" style="border-color:${v >= 0 ? "#3d6b4a" : "#7a3030"}">${v >= 0 ? "♥" : "✕"} <a class="who" data-i="${j}">${esc(view.name(j))}</a> ${v}</span>`).join("") || '<span class="muted">alone</span>'}</div>
    <h3>Life</h3><ol class="bio">${bio.join("") || '<li class="muted">Nothing remembered yet.</li>'}</ol>${recent ? `<h3>In the chronicle</h3><ol class="bio">${recent}</ol>` : ""}`;

@@ -64,6 +64,8 @@ const T = {
   migrate: ["{v} Minyans left trades that no longer fed them and went where {s} sells.", "A migration: {v} hands follow the price of {s}."],
   dole: ["The grain dole fed {v} hungry Minyans today, paid from the treasury.", "{v} bowls of barley from the Boule's stores."],
   hostage: ["{a} is held in escrow, a hostage of the Agora."],
+  love: ["{a} and {b} fell in love in {where}. The {fa} pretend not to notice.", "In {where}, {a} and {b} have become each other's whole world.", "{a} carved {b}'s name into a rib-bone and gave it away. They walk together at dusk now."],
+  heartbreak: ["{a} and {b} are done. Nobody in {where} dares mention it.", "The love between {a} and {b} curdled into silence."],
   cognomen: ["{a} is now called {c}."],
 };
 const DIRS = (code) => { const ax = Math.floor(code / 2), up = code % 2 === 0; return AXES[ax][up ? 0 : 1]; };
@@ -92,4 +94,4 @@ export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plag
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
   crash: "realism", migrate: "realism", dole: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
-  bounty: "myth", fleece: "myth", exile_end: "realism" };
+  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism" };

@@ -5,7 +5,7 @@ import { unit, stream, hash32 } from "./rng.js";
 export const TIES = 8;      // social ties per character
 export const THS = 6;       // thought slots
 export const BIO = 10;      // remembered life events (ring)
-export const VERSION = 1;  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
+export const VERSION = 2;  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
 
 // dynamic arrays: [name, type, per-agent width]
 const LAYOUT = [
@@ -15,6 +15,7 @@ const LAYOUT = [
   ["thType", Uint8Array, THS], ["thUntil", Int32Array, THS], ["tieTo", Int16Array, TIES], ["tieVal", Int8Array, TIES],
   ["until", Int32Array, 1], ["deaths", Uint8Array, 1], ["cognomen", Uint8Array, 1], ["jail", Uint16Array, 1], ["unburied", Uint8Array, 1],
   ["bioDay", Int32Array, BIO], ["bioType", Uint8Array, BIO], ["bioArg", Int32Array, BIO], ["bioPos", Uint8Array, 1], ["office", Int8Array, 1], ["vice", Uint8Array, 1], ["died", Int32Array, 1],
+  ["met", Int16Array, 1], ["metKind", Uint8Array, 1], ["lover", Int16Array, 1],
 ];
 const HEXACO = ["H", "E", "X", "A", "C", "O"];
 const DEMAND_GOODS = ["food", "smoke", "cloth", "ore", "pharmaka"], DEMAND_W = [0.40, 0.26, 0.08, 0.16, 0.10];
@@ -85,6 +86,7 @@ export function createWorld(seed, seedHash = "argo") {
     A.obols[i] = Math.round((40 + B.wealth * (0.4 + u * u * 2.2)) * (seed.relic[i] ? 1.6 : 1) + (job === J.noble ? 250 : 0) + (job === J.merchant ? 60 : 0));
     A.inv[i * 5 + 0] = 10; A.inv[i * 5 + 1] = art === "none" ? 0 : 4; A.inv[i * 5 + 2] = 2; A.inv[i * 5 + 3] = 1; A.inv[i * 5 + 4] = 1;
     A.vice[i] = art === "none" ? 0 : (seed.breath[i] ? 2 : 1);
+    A.met[i] = -1; A.lover[i] = -1;
     for (let k = 0; k < TIES; k++) A.tieTo[i * TIES + k] = -1;
     for (let k = 0; k < THS; k++) A.thType[i * THS + k] = 0;
   }
