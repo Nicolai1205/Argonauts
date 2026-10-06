@@ -35,10 +35,10 @@ export function sift(M, day, events, w, name) {
     // harms: remember who wronged whom; strike back = revenge; lines that wrong each other across generations = feud
     if (HARM.has(e.t) && a >= 0 && b >= 0 && a !== b) {
       const [doer, victim] = e.t === "death" ? [b, a] : [a, b];
-      const wr = M.harm[doer] && M.harm[doer][victim];
+      const hv = M.harm[doer] && M.harm[doer][victim], wr = hv === undefined ? 0 : Math.floor(hv / 10), sev0 = hv === undefined ? 0 : hv - wr * 10, sev = e.t === "death" ? 2 : e.t === "robbery" ? 1 : 0;
       const pairKey = doer + ">" + victim; M.avenged = M.avenged || {};
-      if (wr && day - wr >= 10 && day - wr < 150 && !(M.avenged[pairKey] > day - 120)) { M.avenged[pairKey] = day; add("revenge", [doer, victim], `Revenge in ${where(e.x)}`, `${who(victim)} wronged ${who(doer)} ${day - wr} days ago. Today ${who(doer)} answered${e.t === "death" ? " with death" : e.t === "robbery" ? " by taking their purse" : " with fists"}.`); delete M.harm[doer][victim]; }
-      (M.harm[victim] || (M.harm[victim] = {}))[doer] = day;
+      if (hv !== undefined && sev0 + sev >= 1 && day - wr >= 10 && day - wr < 150 && !(M.avenged[pairKey] > day - 120)) { M.avenged[pairKey] = day; add("revenge", [doer, victim], `Revenge in ${where(e.x)}`, `${who(victim)} wronged ${who(doer)} ${day - wr} days ago. Today ${who(doer)} answered${e.t === "death" ? " with death" : e.t === "robbery" ? " by taking their purse" : " with fists"}.`); delete M.harm[doer][victim]; }
+      (M.harm[victim] || (M.harm[victim] = {}))[doer] = day * 10 + sev;
       const ks = Object.keys(M.harm[victim]); if (ks.length > 4) delete M.harm[victim][ks.sort((p, q) => M.harm[victim][p] - M.harm[victim][q])[0]];
       const la = A.lineage[doer], lb = A.lineage[victim];
       if (la !== lb && (A.kind[doer] || A.kind[victim])) {
@@ -78,8 +78,8 @@ export function sift(M, day, events, w, name) {
       case "caravan": { const [from, to] = (e.s || "").split("|"); add("caravan", [], `Grain for ${to}`, `Ships and mule-trains from ${from} brought ${e.v} rations to hungry ${to}.`); break; }
       case "raid": { const [from, to, what, n] = (e.s || "").split("|"); add("raid", [a], `Pirates on the ${from}–${to} run`, `${who(a)} and the pirates took ${n} loads of ${what} at sea.`); break; }
       case "rumor": add("rumor", [a], "What they are saying", `In ${where(e.x)} the story has grown in the telling: "${e.s}"`); break;
-      case "rumorend": if (e.v > 2000) add("rumor", [], "A rumour burns out", `${e.v.toLocaleString()} Minyans heard it before it died: "${e.s}"`); break;
-      case "beam": add("beam", [], "The Argo speaks", `The speaking oak in the prow said "${e.s}". The augurs are already arguing about what it means.`); break;
+      case "rumorend": if (e.v > 2000) add("rumor", [], "A rumour burns out", `${String(e.v).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} Minyans heard it before it died: "${e.s}"`); break;
+      case "beam": add("beam", [], "The Argo speaks", `The speaking oak in the prow said "${e.s}". The augurs are already arguing about what it means.`); M.beams.push({ day, phrase: e.s }); M.beams = M.beams.filter((x) => x.day > day - 20); break;
       case "ostracism": case "exile_end": break;
       case "death":
         if (a >= 0 && a < 9999) { M.breaks[a] = (M.breaks[a] || 0) + 1; if (M.breaks[a] === 3) add("thricebroken", [a], "Thrice broken, thrice risen", `${who(a)} has been broken three times now (${e.s}). Each time the bones knit again. The Reapers have started to leave a little room by the gate.`); }
@@ -88,7 +88,6 @@ export function sift(M, day, events, w, name) {
       case "love": M.love[a] = [b, day]; M.love[b] = [a, day]; break;
       case "heartbreak": delete M.love[a]; delete M.love[b]; break;
       case "defect": { const prev = M.defect[a]; if (prev && prev.from === e.v) add("turncoat", [a], "The turncoat returns", `${who(a)} left their faction ${day - prev.day} days ago, and now crawls back.`); M.defect[a] = { from: A.birthFac[a], day }; break; }
-      case "beam": M.beams.push({ day, phrase: e.s }); M.beams = M.beams.filter((x) => x.day > day - 20); break;
       case "burn": add("burn", [a], `${who(a).split(" ")[0]} is unmade by fire`, `On the chain, ${who(a)} was sent to the dead address. In the world, the only true death the Sown can die: the Pyra.`); break;
       case "ruling": add("ruling", [a], "The Maker's hand", `The Maker reached into the world and remade ${who(a)}.`); break;
       case "fleece": add("fleece", [a], "News of the Fleece", `${e.s}: ${who(a)}.`); break;
@@ -124,5 +123,10 @@ export function sift(M, day, events, w, name) {
   for (const k of Object.keys(M.office)) if (day - M.office[k] > 120) delete M.office[k];
   for (const k of Object.keys(M.defect)) if (day - M.defect[k].day > 200) delete M.defect[k];
   for (const k of Object.keys(M.feud)) if (day - M.feud[k].last > 400) delete M.feud[k];
+  if (day % 7 === 0) {   // forget what can no longer become a story
+    for (const v of Object.keys(M.harm)) { const h = M.harm[v]; for (const d of Object.keys(h)) if (day - Math.floor(h[d] / 10) >= 150) delete h[d]; if (!Object.keys(h).length) delete M.harm[v]; }
+    if (M.avenged) for (const k of Object.keys(M.avenged)) if (day - M.avenged[k] > 120) delete M.avenged[k];
+    for (const k of Object.keys(M.love)) if (A.status[k] && A.kind[k]) delete M.love[k];
+  }
   return out;
 }

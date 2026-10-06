@@ -40,7 +40,7 @@ export function gossip(ctx, i, j) {
 function believe(ctx, i, R, k) {
   const { A, w } = ctx;
   // hearing it changes the hearer: distrust toward the blamed faith, fear, or awe
-  if (R.blame >= 0 && A.faith[i] !== R.blame) A.radical[i] = Math.max(-100, Math.min(100, A.radical[i] + (R.heat > 50 ? 2 : 1)));
+  if (R.blame >= 0 && A.faith[i] !== R.blame && R.heat > 50 && ctx.rr.chance(0.25)) A.radical[i] = Math.min(100, A.radical[i] + 1);
   // mutation: one telling in sixty bends the story
   if (R.lastTwist !== ctx.day && ctx.rr.chance(1 / 300) && R.twists.length < 3) {
     const t = TWISTS[hash32(R.id, R.reach) % TWISTS.length]; if (R.twists.includes(t.k) || !t.fits(R)) return;
@@ -54,7 +54,7 @@ export function rumorsDaily(ctx) {
   for (let k = 0; k < SLOTS; k++) {
     const R = w.rumors[k]; if (!R || R.dead) continue;
     let spreaders = 0; const byCity = {};
-    for (const i of ctx.live) { const s = A.rumor[i * SLOTS + k]; if (s === 1) spreaders++; if (s) byCity[A.district[i]] = (byCity[A.district[i]] || 0) + 1; }
+    for (const i of ctx.live) { if (A.status[i]) continue; const s = A.rumor[i * SLOTS + k]; if (s === 1) spreaders++; if (s) byCity[A.district[i]] = (byCity[A.district[i]] || 0) + 1; }
     if (!spreaders || day - R.born > 60) { R.dead = true; R.died = day; ctx.log(ctx.E.rumorend, -1, -1, R.district, R.reach, R.text); continue; }
     if (R.blame >= 0 && R.heat >= 50 && day % 7 === 0 && w.war) {
       // cities where the rumour runs hot turn on cities where the blamed faith rules

@@ -11,7 +11,7 @@ import { initTrade } from "./trade.js";
 export const TIES = 8;      // social ties per character
 export const THS = 6;       // thought slots
 export const BIO = 10;      // remembered life events (ring)
-export const VERSION = 9;
+export const VERSION = 10;
 export const ARGO = 9999;   // entity indices 0..9998 are the tokens; the Leaves (mortal children) are appended after  // bump when the state layout or rules change incompatibly: the world is re-dreamed from genesis
 
 // dynamic arrays: [name, type, per-agent width]
@@ -154,7 +154,7 @@ const B64 = typeof Buffer !== "undefined"
 export function serialize(w) {
   const arrays = {};
   for (const [name, A] of Object.entries(w.A)) { const k = w.widths[name], used = A.subarray(0, w.N * k); arrays[name] = [A.constructor.name, B64.enc(new Uint8Array(used.buffer, used.byteOffset, used.byteLength)), k]; }
-  const { A, oikosIx, static: st, ...rest } = w;
+  const { A, oikosIx, static: st, cap, ...rest } = w;
   return JSON.stringify({ ...rest, arrays });
 }
 const CTORS = { Uint8Array, Int8Array, Int16Array, Uint16Array, Int32Array, Float64Array };

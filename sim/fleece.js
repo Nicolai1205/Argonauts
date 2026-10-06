@@ -2,7 +2,7 @@
 import { DISTRICTS, D, ST } from "./lore.js";
 import { CITIES } from "./war.js";
 
-const dist = (a, b) => Math.hypot(DISTRICTS[a].x - DISTRICTS[b].x, DISTRICTS[a].y - DISTRICTS[b].y);
+const dist = (a, b) => { const dx = DISTRICTS[a].x - DISTRICTS[b].x, dy = DISTRICTS[a].y - DISTRICTS[b].y; return Math.round(Math.sqrt(dx * dx + dy * dy)); };   // integer: replays identically in every engine
 const short = (k) => DISTRICTS[k].name.replace(/^the /, "").replace(/ & the Agora/, "");
 export const cityOf = (d) => (CITIES.includes(d) ? d : D.agora);
 

@@ -1,10 +1,11 @@
 // City-states, asabiya and war (Turchin's metaethnic frontier theory; Turchin et al. 2013 for power and terrain).
 import { DISTRICTS, D } from "./lore.js";
+import { ln } from "./drift.js";
 
 // the cities that can make war; terrain makes some hard to take
 export const CITIES = ["agora", "ares", "bear", "anthemoessa", "reef", "eridanus", "drepane", "mist", "strand", "iolcus", "lemnos", "forges"].map((k) => D[k]);
 const DEF = { bear: 1.5, mist: 1.6, forges: 1.3, drepane: 1.45, lemnos: 1.3, anthemoessa: 1.3, eridanus: 1.25, reef: 1.1, strand: 1.05, iolcus: 1.1, ares: 1.0, agora: 1.15 };
-const dist = (a, b) => Math.hypot(DISTRICTS[a].x - DISTRICTS[b].x, DISTRICTS[a].y - DISTRICTS[b].y);
+const dist = (a, b) => { const dx = DISTRICTS[a].x - DISTRICTS[b].x, dy = DISTRICTS[a].y - DISTRICTS[b].y; return Math.round(Math.sqrt(dx * dx + dy * dy)); };   // integer: replays identically in every engine
 
 export function initWar(w) {
   const n = DISTRICTS.length;
@@ -35,7 +36,7 @@ export function cities(ctx) {
     let T = 0;
     T += da.faith === db.faith ? 20 : da.faith && db.faith ? -30 : -12;
     T += da.faction === db.faction ? 15 : w.factions[da.faction] && w.factions[db.faction] && w.factions[da.faction].blood === w.factions[db.faction].blood ? -5 : -25;   // kin houses squabble; other bloods are strangers
-    const wa = wealth[a] / Math.max(1, pop[a]), wb = wealth[b] / Math.max(1, pop[b]); T -= Math.min(25, Math.abs(Math.log2((wa + 1) / (wb + 1))) * 10);   // envy between rich and poor neighbours
+    const wa = wealth[a] / Math.max(1, pop[a]), wb = wealth[b] / Math.max(1, pop[b]); T -= Math.min(25, Math.abs(ln((wa + 1) / (wb + 1)) * 1.4426950408889634) * 10);   // envy between rich and poor neighbours
     T -= (W.grudge[key(a, b)] || 0);
     T += Math.min(20, (Math.sqrt(pop[a] * pop[b]) / Math.max(60, dist(a, b))) * 2);       // gravity trade
     if (W.lord[a] === W.lord[b]) T += 25;
@@ -108,7 +109,7 @@ function battle(ctx, war, r) {
   const champ = ctx.champion(end === "repulsed" ? b : a), loser = end === "repulsed" ? a : b, winner = end === "repulsed" ? b : a;
   if (end !== "white" && champ >= 0) { ctx.forgeRelic(`the spear of ${short(winner)} that ${end === "repulsed" ? "threw back" : "bowed"} ${short(loser)}`, "trophy", champ, `raised over ${war.name}`); ctx.captureRelics(loser, champ); }
   if (end === "vassal") { W.lord[b] = a; for (let k = 0; k < W.lord.length; k++) if (W.lord[k] === b) W.lord[k] = a; terms = `${short(b)} kneels and becomes a vassal of ${short(a)}`; }
-  else if (end === "tribute") { const paid = tribute(ctx, b, a, 0.08); terms = `${short(b)} pays ${paid.toLocaleString()} obols in tribute`; }
+  else if (end === "tribute") { const paid = tribute(ctx, b, a, 0.08); terms = `${short(b)} pays ${String(paid).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} obols in tribute`; }
   else if (end === "repulsed") terms = `${short(b)} threw back the attack`;
   else terms = "both sides are spent; a white peace";
   W.history.unshift({ name: war.name, a, b, from: war.since, to: day, end, terms, dead: war.dead, broken: war.broken }); W.history = W.history.slice(0, 60);

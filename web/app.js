@@ -145,7 +145,7 @@ function layout() {
 // ------------------------------------------------------------------ everyone's day: rooted in the sim (job, today's encounter, beloved, sickness, gaol, hunger)
 function plans() {
   const A = w.A, N = w.N, P = new Float32Array(N * 12);   // [wake, atWork, leaveWork, atEve, leaveEve, atHome] + work xy, eve xy, flags
-  S.plan = P; S.planFlags = new Uint8Array(N); S.eveWith = new Int16Array(N).fill(-1); S.where = new Array(N);
+  S.plan = P; S.planFlags = new Uint8Array(N); S.eveWith = new Int32Array(N).fill(-1); S.where = new Array(N);
   for (let i = 0; i < N; i++) {
     if (A.status[i] !== ST.living) continue;
     const k = A.district[i], c = SITE[k], C = S.city[k], V = C.venues || {}, job = JOBS[A.job[i]], h = hash32("day", i, w.day), u = (n) => ((h >>> n) & 1023) / 1023;

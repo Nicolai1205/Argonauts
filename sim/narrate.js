@@ -101,6 +101,7 @@ const T = {
   exile_end: ["{a} returned from exile to {where}.", "The sixty days are over; {a} came home."],
   budget: ["The Boule split the treasury: {v} obols in dole, with the {s} as proposer taking the lion's share.", "Budget day. {s} proposed, and {v} obols went to the coalition's hungry and loyal."],
   migrate: ["{v} Minyans left trades that no longer fed them and went where {s} sells.", "A migration: {v} hands follow the price of {s}."],
+  watch: ["The Tiphys sent {v} Reapers from {s} to keep the watch in {where}.", "{v} Reapers marched out of {s} with lanterns and staves, bound for the angry streets of {where}."],
   dole: ["The grain dole fed {v} hungry Minyans today, paid from the treasury.", "{v} bowls of barley from the Boule's stores."],
   hostage: ["{a} is held in escrow, a hostage of the Agora."],
   love: ["{a} and {b} fell in love in {where}. The {fa} pretend not to notice.", "In {where}, {a} and {b} have become each other's whole world.", "{a} carved {b}'s name into a rib-bone and gave it away. They walk together at dusk now."],
@@ -140,5 +141,5 @@ export function narrate(e, view) {
 export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plague: "horror", lemnian: "horror", ghost: "horror", sirens: "horror", doliones: "horror", harpies: "horror",
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
-  crash: "realism", migrate: "realism", dole: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
+  crash: "realism", migrate: "realism", dole: "realism", watch: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
   bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism", craft: "realism", craftlost: "realism", dialect: "realism", rumor: "horror", rumorend: "realism", relic: "myth", relicpass: "myth", expedition: "myth", fleecetaken: "myth", caravan: "realism", raid: "realism" };

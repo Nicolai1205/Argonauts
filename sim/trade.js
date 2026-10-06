@@ -4,7 +4,7 @@
 import { DISTRICTS, D, GOODS, BASE_PRICE, J } from "./lore.js";
 import { CITIES, atWar } from "./war.js";
 
-const dist = (a, b) => Math.hypot(DISTRICTS[a].x - DISTRICTS[b].x, DISTRICTS[a].y - DISTRICTS[b].y);
+const dist = (a, b) => { const dx = DISTRICTS[a].x - DISTRICTS[b].x, dy = DISTRICTS[a].y - DISTRICTS[b].y; return Math.round(Math.sqrt(dx * dx + dy * dy)); };   // integer: replays identically in every engine
 const ISLAND = new Set(["drepane", "lemnos", "anthemoessa", "eridanus"].map((k) => D[k]));
 export const sea = (a, b) => ISLAND.has(a) || ISLAND.has(b);
 const short = (k) => DISTRICTS[k].name.replace(/^the /, "").replace(/ & the Agora/, "");
@@ -15,7 +15,7 @@ export const carriage = (w, a, b) => 1.15 + dist(a, b) / 2000 + (sea(a, b) ? 0.0
 export function tradeFlows(ctx, g, left) {
   const { A, w, day } = ctx, r = ctx.r("trade" + g), P = w.cprices, flows = [];
   const haulers = ctx.haulers || (ctx.haulers = (() => { const h = {}; for (const i of ctx.live) if (!A.status[i] && !A.jail[i] && (A.job[i] === J.merchant || A.job[i] === J.rower)) (h[A.district[i]] || (h[A.district[i]] = [])).push(i); return h; })());
-  for (const b of Object.keys(left.buyers).map(Number).sort((x, y) => x - y)) {
+  for (const b of Object.keys(left.buyers).map(Number).sort((x, y) => P[y][g] - P[x][g] || x - y)) {   // goods run first to the dearest market
     const buyers = left.buyers[b];
     const sources = Object.keys(left.sellers).map(Number).filter((a) => a !== b && !atWar(w.war, a, b) && w.war.rel[a][b] > -60).sort((x, y) => P[x][g] * carriage(w, x, b) - P[y][g] * carriage(w, y, b) || x - y);
     for (const a of sources) {

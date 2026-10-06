@@ -67,7 +67,7 @@ export function convert(ctx, i, j, warm) {
   const p = 0.16 * F.zeal * (A.devotion[j] / 100) * (1 - A.devotion[i] / 140) * (0.4 + insecure) * Math.max(0.1, 1 - dd / 300);
   if (ctx.rr.next() < p) {
     A.faith[i] = fj; A.devotion[i] = 35;
-    if ((i < 9999 && (A.office[i] >= 0 || A.cognomen[i])) || ctx.rr.chance(0.01)) ctx.log(ctx.E.convert, i, j, A.district[i], fj, F.name); else ctx.trace(ctx.E.convert, i, j, A.district[i]);
+    if ((i < 9999 && A.office[i] >= 0) || ctx.rr.chance(0.002)) ctx.log(ctx.E.convert, i, j, A.district[i], fj, F.name); else ctx.trace(ctx.E.convert, i, j, A.district[i]);
   }
 }
 
@@ -80,7 +80,7 @@ export function faithDaily(ctx) {
     cnt[f]++; where[f][A.district[i]]++; for (let k = 0; k < 3; k++) dsum[f][k] += A.ideo[i * 3 + k];
     // ritual: the costly faiths take time and coin, and give back devotion and solidarity
     if (f > 0 && r.chance(F.cost * 0.2)) { if (A.obols[i] > 2) { A.obols[i]--; w.treasury++; } A.devotion[i] = Math.min(100, A.devotion[i] + 3); }
-    else A.devotion[i] = Math.max(0, A.devotion[i] - (f > 0 ? 0.25 : 0.1) + (A.stress[i] > 250 ? 0.4 : 0));
+    else { const dd = (A.stress[i] > 250 ? 0.4 : 0) - (f > 0 ? 0.25 : 0.1); if (r.next() < Math.abs(dd)) A.devotion[i] = Math.max(0, Math.min(100, A.devotion[i] + (dd > 0 ? 1 : -1))); }
     // apostasy: the comfortable and the lukewarm drift back to the old gods (high-cost faiths hold their own better)
     if (f > 0 && A.devotion[i] < 12 && A.mood[i] > 10 && r.chance(0.02 * (1 - F.cost * 0.8))) { A.faith[i] = 0; A.devotion[i] = 30; }
   }
@@ -114,7 +114,7 @@ const shade = (hex) => "#" + [1, 3, 5].map((p) => Math.min(255, Math.max(0, pars
 // ------------------------------------------------------------------ memory, anniversaries, festivals, monuments
 /** salience decays in two stages (fast communicative memory, slow cultural memory: Candia et al. 2019) */
 export function remember(w, day, kind, who, salience, name, owner = -1) { w.memory.push({ day, kind, who, s0: salience, name, owner }); if (w.memory.length > 400) w.memory.sort((a, b) => sal(b, day) - sal(a, day)).length = 300; }
-const sal = (m, day) => { const t = day - m.day; let a = 1; for (let k = 0; k < Math.min(400, t); k += 30) a *= k < 90 ? 0.55 : 0.97; return m.s0 * a; };
+const sal = (m, day) => { const t = day - m.day; let a = 1; for (let k = 0; k < Math.min(400, t); k += 30) a *= k < 90 ? 0.7 : 0.97; return m.s0 * a; };
 export function festivals(ctx) {
   const { A, w, day } = ctx, r = ctx.r("festival"), dy = ((day % 360) + 360) % 360;
   const feast = (name, kind, dist, moodTh, cost) => {
@@ -134,7 +134,7 @@ export function festivals(ctx) {
     const years = (day - m.day) / 360, nm = `the ${["", "first", "second", "third", "fourth", "fifth"][years] || years + "th"} remembrance of ${m.name}`;
     feast(nm, "anniversary", m.who >= 0 ? A.district[m.who] : -1, ctx.TH.awe_at_an_omen, 1); m.kept = day; m.s0 *= 1.6;   // keeping a festival keeps the memory
     // a great memory and a rich treasury raise a monument
-    if (s > 30 && w.treasury > 3000 && !w.monuments.some((x) => x.mem === m.day + ":" + m.name)) {
+    if (s > 20 && w.treasury > 3000 && !w.monuments.some((x) => x.mem === m.day + ":" + m.name)) {
       const dist = m.who >= 0 && A.district[m.who] < DISTRICTS.length ? A.district[m.who] : D.agora; w.treasury -= 1500; w.destroyed += 1500;
       w.monuments.push({ name: `the Stele of ${m.name.replace(/^the /, "")}`, district: dist, day, mem: m.day + ":" + m.name, owner: m.owner, standing: true, seed: hash32(m.name, day) });
       ctx.log(ctx.E.monument, m.who, -1, dist, w.monuments.length - 1, `the Stele of ${m.name.replace(/^the /, "")}`);
