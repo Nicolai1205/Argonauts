@@ -78,6 +78,9 @@ const ROADS = MAP.roads.map((r) => { const land = new Path2D(), sea = new Path2D
 const SITE = DISTRICTS.map((d) => { const s = SITES[d.key]; return { x: s.x * TILE + TILE / 2, y: s.y * TILE + TILE / 2, r: s.r * TILE }; });
 const RIVERS = (() => { const p = new Path2D(); for (const [a, b] of MAP.rivers) { p.moveTo((a % SIZE) * TILE + TILE / 2, Math.floor(a / SIZE) * TILE + TILE / 2); p.lineTo((b % SIZE) * TILE + TILE / 2, Math.floor(b / SIZE) * TILE + TILE / 2); } return p; })();
 // sea lanes as point lists, for ships
+const ROUTE = {}; MAP.roads.forEach((r) => { const pts = r.path.map(([x, y]) => [x * TILE + TILE / 2, y * TILE + TILE / 2]); ROUTE[r.a + ">" + r.b] = pts; ROUTE[r.b + ">" + r.a] = pts.slice().reverse(); });
+const routeOf = (a, b) => ROUTE[DISTRICTS[a].key + ">" + DISTRICTS[b].key] || [[SITE[a].x, SITE[a].y], [SITE[b].x, SITE[b].y]];
+const along = (pts, u) => { const t = Math.max(0, Math.min(0.999, u)) * (pts.length - 1), k = Math.floor(t), f = t - k, [x0, y0] = pts[k], [x1, y1] = pts[k + 1] || pts[k]; return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]; };
 const LANES = MAP.roads.map((r) => r.path.filter((p) => p[2]).map(([x, y]) => [x * TILE + TILE / 2, y * TILE + TILE / 2])).filter((l) => l.length > 6);
 
 // ------------------------------------------------------------------ cities: streets, houses by household, workplaces, venues
@@ -270,6 +273,18 @@ function render() {
       if (e.t === "festival") { for (let k = 0; k < 14; k++) { const a = k * 0.45, lx = c.x + Math.cos(a) * R * 0.7, ly = c.y + Math.sin(a) * R * 0.5; cx.fillStyle = `hsla(${(k * 40) % 360},90%,65%,${0.6 + 0.4 * Math.sin(tAnim / 200 + k)})`; cx.fillRect(lx - 4, ly - 4, 8, 8); } }
     }
     if (w.director.active && w.director.active.pall === w.day - 1) { cx.fillStyle = "rgba(0,0,0,.55)"; cx.fillRect(0, 0, WORLD, WORLD); } }
+  // the Golden Fleece shines over the city that holds it
+  if (w.quest) { const q = SITE[w.quest.city], R = (S.city[w.quest.city] ? S.city[w.quest.city].R : 120) + 70, gl = 0.35 + 0.15 * Math.sin(tAnim / 400);
+    cx.strokeStyle = `rgba(242,193,78,${gl})`; cx.lineWidth = Math.max(14, 5 / sc); cx.beginPath(); cx.arc(q.x, q.y, R, 0, 6.283); cx.stroke();
+    cx.fillStyle = "#f2c14e"; cx.font = `700 ${15 / sc}px "Cormorant Garamond", serif`; cx.textAlign = "center"; cx.fillText("✦ the Golden Fleece ✦", q.x, q.y + R + 24 / sc); }
+  // caravans and war-bands on the roads and sea lanes
+  { const simNow = (now - GENESIS) / 3600, GC = ["#d9b25c", "#9fbf6f", "#c7a6e0", "#9aa0a8", "#7fd3a8"];
+    for (const c of w.caravans || []) { const u = (simNow - c.left) / Math.max(1, c.arrive - c.left); if (u < 0 || u > 1) continue; const [x, y] = along(routeOf(c.from, c.to), u), z = Math.max(1, 1 / sc / 3);
+      if (c.sea) { cx.fillStyle = "#5a3d22"; cx.fillRect(x - 12 * z, y, 24 * z, 6 * z); cx.fillStyle = GC[c.g]; cx.beginPath(); cx.moveTo(x, y - 16 * z); cx.lineTo(x + 9 * z, y); cx.lineTo(x, y); cx.fill(); }
+      else { cx.fillStyle = "#6b5a46"; cx.fillRect(x - 8 * z, y - 4 * z, 16 * z, 8 * z); cx.fillStyle = GC[c.g]; cx.fillRect(x - 6 * z, y - 10 * z, 12 * z, 6 * z); } }
+    for (const x of (w.quest && w.quest.expeditions) || []) { const u = (simNow - x.left) / Math.max(1, x.arrive - x.left); const [ex, ey] = along(routeOf(x.from, x.target), Math.min(1, u)), z = Math.max(1, 1 / sc / 2.5);
+      cx.fillStyle = "#e05a46"; cx.fillRect(ex - 2 * z, ey - 30 * z, 3 * z, 30 * z); cx.beginPath(); cx.moveTo(ex + z, ey - 30 * z); cx.lineTo(ex + 18 * z, ey - 24 * z); cx.lineTo(ex + z, ey - 18 * z); cx.fill();
+      cx.fillStyle = "#f2c14e"; cx.font = `${12 * z}px serif`; cx.fillText("✦", ex + 9 * z, ey - 21 * z); } }
   // the Pyra
   const pd = SITE[D.pyra], fl = 0.6 + 0.4 * Math.sin(tAnim / 220) * Math.sin(tAnim / 97);
   const grd = cx.createRadialGradient(pd.x, pd.y, 4, pd.x, pd.y, 150); grd.addColorStop(0, `rgba(255,170,60,${0.75 * fl})`); grd.addColorStop(1, "rgba(255,80,20,0)");
@@ -394,7 +409,9 @@ function panels() {
     `<h3>Monuments</h3>${(w.monuments || []).map((m) => `<div class="law">${esc(m.name)}<span class="num">${esc(DISTRICTS[m.district].name)} · raised ${dayLabel(m.day)}${m.standing ? "" : " · torn down " + dayLabel(m.fell)}</span></div>`).join("") || '<p class="muted">None yet. A great memory and a rich treasury raise a stele on its first anniversary.</p>'}`;
   // cities
   const Wr = w.war, cname = (k) => DISTRICTS[k].name;
-  $("#p-city").innerHTML = `<p class="muted">Each city's cohesion (asabiya) grows on a hostile frontier with people of another faith or blood and decays in safety. Cohesive, stronger cities make war; the beaten pay tribute or kneel as vassals, and resentful vassals revolt.</p>` +
+  const Q = w.quest, fb = w.fleece;
+  const fleeceHtml = Q ? `<h3>The Golden Fleece</h3><p>Worn by <a class="who" data-i="${fb}">${esc(view.name(fb))}</a>, held by <b>${esc(cname(Q.city))}</b> and the ${esc(w.factions[Q.faction].name)} since ${dayLabel(Q.since)}. Holding it gives a city cohesion and its faction a louder voice in the Boule, and every other city wants it.</p>${Q.expeditions.length ? Q.expeditions.map((x) => `<div class="law">⚑ <b>${esc(cname(x.from))}</b> is on the road to ${esc(cname(x.target))} with ${x.party.length} led by <a class="who" data-i="${x.champion}">${esc(view.name(x.champion))}</a><span class="num">arrives ${dayLabel(x.arrive)}</span></div>`).join("") : ""}${Q.history.map((h) => `<div class="law">${esc(cname(h.from))} → <b>${esc(cname(h.to))}</b>, ${esc(h.how)} by <a class="who" data-i="${h.by}">${esc(view.name(h.by))}</a><span class="num">${dayLabel(h.day)}</span></div>`).join("")}` : "";
+  $("#p-city").innerHTML = fleeceHtml + `<p class="muted">Each city's cohesion (asabiya) grows on a hostile frontier with people of another faith or blood and decays in safety. Cohesive, stronger cities make war; the beaten pay tribute or kneel as vassals, and resentful vassals revolt.</p>` +
     (Wr.wars.length ? `<h3>At war</h3>${Wr.wars.map((x) => `<div class="law"><b>${esc(x.name)}</b><span class="num">since ${dayLabel(x.since)} · ${x.battles} battles · ${x.dead} Leaves dead, ${x.broken} Argonauts broken · ${x.score > 0 ? esc(cname(x.a)) + " leads" : x.score < 0 ? esc(cname(x.b)) + " leads" : "even"}</span></div>`).join("")}` : "<h3>At peace</h3>") +
     `<h3>City-states</h3>` + CITIES.map((k) => ({ k, P: Wr.power[k] })).sort((a, b) => b.P - a.P).map(({ k }) => { const dm = Wr.dom[k] || {}; const foes = CITIES.filter((b) => b !== k && Wr.rel[k][b] < -30).map((b) => cname(b).replace(/^the /, "")); const lord = Wr.lord[k] !== k ? ` · vassal of ${esc(cname(Wr.lord[k]))}` : CITIES.some((b) => b !== k && Wr.lord[b] === k) ? ` · lord of ${CITIES.filter((b) => b !== k && Wr.lord[b] === k).map((b) => esc(cname(b).replace(/^the /, ""))).join(", ")}` : "";
       return `<div class="fac"><i style="background:${w.factions[dm.faction] ? w.factions[dm.faction].color : "#888"}"></i><div><b>${esc(cname(k))}</b>${lord}</div><div class="num">power ${Wr.power[k]}</div>
@@ -410,7 +427,7 @@ function panels() {
   // economy
   const st = w.stats.slice(-240), last = st.at(-1);
   $("#p-econ").innerHTML = `<div class="kv"><b>Living</b><span>${last.live.toLocaleString()} (${(last.leaves || 0).toLocaleString()} Leaves)</span><b>Born / died</b><span>${(last.births || 0).toLocaleString()} Leaves born, ${(last.leafDeaths || 0).toLocaleString()} gone to the Pyra</span><b>Hungry</b><span>${last.hungry}</span><b>Sick</b><span>${last.sick}</span><b>Gini</b><span>${last.gini}</span><b>Mean mood</b><span>${last.mood}</span><b>Unrest</b><span>${last.unrest} ready to riot</span></div>
-    <h3>Prices (obols)</h3><div class="kv">${GOODS.map((g, k) => `<b>${g}</b><span>${w.prices[k].toFixed(2)}</span>`).join("")}</div>
+    <h3>Prices by city (obols)</h3><div style="overflow-x:auto"><table class="num" style="width:100%;border-collapse:collapse;font-size:12px"><tr><th style="text-align:left">city</th>${GOODS.map((g) => `<th>${g}</th>`).join("")}</tr>${CITIES.map((k) => `<tr><td style="text-align:left;font-family:'Cormorant Garamond',serif;font-size:14px">${esc(DISTRICTS[k].name.replace(/^the /, ""))}</td>${GOODS.map((g, gi) => { const v = w.cprices[k][gi], hi = v > [2, 3, 8, 6, 10][gi] * 2.5; return `<td style="text-align:right;${hi ? "color:var(--horror)" : ""}">${v.toFixed(1)}</td>`; }).join("")}</tr>`).join("")}</table></div><p class="muted">Each city keeps its own market; what it cannot settle at home goes on the roads and sea lanes to wherever it sells dearer, paying carriage. Red: more than 2.5 times the old price. ${(w.tradeLog.volume || 0).toLocaleString()} loads carried so far, ${(w.tradeLog.raided || 0).toLocaleString()} cargoes skimmed by pirates.</p>
     ${spark("Leaves alive", st.map((s) => s.leaves || 0), "#9be37f")}${spark("Food price", st.map((s) => s.prices[0]), "#c9b98f")}${spark("Hungry", st.map((s) => s.hungry), "#e06a5a")}${spark("Gini", st.map((s) => s.gini), "#7fb4ff")}${spark("Shades in Asphodel", st.map((s) => s.shade), "#9aa4b5")}`;
   // dead
   const pyre = [], graves = [], shades = []; for (let i = 0; i < w.N; i++) { const s = A.status[i]; if (s === ST.pyre) pyre.push(i); else if (s === ST.asphodel) graves.push(i); else if (s === ST.shade) shades.push(i); }
@@ -462,6 +479,7 @@ function openLegends(i) {
    ${family || thumbs ? `<h3>Family</h3>${thumbs}${family}` : ""}
    <div class="cols"><div><h3>Temperament</h3>${hex}</div><div><h3>Beliefs</h3>${ideo}<h3>State</h3><div class="kv"><b>Obols</b><span>${A.obols[i].toLocaleString()}</span><b>Mood</b><span>${A.mood[i]}</span><b>Stress</b><span>${A.stress[i]}</span><b>Food</b><span>${A.inv[i * 5]} rations</span><b>Radical</b><span>${A.radical[i]}</span><b>Faith</b><span style="color:${w.faiths[A.faith[i]].color}">${esc(w.faiths[A.faith[i]].name)}</span><b>Wears</b><span style="color:${w.styles[A.style[i]].color}">${esc(w.styles[A.style[i]].name)}</span><b>Devotion</b><span>${A.devotion[i]}</span></div></div></div>
    ${A.status[i] === ST.living && S.where && S.where[i] ? `<h3>Today</h3><p>${esc(view.name(i).split(' ')[0])} ${esc(S.where[i].work)}, then ${esc(S.where[i].eve)}${S.eveWith[i] >= 0 ? ` <a class="who" data-i="${S.eveWith[i]}">${esc(view.name(S.eveWith[i]))}</a>` : ""}.${A.lover[i] >= 0 ? ` Beloved: <a class="who" data-i="${A.lover[i]}">${esc(view.name(A.lover[i]))}</a>.` : ""}</p>` : ""}
+   ${(w.relics || []).filter((r) => r.holder === i).map((r) => `<h3>Carries ${esc(r.name)}</h3><ol class="bio">${r.history.map(([d, h, how]) => `<li><span class="num">${dayLabel(d)}</span> · <a class="who" data-i="${h}">${esc(view.name(h))}</a>: ${esc(how)}</li>`).join("")}</ol>`).join("")}
    <h3>On their mind</h3><div>${th.join("") || '<span class="muted">nothing pressing</span>'}</div>
    <h3>Bonds</h3><div>${ties.map(([v, j]) => `<span class="pill" style="border-color:${v >= 0 ? "#3d6b4a" : "#7a3030"}">${v >= 0 ? "♥" : "✕"} <a class="who" data-i="${j}">${esc(view.name(j))}</a> ${v}</span>`).join("") || '<span class="muted">alone</span>'}</div>
    <h3>Life</h3><ol class="bio">${bio.join("") || '<li class="muted">Nothing remembered yet.</li>'}</ol>${recent ? `<h3>In the chronicle</h3><ol class="bio">${recent}</ol>` : ""}`;

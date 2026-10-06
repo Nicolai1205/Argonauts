@@ -7,7 +7,7 @@ const HARM = new Set(["brawl", "robbery", "death", "lemnian"]);
 const PROPHECY = { "SIRENS": ["sirens", "sirens_sung"], "DO NOT LISTEN": ["sirens"], "LEMNOS": ["lemnian"], "CLASHING ROCKS": ["talos"], "MEDEA": ["plague"], "STARS FELL": ["star", "pall"],
   "MAX PAIN": ["riot", "famine"], "SOWN MEN": ["riot", "doliones"], "ORIGINAL SIN": ["lemnian", "ostracism"], "BUTES": ["sirens"], "THE DRAGON SLEEPS": ["fleece"], "ESCAPING MY DEMONS": ["return"], "GREAT RESTORATION": ["bounty", "return"] };
 const BASE = { revenge: 70, risefall: 65, thricebroken: 55, widowed: 50, lastline: 60, feud: 75, street: 70, prophecy: 85, turncoat: 45, generation: 90, burn: 95, ruling: 90, fleece: 80, schism: 60,
-  lemnian: 85, dissolve: 50, bigfamily: 40, doliones: 70, election: 45, firstleaf: 55, riot: 55, plague: 60, sirens: 65, talos: 40, pall: 45, bounty: 35, ostracism: 55, law: 30, famine: 50, harpies: 45, beam: 70, prophet: 90, temple: 50, monument: 60, iconoclasm: 75, festival: 55, faithdies: 55, war: 85, battle: 60, peace: 80, revolt: 85, rumor: 60 };
+  lemnian: 85, dissolve: 50, bigfamily: 40, doliones: 70, election: 45, firstleaf: 55, riot: 55, plague: 60, sirens: 65, talos: 40, pall: 45, bounty: 35, ostracism: 55, law: 30, famine: 50, harpies: 45, beam: 70, prophet: 90, temple: 50, monument: 60, iconoclasm: 75, festival: 55, faithdies: 55, war: 85, battle: 60, peace: 80, revolt: 85, rumor: 60, fleece: 95, expedition: 70, relic: 50, caravan: 50, raid: 45 };
 
 // how an age is named when a story of this kind dominates it
 const ERA = {
@@ -71,6 +71,12 @@ export function sift(M, day, events, w, name) {
       case "battle": { const [wn, win, dd, bb] = (e.s || "").split("|"); add("battle", [], `${win} wins at ${where(e.x)}`, `In ${wn}, ${win} carried the field at ${where(e.x)}. ${dd} Leaves dead, ${bb} Argonauts broken.`, 1 + Number(dd) / 30); break; }
       case "peace": { const [wn, terms, dd, bb] = (e.s || "").split("|"); add("peace", [], `Peace: ${terms}`, `${wn.charAt(0).toUpperCase() + wn.slice(1)} is over: ${terms}. ${dd} Leaves died and ${bb} Argonauts were broken.`, 1.3); break; }
       case "revolt": add("revolt", [], `Revolt: ${e.s}`, `${e.s}. The lord city will not let it go quietly.`, 1.3); break;
+      case "fleecetaken": { const [to, from] = (e.s || "").split("|"); add("fleece", [a, b], `The Fleece is taken to ${to}`, `${who(a)} led the war-band of ${to} into ${from} and carried off the Fleece-bearer ${who(b)}. ${from} will not forget.`, 1.4, `the Age of the Fleece in ${to}`); break; }
+      case "expedition": { const [from, what] = (e.s || "").split("|"); add("expedition", [a], /sets out/.test(what) ? `${from} goes for the Fleece` : `${from}'s quest fails`, `The war-band of ${from}, led by ${who(a)}, ${what}.`, /sets out/.test(what) ? 0.8 : 1); break; }
+      case "relic": add("relic", [a], `A relic: ${e.s}`, `${who(a)} now carries ${e.s}.`, 0.7); break;
+      case "relicpass": { const [nm, how] = (e.s || "").split("|"); if (how !== "inherited") add("relic", [a], `${nm.charAt(0).toUpperCase() + nm.slice(1)} changes hands`, `${who(a)} now holds ${nm}: ${how}.`); break; }
+      case "caravan": { const [from, to] = (e.s || "").split("|"); add("caravan", [], `Grain for ${to}`, `Ships and mule-trains from ${from} brought ${e.v} rations to hungry ${to}.`); break; }
+      case "raid": { const [from, to, what, n] = (e.s || "").split("|"); add("raid", [a], `Pirates on the ${from}–${to} run`, `${who(a)} and the pirates took ${n} loads of ${what} at sea.`); break; }
       case "rumor": add("rumor", [a], "What they are saying", `In ${where(e.x)} the story has grown in the telling: "${e.s}"`); break;
       case "rumorend": if (e.v > 2000) add("rumor", [], "A rumour burns out", `${e.v.toLocaleString()} Minyans heard it before it died: "${e.s}"`); break;
       case "beam": add("beam", [], "The Argo speaks", `The speaking oak in the prow said "${e.s}". The augurs are already arguing about what it means.`); break;

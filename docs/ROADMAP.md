@@ -91,10 +91,12 @@ An in-site Codex:
 
 ## Next wave (after 2026-10-06)
 1. **Legends of every character, written in full:** a biography generated from bio, ties, family, faith, wars and rumours, plus how each faith tells *that* character's life.
-2. **Heirlooms and the Fleece quest:** relics with provenance pass down lines. Factions mount expeditions to take the Golden Fleece; the bearer is hunted.
-3. **Trade caravans and a sea economy:** goods move between cities along roads and lanes, so famine in one city can be relieved by another. Prices differ by city.
+2. ✅ **Heirlooms and the Fleece quest:** relics with provenance pass down lines. Factions mount expeditions to take the Golden Fleece; the bearer is hunted.
+3. ✅ **Trade caravans and a sea economy:** goods move between cities along roads and lanes, so famine in one city can be relieved by another. Prices differ by city.
 4. **Elections with candidates and speeches:** the Boule's choices show as named orators and procedural speeches, with votes by faction.
 5. ✅ **Art from the real renderer:** Leaves inherit real Argonaut-style pixel portraits composed from their parents' traits with `report/remix/compose.js`.
 6. **Weather systems:** storms, droughts and floods, driven by seasons and the director.
 7. ✅ **Spectator tools:** follow a character or a family, time-lapse replay of the last N days, and shareable deep links to a character or a story.
 8. **Performance:** Web Worker catch-up, compact saves (archive long-dead Leaves), faster world-gen.
+
+**Watch items (v9):** Gini rose to ~0.7 once haulers earn carriage (consider a carriage tax or guild dues). Lemnos and the forges run famine-level bread prices (poor producers can't afford imports): plausible, but check that it doesn't become permanent.

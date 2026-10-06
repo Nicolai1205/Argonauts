@@ -105,6 +105,8 @@ function battle(ctx, war, r) {
   if (!end) return;
   W.wars.splice(W.wars.indexOf(war), 1); W.truce[key(a, b)] = day + 90;
   let terms = "";
+  const champ = ctx.champion(end === "repulsed" ? b : a), loser = end === "repulsed" ? a : b, winner = end === "repulsed" ? b : a;
+  if (end !== "white" && champ >= 0) { ctx.forgeRelic(`the spear of ${short(winner)} that ${end === "repulsed" ? "threw back" : "bowed"} ${short(loser)}`, "trophy", champ, `raised over ${war.name}`); ctx.captureRelics(loser, champ); }
   if (end === "vassal") { W.lord[b] = a; for (let k = 0; k < W.lord.length; k++) if (W.lord[k] === b) W.lord[k] = a; terms = `${short(b)} kneels and becomes a vassal of ${short(a)}`; }
   else if (end === "tribute") { const paid = tribute(ctx, b, a, 0.08); terms = `${short(b)} pays ${paid.toLocaleString()} obols in tribute`; }
   else if (end === "repulsed") terms = `${short(b)} threw back the attack`;

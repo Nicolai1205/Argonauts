@@ -51,6 +51,7 @@ export function prophets(ctx, events, kill) {
     const pool = ctx.byDist[A.district[best]].filter((i) => !A.status[i] && A.stress[i] > 200).slice(0, 40);
     for (const i of pool) if (r.chance(0.5)) { A.faith[i] = id; A.devotion[i] = 55; flock++; }
     ctx.log(ctx.E.prophet, best, e.a, A.district[best], id, De.people + "|" + De.god);
+    if (ctx.forgeRelic) ctx.forgeRelic(`the first tooth of ${De.god}`, "sacred", best, "given in the vision");
     remember(w, day, "prophet", best, 70, `the calling of ${De.people}`, id);
     return;
   }
@@ -117,7 +118,7 @@ const sal = (m, day) => { const t = day - m.day; let a = 1; for (let k = 0; k < 
 export function festivals(ctx) {
   const { A, w, day } = ctx, r = ctx.r("festival"), dy = ((day % 360) + 360) % 360;
   const feast = (name, kind, dist, moodTh, cost) => {
-    let n = 0; for (const i of ctx.live) { if (A.status[i] || (dist >= 0 && A.district[i] !== dist)) continue; if (A.inv[i * 5] > cost) { A.inv[i * 5] -= cost; n++; } ctx.think(i, moodTh); }
+    let n = 0; for (const i of ctx.live) { if (A.status[i] || (dist >= 0 && A.district[i] !== dist)) continue; if (A.inv[i * 5] > 6 + cost) { A.inv[i * 5] -= cost; n++; } ctx.think(i, moodTh); }
     w.festivals.unshift({ day, name, kind, n }); w.festivals = w.festivals.slice(0, 60); ctx.log(ctx.E.festival, -1, -1, dist, n, name);
   };
   if (day >= 0 && dy === 0) feast(`the Pagasaia of Year ${yearOf(day)}`, "newyear", -1, ctx.TH.feasted, 2);

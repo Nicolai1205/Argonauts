@@ -8,12 +8,14 @@ import { nameOf } from "./narrate.js";
 import { cities, vassals } from "./war.js";
 import { crafts, craftBoost, fashion, dialects } from "./drift.js";
 import { seedRumor, gossip, rumorsDaily } from "./rumor.js";
+import { quest, forgeRelic, passRelic, relicsOf, inheritRelics, captureRelics, champion, cityOf } from "./fleece.js";
+import { caravans, tradeFlows } from "./trade.js";
 
 // event types (also bio codes)
 export const EV = ["", "death", "return", "burn", "ostologia", "sold", "xenia", "gold", "beam", "ruling", "deed", "star", "toll",
   "riot", "defect", "schism", "dissolve", "election", "law", "office", "ostracism", "funeral", "unburied", "break", "brawl", "robbery",
   "pall", "harpies", "plague", "sirens", "sirens_sung", "talos", "doliones", "featherbolts", "ghost", "lemnian", "bounty", "prometheus",
-  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend"];
+  "famine", "crash", "boom", "fleece", "exile_end", "budget", "cognomen", "hostage", "starved", "kinslayer", "migrate", "dole", "love", "heartbreak", "birth", "comeofage", "lineage_end", "orphan", "prophet", "convert", "faithdies", "temple", "faithschism", "festival", "monument", "iconoclasm", "war", "battle", "peace", "revolt", "incident", "craft", "craftlost", "dialect", "rumor", "rumorend", "relic", "relicpass", "expedition", "fleecetaken", "caravan", "raid"];
 export const E = Object.fromEntries(EV.map((e, i) => [e, i]));
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded in IEEE, safe for replay
@@ -21,6 +23,7 @@ const isqrt = (n) => Math.floor(Math.sqrt(n));       // sqrt is exactly rounded 
 export function tick(w, omens = []) {
   const day = w.day, ev = [];
   const ctx = { w, day, ev, A: w.A, N: w.N, r: (sys) => stream(w.seed, day, sys) }; ctx.rr = ctx.r("misc"); ctx.E = E; ctx.TH = TH; ctx.think = (i, th) => think(ctx, i, th); ctx.kill = (i, c, by) => kill(ctx, i, c, by); ctx.remember = remember;
+  ctx.forgeRelic = (...a) => forgeRelic(ctx, ...a); ctx.captureRelics = (...a) => captureRelics(ctx, ...a); ctx.champion = (c) => champion(ctx, c);
   ctx.trace = (t, a, b, x = -1) => ev.push({ i: -1, d: day, t: EV[t], a, b, x, v: 0, s: "", h: 1 });   // seen by the story sifter, not the chronicle
   ctx.log = (t, a = -1, b = -1, x = -1, v = 0, s = "") => { const e = { i: ++w.eventSeq, d: day, t: EV[t], a, b, x, v, s }; ev.push(e); if (a >= 0) bio(ctx, a, t, b); if (b >= 0 && b !== a) bio(ctx, b, t, a); return e; };
   applyOmens(ctx, omens); chk(ctx, 'applyOmens');
@@ -28,7 +31,7 @@ export function tick(w, omens = []) {
   index(ctx); chk(ctx, 'index');
   production(ctx); chk(ctx, 'production');
   consumption(ctx); chk(ctx, 'consumption');
-  market(ctx); chk(ctx, 'market');
+  market(ctx); caravans(ctx); chk(ctx, 'market');
   social(ctx); chk(ctx, 'social');
   moodStress(ctx); chk(ctx, 'moodStress');
   unrest(ctx); chk(ctx, 'unrest');
@@ -36,7 +39,7 @@ export function tick(w, omens = []) {
   if (day % 30 === 0) politics(ctx); chk(ctx, '');
   director(ctx); chk(ctx, 'director');
   index(ctx); prophets(ctx, ev); faithDaily(ctx); festivals(ctx); chk(ctx, 'culture');
-  index(ctx); cities(ctx); vassals(ctx); chk(ctx, 'war');
+  index(ctx); cities(ctx); vassals(ctx); quest(ctx); chk(ctx, 'war');
   crafts(ctx); fashion(ctx); dialects(ctx);
   for (const e of ev) { if (e.h) continue; const R = RUMOR_OF[e.t]; if (R && ctx.rr.chance(R[0])) seedRumor(ctx, e.t, e.a, e.x >= 0 ? e.x : D.agora, R[1](e), R[2]); }
   rumorsDaily(ctx);
@@ -103,6 +106,7 @@ function leafDies(ctx, i, cause, by) {
   const heirs = []; for (let c = ARGO; c < w.N; c++) if ((A.p1[c] === i || A.p2[c] === i) && living(A, c)) heirs.push(c);
   if (!heirs.length && lv >= 0 && living(A, lv)) heirs.push(lv);
   if (heirs.length) { const each = Math.floor(A.obols[i] / heirs.length); for (const h of heirs) A.obols[h] += each; w.treasury += A.obols[i] - each * heirs.length; } else w.treasury += A.obols[i];
+  inheritRelics(ctx, i);
   A.obols[i] = 0; for (let g = 0; g < 5; g++) A.inv[i * 5 + g] = 0;
   A.status[i] = ST.pyre; A.district[i] = D.pyra; A.died[i] = day; A.until[i] = day + 3; A.hunger[i] = 0; A.sick[i] = 0; A.jail[i] = 0;
   w.leafDeaths++; w.director.lastDeath = day;
@@ -174,6 +178,7 @@ function bear(ctx, a, b, r) {
   tie(ctx, c, a, 80); tie(ctx, c, b, 80); tie(ctx, a, c, 85); tie(ctx, b, c, 85);
   for (let s = ARGO; s < c; s++) if (B.p1[s] === a && B.p2[s] === b && living(B, s)) { tie(ctx, c, s, 50); tie(ctx, s, c, 50); }
   w.births++;
+  if (B.gen[c] > (w.genMax || 1)) { w.genMax = B.gen[c]; forgeRelic(ctx, `the cradle-tooth of the ${["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh"][B.gen[c]] || B.gen[c] + "th"} generation`, "cradle", c, "born with it in their fist"); }
   const firstOfLine = !B.kind[a] && !B.kind[b] ? true : false;
   if ((!B.kind[a] || !B.kind[b]) && ctx.rr.chance(0.35)) ctx.log(E.birth, a, b, B.district[c], c, firstOfLine ? "first" : "");
   else { bio(ctx, a, E.birth, c); bio(ctx, b, E.birth, c); }
@@ -309,53 +314,71 @@ function services(ctx) {
 }
 function market(ctx) {
   services(ctx);
-  const { A, w } = ctx, r = ctx.r("market");
+  const { A, w } = ctx, r = ctx.r("market"), Pm = w.cprices, vol = [0, 0, 0, 0, 0], wsum = [0, 0, 0, 0, 0];
   for (let g = 0; g < 5; g++) {
-    const sellers = [], buyers = []; let S = 0, Dm = 0;
+    // every city keeps its own market; the small grounds trade at Pagasae
+    const sellers = {}, buyers = {}, S = {}, Dm = {}, wm = {};
     for (const i of ctx.live) {
       if (A.jail[i] || A.status[i] || !isAdult(A, i, ctx.day)) continue;
+      const m = cityOf(A.district[i]);
       const have = A.inv[i * 5 + g], need = g === 1 ? (A.vice[i] ? TARGET[1] : 0) : g === 3 ? (JOB_GOOD[JOBS[A.job[i]]] ? 1 : 0) : g === 4 ? (A.sick[i] ? 2 : P(A, i, 4) > 50 ? 1 : 0) : TARGET[g];
-      if (have > need + 2) { const q = Math.min(have - need - 1, 25); sellers.push(i, q); S += q; }
+      if (have > need + 2) { const q = Math.min(have - need - 1, 25); (sellers[m] || (sellers[m] = [])).push(i, q); S[m] = (S[m] || 0) + q; }
       else if (have < need) {
         // willingness to pay, as a multiple of the base price: urgency and wealth (demand answers price)
         let wmax = g === 0 ? (A.hunger[i] ? 6 : 2.5) : g === 1 ? 3 : g === 2 ? 1.6 : g === 3 ? 1.4 : (A.sick[i] ? 6 : 1.3);
         if (A.obols[i] > BLOODS[A.bones[i]].wealth * 4) wmax *= 2;
-        if (w.prices[g] * w.priceMult <= BASE_PRICE[g] * wmax) { buyers.push(i, need - have); Dm += need - have; }
+        wm[i] = wmax; (buyers[m] || (buyers[m] = [])).push(i, need - have); if (Pm[m][g] * w.priceMult <= BASE_PRICE[g] * wmax) Dm[m] = (Dm[m] || 0) + need - have;
       }
     }
-    const old = w.prices[g];
-    let p = old * (1 + 0.06 * clamp((Dm - S) / Math.max(Dm, S, 1), -1, 1));
-    p = clamp(p, BASE_PRICE[g] * 0.3, BASE_PRICE[g] * 6); w.prices[g] = Math.round(p * 1000) / 1000;
-    if (g === 0 && w.prices[0] > BASE_PRICE[0] * 3 && old <= BASE_PRICE[0] * 3) ctx.log(E.crash, -1, -1, D.agora, Math.round(w.prices[0] * 100), "food");
-    const pe = w.prices[g] * w.priceMult; if (!sellers.length || !buyers.length) continue;
-    // match in a seeded order
-    const bo = []; for (let k = 0; k < buyers.length; k += 2) bo.push(k); r.shuffle(bo);
-    const so = []; for (let k = 0; k < sellers.length; k += 2) so.push(k); r.shuffle(so);
-    let sp = 0;
-    for (const bk of bo) {
-      const i = buyers[bk]; let want = Math.min(buyers[bk + 1], Math.floor(A.obols[i] / Math.max(1, Math.ceil(pe))));
-      while (want > 0 && sp < so.length) {
-        const sk = so[sp], j = sellers[sk], q = Math.min(want, sellers[sk + 1]);
-        if (q <= 0) { sp++; continue; }
-        const pay = Math.max(1, Math.round(pe * q)); if (pay > A.obols[i]) break;
-        const tax = Math.floor(pay * w.taxPermille / 1000);
-        A.obols[i] -= pay; A.obols[j] += pay - tax; w.treasury += tax;
-        A.inv[i * 5 + g] += q; A.inv[j * 5 + g] -= q; sellers[sk + 1] -= q; want -= q;
-        if (sellers[sk + 1] <= 0) sp++;
-      }
-    }
-    // the grain dole: when the Boule leans to the Commons, the treasury buys bread for the hungry poor
-    if (g === 0 && w.grainDole && w.treasury > 0) {
-      let fed = 0;
+    for (const mk of Object.keys({ ...sellers, ...buyers }).map(Number).sort((a, b) => a - b)) {
+      const sl = sellers[mk] || [], by = buyers[mk] || [], s0 = S[mk] || 0, d0 = Dm[mk] || 0;
+      vol[g] += s0 + d0; wsum[g] += Pm[mk][g] * (s0 + d0);
+      const pe = Pm[mk][g] * w.priceMult; if (!sl.length || !by.length) continue;
+      const bo = []; for (let k = 0; k < by.length; k += 2) bo.push(k); r.shuffle(bo);
+      const so = []; for (let k = 0; k < sl.length; k += 2) so.push(k); r.shuffle(so);
+      let sp = 0;
       for (const bk of bo) {
-        const i = buyers[bk]; if (!A.hunger[i] || A.obols[i] >= Math.ceil(pe)) continue;
-        while (sp < so.length && sellers[so[sp] + 1] <= 0) sp++; if (sp >= so.length) break;
-        const sk = so[sp], j = sellers[sk], q = Math.min(3, sellers[sk + 1]), pay = Math.max(1, Math.round(pe * q)); if (pay > w.treasury) break;
-        w.treasury -= pay; A.obols[j] += pay; A.inv[i * 5] += q; A.inv[j * 5] -= q; sellers[sk + 1] -= q; fed++;
+        const i = by[bk]; if (pe > BASE_PRICE[g] * wm[i]) continue; let want = Math.min(by[bk + 1], Math.floor(A.obols[i] / Math.max(1, Math.ceil(pe))));
+        while (want > 0 && sp < so.length) {
+          const sk = so[sp], j = sl[sk], q = Math.min(want, sl[sk + 1]);
+          if (q <= 0) { sp++; continue; }
+          const pay = Math.max(1, Math.round(pe * q)); if (pay > A.obols[i]) break;
+          const tax = Math.floor(pay * w.taxPermille / 1000);
+          A.obols[i] -= pay; A.obols[j] += pay - tax; w.treasury += tax;
+          A.inv[i * 5 + g] += q; A.inv[j * 5 + g] -= q; sl[sk + 1] -= q; want -= q;
+          if (sl[sk + 1] <= 0) sp++;
+        }
+        by[bk + 1] = want;
       }
-      if (fed > 50 && ctx.day % 10 === 0) ctx.log(E.dole, -1, -1, D.agora, fed);
+      // the grain dole: when the Boule leans to the Commons, the treasury buys bread for the hungry poor
+      if (g === 0 && w.grainDole && w.treasury > 0) {
+        let fed = 0;
+        for (const bk of bo) {
+          const i = by[bk]; if (!A.hunger[i] || A.obols[i] >= Math.ceil(pe)) continue;
+          while (sp < so.length && sl[so[sp] + 1] <= 0) sp++; if (sp >= so.length) break;
+          const sk = so[sp], j = sl[sk], q = Math.min(3, sl[sk + 1]), pay = Math.max(1, Math.round(pe * q)); if (pay > w.treasury) break;
+          w.treasury -= pay; A.obols[j] += pay; A.inv[i * 5] += q; A.inv[j * 5] -= q; sl[sk + 1] -= q; fed++;
+        }
+        if (fed > 50 && ctx.day % 10 === 0) ctx.log(E.dole, -1, -1, mk, fed);
+      }
     }
+    // what the city could not settle at home goes on the road
+    const left = { sellers: {}, buyers: {}, wmax: wm };
+    for (const [mk, sl] of Object.entries(sellers)) if (sl.some((v, k) => k % 2 && v > 0)) left.sellers[mk] = sl;
+    for (const [mk, by] of Object.entries(buyers)) if (by.some((v, k) => k % 2 && v > 0)) left.buyers[mk] = by;
+    tradeFlows(ctx, g, left);
+    // prices answer what is still unsettled after the city market and the roads: unmet demand raises, unsold stock lowers
+    for (const mk of Object.keys({ ...sellers, ...buyers }).map(Number)) {
+      let unmet = 0, unsold = 0; const sl = sellers[mk] || [], by = buyers[mk] || [];
+      for (let k = 1; k < sl.length; k += 2) unsold += sl[k];
+      for (let k = 0; k < by.length; k += 2) if (Pm[mk][g] * w.priceMult <= BASE_PRICE[g] * wm[by[k]]) unmet += by[k + 1];
+      const old = Pm[mk][g]; let p = unmet + unsold === 0 ? old + (BASE_PRICE[g] - old) * 0.05 : old * (1 + 0.06 * clamp((unmet - unsold) / Math.max(unmet, unsold, 1), -1, 1));   // a quiet market drifts back to the old price
+      p = clamp(p, BASE_PRICE[g] * 0.3, BASE_PRICE[g] * 6); Pm[mk][g] = Math.round(p * 1000) / 1000;
+      if (g === 0 && Pm[mk][0] > BASE_PRICE[0] * 3 && old <= BASE_PRICE[0] * 3) ctx.log(E.crash, -1, -1, mk, Math.round(Pm[mk][0] * 100), "food");
+    }
+    if (vol[g]) w.prices[g] = Math.round(wsum[g] / vol[g] * 1000) / 1000;
   }
+  let pir = 0; for (const i of ctx.live) if (A.job[i] === J.pirate && !A.status[i]) pir++; w.pirates = pir;
 }
 
 // weekly: love forms when two are each other's strongest bond; it ends when the bond sours
@@ -379,7 +402,7 @@ function migration(ctx) {
   let best = 0; for (let g = 1; g < 5; g++) if (ratio[g] > ratio[best]) best = g;
   const where = DISTRICTS.map((d, k) => k).filter((k) => DISTRICTS[k].res === GOODS[best] || (best === 0 && DISTRICTS[k].res === "fish"));
   for (const i of ctx.live) {
-    if (A.status[i] || A.jail[i] || !isAdult(A, i, ctx.day)) continue;
+    if (A.status[i] || A.jail[i] || !isAdult(A, i, ctx.day) || i === w.fleece) continue;
     const good = JOB_GOOD[JOBS[A.job[i]]]; if (!good || JOBS[A.job[i]] === "servant" || JOBS[A.job[i]] === "rower") continue;
     const g = GOODS.indexOf(good); if (ratio[best] < 1.4 || g === best || ratio[g] > 0.7 || A.obols[i] > BLOODS[A.bones[i]].wealth / 2 || !r.chance(0.08 + P(A, i, 5) / 600)) continue;
     const d = where[r.int(where.length)], res = DISTRICTS[d].res;
@@ -433,6 +456,7 @@ function social(ctx) {
     // pirates take
     if (A.job[i] === J.pirate && !same && A.obols[j] > A.obols[i] * 2 && r.chance(0.12 * (100 - P(A, i, 0)) / 100)) {
       const take = Math.max(1, Math.floor(A.obols[j] / 10)); A.obols[j] -= take; A.obols[i] += take; think(ctx, j, TH.robbed); tie(ctx, j, i, -40);
+      if (r.chance(0.05)) { const rl = relicsOf(w, j)[0]; if (rl) passRelic(ctx, rl, i, "stolen"); }
       A.radical[j] = clamp(A.radical[j] + 5, -100, 100);
       if (r.chance(Math.min(0.8, guards[A.district[i]] * 0.08))) { A.jail[i] = 8; if (take > 250 || r.chance(0.004)) ctx.log(E.robbery, i, j, A.district[i], take, "caught"); else { bio(ctx, i, E.robbery, j); ctx.trace(E.robbery, i, j, A.district[i]); } }
       else if (take > 250 || r.chance(0.004)) ctx.log(E.robbery, i, j, A.district[i], take, ""); else { bio(ctx, j, E.robbery, i); ctx.trace(E.robbery, i, j, A.district[i]); }
@@ -557,6 +581,7 @@ function politics(ctx) {
     const o = A.obols[i]; const s = w.franchise === "headcount" ? 4 : w.franchise === "property" ? 4 + isqrt(Math.max(0, o)) / 2 : (o >= top ? isqrt(o) : 0);
     w.factions[A.faction[i]].clout += s;
   }
+  if (w.quest && w.factions[w.quest.faction]) w.factions[w.quest.faction].clout *= 1.15;   // the Fleece gives its holders a voice
   // D'Hondt
   const seats = w.factions.map(() => 0);
   for (let s = 0; s < w.boule.seats; s++) { let best = -1, bv = -1; w.factions.forEach((f, k) => { if (!f.alive) return; const v = f.clout / (seats[k] + 1); if (v > bv) { bv = v; best = k; } }); if (best >= 0) seats[best]++; }

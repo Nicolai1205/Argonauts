@@ -52,6 +52,12 @@ const T = {
   craft: ["{s}. Their masters are spoken of across the sea.", "{s}: apprentices arrive from other cities to learn."],
   craftlost: ["{s}. Too few practise it now; the old masters die and take the knowledge with them.", "{s}, like the Tasmanians who forgot the fishhook."],
   dialect: ["In {where} they have begun to say {s}. The old people complain.", "The speech of {where} drifts: {s}."],
+  relic: ["A relic is made: {s}, held by {a}.", "{a} now carries {s}."],
+  relicpass: ["{r1} passed to {a}: {r2}.", "{a} now holds {r1} ({r2})."],
+  expedition: ["{e1} {e2}. Their champion is {a}.", "The war-band of {e1}, led by {a}, {e2}."],
+  fleecetaken: ["{a} of {e1} carried the Fleece-bearer {b} out of {e2}. The Golden Fleece now shines over {e1}.", "The Fleece is taken! {a} brought {b} from {e2} to {e1}. In {e2} they are already sharpening spears."],
+  caravan: ["Grain from {e1} reached starving {e2}: {v} rations.", "A fleet of grain-ships from {e1} came into {e2} with {v} rations; the bread queues shortened."],
+  raid: ["Pirates fell on the {e3} from {e1} to {e2} and took {e4} loads.", "{a} and the pirates took {e4} loads of {e3} off the {e1}–{e2} run."],
   rumor: ["The story has changed in the telling. In {where} they now say: \"{s}\"", "Heard in {where}, from {a}: \"{s}\""],
   rumorend: ["The talk has died down. {v} heard it; the last version was: \"{s}\"", "Nobody repeats it any more ({v} heard): \"{s}\""],
   burn8985: ["{a} did not go to the Pyra like the others. The Maker built a barrel of oil for {a} alone, and it burns beside the pyre; the smoke is black and smells of the old world."],
@@ -121,6 +127,8 @@ export function narrate(e, view) {
     god: e.t === "prophet" ? (e.s || "").split("|")[1] : "", people: e.t === "prophet" ? (e.s || "").split("|")[0] : "",
     w0: ["battle", "peace"].includes(e.t) ? (e.s || "").split("|")[0] : "", w1: e.t === "battle" ? (e.s || "").split("|")[1] : "", w2: e.t === "peace" ? (e.s || "").split("|")[1] : "",
     d1: ["battle", "peace"].includes(e.t) ? (e.s || "").split("|")[e.t === "battle" ? 2 : 2] : "", b1: ["battle", "peace"].includes(e.t) ? (e.s || "").split("|")[3] : "",
+    e1: ["expedition", "fleecetaken", "caravan", "raid"].includes(e.t) ? (e.s || "").split("|")[0] : "", e2: ["expedition", "fleecetaken", "caravan", "raid"].includes(e.t) ? (e.s || "").split("|")[1] : "",
+    e3: e.t === "raid" ? (e.s || "").split("|")[2] : "", e4: e.t === "raid" ? (e.s || "").split("|")[3] : "", r1: e.t === "relicpass" ? (e.s || "").split("|")[0] : "", r2: e.t === "relicpass" ? (e.s || "").split("|")[1] : "",
     eth: (e.v / 100).toFixed(2), price: (e.v / 100).toFixed(1), dir: e.t === "beam" ? DIRS(e.v) : "", caught: e.s === "caught" ? ", and the Reapers caught them" : "",
     role: e.t === "office" ? OFFICES[e.v].role : "",
   };
@@ -133,4 +141,4 @@ export const VOICE = { death: "horror", burn: "horror", unburied: "horror", plag
   featherbolts: "horror", prometheus: "horror", ostologia: "myth", return: "myth", beam: "myth", ruling: "myth", star: "myth", toll: "myth", deed: "myth", pall: "myth", talos: "myth",
   sirens_sung: "myth", xenia: "myth", gold: "realism", riot: "realism", election: "realism", law: "realism", office: "realism", ostracism: "realism", budget: "realism", famine: "realism",
   crash: "realism", migrate: "realism", dole: "realism", defect: "realism", schism: "realism", dissolve: "realism", robbery: "realism", brawl: "realism", break: "realism", funeral: "myth",
-  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism", craft: "realism", craftlost: "realism", dialect: "realism", rumor: "horror", rumorend: "realism" };
+  bounty: "myth", fleece: "myth", exile_end: "realism", love: "myth", heartbreak: "realism", birth: "myth", comeofage: "realism", prophet: "myth", convert: "myth", faithdies: "myth", temple: "myth", faithschism: "myth", festival: "myth", monument: "myth", iconoclasm: "realism", war: "realism", battle: "horror", peace: "realism", revolt: "realism", incident: "realism", craft: "realism", craftlost: "realism", dialect: "realism", rumor: "horror", rumorend: "realism", relic: "myth", relicpass: "myth", expedition: "myth", fleecetaken: "myth", caravan: "realism", raid: "realism" };
